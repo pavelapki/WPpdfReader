@@ -1,5 +1,7 @@
-node_modules/
-vendor/
+# Anchored to the plugin root on purpose: assets/vendor/ holds the bundled
+# PDF.js build and must stay in the repository.
+/node_modules/
+/vendor/
 .DS_Store
 Thumbs.db
 *.log

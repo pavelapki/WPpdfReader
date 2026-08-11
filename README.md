@@ -22,9 +22,11 @@ prohlížeč sáhne po angličtině (nebo dalším jazyce v řadě).
 Žádný build step není potřeba — plugin nemá závislosti na npm ani composeru,
 JavaScript je psaný bez JSX.
 
-**Požadavky:** WordPress 5.8+, PHP 7.4+. Pro automatické generování obálek
-(náhled první stránky) je potřeba PHP rozšíření Imagick s podporou PDF; bez něj
-se použije náhledový obrázek příspěvku nebo zástupný dlaždicový placeholder.
+**Požadavky:** WordPress 5.8+, PHP 7.4+. Na straně návštěvníka prohlížeč
+s podporou ES modulů — pokud ji nemá, prohlížeč se nevykreslí a zobrazí se
+odkaz na otevření PDF. Pro automatické generování obálek (náhled první stránky)
+je potřeba PHP rozšíření Imagick s podporou PDF; bez něj se použije náhledový
+obrázek příspěvku nebo zástupný placeholder.
 
 ## Jak to funguje
 
@@ -68,7 +70,12 @@ návštěvníka a jazyky se přidají do seznamu polí.
 
 ### Prohlížeč
 
-* přibalený PDF.js 3.11.174 (legacy build, funguje i ve starších prohlížečích),
+* přibalený PDF.js 4.10.38 (legacy build), který se načítá dynamickým importem
+  až ve chvíli, kdy je na stránce prohlížeč — stránky bez PDF si ho nestáhnou,
+* PDF se parsuje s `isEvalSupported: false`, takže dokument nemůže při
+  zpracování spustit JavaScript (ochrana proti CVE-2024-4367 a spol.),
+* přibalené standardní fonty (`standard_fonts/`), takže korektně vykreslí i
+  PDF, která nemají Helvetiku/Times vložené v souboru,
 * plynulé scrollování s vykreslováním stránek až ve chvíli, kdy jsou potřeba,
 * stránkování, zoom, fit na šířku/stránku, fullscreen, tisk, stažení,
 * textová vrstva → text v PDF jde označit a zkopírovat, prohledává ho i
@@ -176,11 +183,27 @@ php tests/smoke.php
 
 ## Aktualizace PDF.js
 
-Stáhněte `pdf.min.js` a `pdf.worker.min.js` z legacy buildu pdfjs-dist a
-nahraďte soubory v `assets/vendor/pdfjs/`. Verzi upravte v
-`includes/class-wppdf-viewer.php` (`wp_register_script( 'pdfjs', … )`).
-Od pdfjs-dist 4.x jsou k dispozici pouze ES moduly (`.mjs`), což by vyžadovalo
-úpravu načítání skriptu.
+```bash
+npm pack pdfjs-dist@<verze>
+tar -xzf pdfjs-dist-<verze>.tgz
+cp package/legacy/build/pdf.min.mjs package/legacy/build/pdf.worker.min.mjs \
+   assets/vendor/pdfjs/
+cp package/standard_fonts/* assets/vendor/pdfjs/standard_fonts/
+```
+
+Používá se **legacy** build kvůli podpoře starších prohlížečů. Načítá se přes
+dynamický `import()` z `assets/js/viewer.js`, žádná registrace skriptu ve
+WordPressu není potřeba — cesty se předávají v objektu `wppdfSettings`
+(`includes/class-wppdf-viewer.php`).
+
+Pozor při přechodu na PDF.js 5.x: mění se API textové vrstvy a roste požadavek
+na verze prohlížečů.
+
+### CJK dokumenty
+
+Pro čínštinu, japonštinu a korejštinu zkopírujte navíc adresář `cmaps`
+z pdfjs-dist do `assets/vendor/pdfjs/cmaps/`. Plugin si jeho přítomnost sám
+zjistí a předá cestu prohlížeči. Ve výchozím stavu přibalený není (~1,7 MB).
 
 ## Licence
 

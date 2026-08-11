@@ -22,8 +22,10 @@ second by default — instead of showing nothing.
 
 Features:
 
-* Bundled PDF.js reader: continuous scrolling, zoom, fullscreen, print,
-  download, selectable text layer, lazy loading.
+* Bundled PDF.js 4 reader: continuous scrolling, zoom, fullscreen, print,
+  download, selectable text layer, lazy loading. The library is imported only
+  on pages that actually show a document, and PDFs are parsed with script
+  evaluation disabled.
 * Configurable post type key, slug, labels and menu icon. Existing documents are
   migrated when the key changes.
 * Shared categories and tags with posts, optional dedicated taxonomy, optional

@@ -41,29 +41,31 @@ class WPPDF_Viewer {
 	 * Register (but do not enqueue) the front-end assets.
 	 */
 	public function register_assets() {
-		wp_register_script(
-			'pdfjs',
-			WPPDF_URL . 'assets/vendor/pdfjs/pdf.min.js',
-			array(),
-			'3.11.174',
-			true
-		);
-
+		// PDF.js 4 ships as an ES module, so viewer.js imports it on demand
+		// instead of it being enqueued as a script of its own.
 		wp_register_script(
 			'wppdf-viewer',
 			WPPDF_URL . 'assets/js/viewer.js',
-			array( 'pdfjs' ),
+			array(),
 			WPPDF_VERSION,
 			true
 		);
+
+		$vendor = WPPDF_URL . 'assets/vendor/pdfjs/';
 
 		wp_localize_script(
 			'wppdf-viewer',
 			'wppdfSettings',
 			array(
-				'workerSrc' => WPPDF_URL . 'assets/vendor/pdfjs/pdf.worker.min.js',
-				'cMapUrl'   => WPPDF_URL . 'assets/vendor/pdfjs/cmaps/',
-				'i18n'      => array(
+				'libSrc'              => $vendor . 'pdf.min.mjs',
+				'workerSrc'           => $vendor . 'pdf.worker.min.mjs',
+				'standardFontDataUrl' => $vendor . 'standard_fonts/',
+				/*
+				 * Only for CJK documents: copy the cmaps directory of pdfjs-dist
+				 * next to the build and it is picked up automatically.
+				 */
+				'cMapUrl'             => is_dir( WPPDF_PATH . 'assets/vendor/pdfjs/cmaps' ) ? $vendor . 'cmaps/' : '',
+				'i18n'                => array(
 					'loading'    => __( 'Loading document…', 'wp-pdf-reader' ),
 					'error'      => __( 'The document could not be loaded.', 'wp-pdf-reader' ),
 					'page'       => __( 'Page', 'wp-pdf-reader' ),

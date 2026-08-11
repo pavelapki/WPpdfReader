@@ -13,12 +13,49 @@
 	var MIN_SCALE = 0.25;
 	var MAX_SCALE = 5;
 
-	if ( ! window.pdfjsLib ) {
-		return;
-	}
+	var libPromise = null;
 
-	if ( settings.workerSrc ) {
-		window.pdfjsLib.GlobalWorkerOptions.workerSrc = settings.workerSrc;
+	/**
+	 * Load PDF.js on demand.
+	 *
+	 * PDF.js 4 ships as an ES module, so it is pulled in with a dynamic import
+	 * the first time a reader actually needs it — pages without a reader never
+	 * download it. The import is built through the Function constructor so that
+	 * browsers too old to parse `import()` fail here instead of breaking the
+	 * whole script; they fall back to the plain download link.
+	 *
+	 * @return {Promise} Resolves with the PDF.js module.
+	 */
+	function loadPdfJs() {
+		if ( libPromise ) {
+			return libPromise;
+		}
+
+		libPromise = new Promise( function ( resolve, reject ) {
+			if ( ! settings.libSrc ) {
+				reject( new Error( 'WP PDF Reader: missing library URL.' ) );
+				return;
+			}
+
+			var dynamicImport;
+
+			try {
+				dynamicImport = new Function( 'url', 'return import( url );' );
+			} catch ( e ) {
+				reject( new Error( 'WP PDF Reader: dynamic import is not supported.' ) );
+				return;
+			}
+
+			dynamicImport( settings.libSrc ).then( function ( lib ) {
+				if ( settings.workerSrc ) {
+					lib.GlobalWorkerOptions.workerSrc = settings.workerSrc;
+				}
+
+				resolve( lib );
+			}, reject );
+		} );
+
+		return libPromise;
 	}
 
 	/**
@@ -116,27 +153,41 @@
 		this.loading = true;
 		this.setStatus( i18n.loading || 'Loading…' );
 
-		var params = { url: this.config.url };
+		loadPdfJs()
+			.then( function ( lib ) {
+				self.lib = lib;
 
-		if ( settings.cMapUrl ) {
-			params.cMapUrl = settings.cMapUrl;
-			params.cMapPacked = true;
-		}
+				var params = {
+					url: self.config.url,
+					// Documents must never be able to run script during parsing.
+					isEvalSupported: false
+				};
 
-		var task = window.pdfjsLib.getDocument( params );
+				if ( settings.standardFontDataUrl ) {
+					params.standardFontDataUrl = settings.standardFontDataUrl;
+				}
 
-		task.onProgress = function ( progress ) {
-			if ( progress.total && self.statusText ) {
-				var percent = Math.round( ( progress.loaded / progress.total ) * 100 );
-				self.statusText.textContent = ( i18n.loading || 'Loading…' ) + ' ' + Math.min( 100, percent ) + ' %';
-			}
-		};
+				if ( settings.cMapUrl ) {
+					params.cMapUrl = settings.cMapUrl;
+					params.cMapPacked = true;
+				}
 
-		task.promise
+				var task = lib.getDocument( params );
+
+				task.onProgress = function ( progress ) {
+					if ( progress.total && self.statusText ) {
+						var percent = Math.round( ( progress.loaded / progress.total ) * 100 );
+						self.statusText.textContent = ( i18n.loading || 'Loading…' ) + ' ' + Math.min( 100, percent ) + ' %';
+					}
+				};
+
+				return task.promise;
+			} )
 			.then( function ( pdf ) {
 				self.loading = false;
 				self.pdf = pdf;
 				self.root.classList.add( 'is-loaded' );
+
 				return self.setup();
 			} )
 			.catch( function ( error ) {
@@ -235,6 +286,7 @@
 				rendered: false,
 				rendering: false,
 				task: null,
+				textTask: null,
 				viewport: null
 			} );
 		}
@@ -382,27 +434,26 @@
 	 * @return {Promise} Resolved when done.
 	 */
 	Viewer.prototype.renderTextLayer = function ( pdfPage, page, viewport ) {
-		if ( ! window.pdfjsLib.renderTextLayer ) {
+		var self = this;
+
+		if ( ! this.lib || ! this.lib.TextLayer ) {
 			return Promise.resolve();
 		}
 
 		return pdfPage.getTextContent().then( function ( textContent ) {
 			page.textLayer.innerHTML = '';
 
-			try {
-				var task = window.pdfjsLib.renderTextLayer( {
-					textContentSource: textContent,
-					textContent: textContent,
-					container: page.textLayer,
-					viewport: viewport,
-					textDivs: []
-				} );
+			var layer = new self.lib.TextLayer( {
+				textContentSource: textContent,
+				container: page.textLayer,
+				viewport: viewport
+			} );
 
-				return task && task.promise ? task.promise : Promise.resolve();
-			} catch ( e ) {
-				return Promise.resolve();
-			}
+			page.textTask = layer;
+
+			return layer.render();
 		} ).catch( function () {
+			// A missing text layer only costs selectable text, never the page.
 			return Promise.resolve();
 		} );
 	};
@@ -423,7 +474,14 @@
 				} catch ( e ) {}
 			}
 
+			if ( page.textTask && page.textTask.cancel ) {
+				try {
+					page.textTask.cancel();
+				} catch ( e ) {}
+			}
+
 			page.task = null;
+			page.textTask = null;
 			page.rendered = false;
 			page.rendering = false;
 			page.element.classList.remove( 'is-rendered' );
