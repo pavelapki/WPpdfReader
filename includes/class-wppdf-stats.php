@@ -122,9 +122,53 @@ class WPPDF_Stats {
 			return new WP_REST_Response( array( 'counted' => false ), 200 );
 		}
 
+		if ( self::is_throttled( $post_id, $code, $type ) ) {
+			return new WP_REST_Response( array( 'counted' => false ), 200 );
+		}
+
 		self::increment( $post_id, self::meta_key( $type, $code ) );
 
 		return new WP_REST_Response( array( 'counted' => true ), 200 );
+	}
+
+	/**
+	 * Rate limit repeated hits from the same client.
+	 *
+	 * The endpoint is anonymous, so it needs a cheap guard against being used
+	 * to hammer the database. This only runs where a persistent object cache
+	 * exists — without one, a throttle would cost more writes than the counter
+	 * it protects, so the browser side deduplication is left to do the work.
+	 *
+	 * @param int    $post_id Document ID.
+	 * @param string $code    Language code.
+	 * @param string $type    view or download.
+	 * @return bool Whether this hit should be ignored.
+	 */
+	protected static function is_throttled( $post_id, $code, $type ) {
+		if ( ! function_exists( 'wp_using_ext_object_cache' ) || ! wp_using_ext_object_cache() ) {
+			return false;
+		}
+
+		$address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+
+		if ( '' === $address ) {
+			return false;
+		}
+
+		$key = 'hit_' . md5( $address . '|' . $post_id . '|' . $code . '|' . $type );
+
+		if ( wp_cache_get( $key, 'wppdf' ) ) {
+			return true;
+		}
+
+		/**
+		 * Filter how long the same client is ignored for the same document.
+		 *
+		 * @param int $seconds Throttle window.
+		 */
+		wp_cache_set( $key, 1, 'wppdf', (int) apply_filters( 'wppdf_hit_throttle', 10 * MINUTE_IN_SECONDS ) );
+
+		return false;
 	}
 
 	/**

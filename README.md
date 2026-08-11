@@ -230,6 +230,22 @@ GitHub Action (`.github/workflows/ci.yml`) k tomu pouští lint na PHP 7.4, 8.1
 a 8.3, kontrolu syntaxe JavaScriptu a PHPCS podle WordPress Coding Standards
 (`composer install && vendor/bin/phpcs`).
 
+## Bezpečnost
+
+* PDF se parsuje s `isEvalSupported: false` — dokument nemůže při zpracování
+  spustit JavaScript.
+* `pdftotext` a `pdfinfo` se hledají procházením PATH v PHP a spouští se
+  polem přes `proc_open`, takže se vůbec nesahá na shell. Název souboru se
+  znaky jako `;` nebo `$(…)` je proto neškodný — pokrývá to regresní test.
+* Každý zápis má nonce i kontrolu oprávnění. Jediný anonymní endpoint je
+  počítadlo zobrazení; ověřuje, že jde o publikovaný dokument a známý jazyk,
+  a když web má persistentní object cache, i rate limituje.
+* Balíček aktualizace se přijme jen přes HTTPS a jen z domén GitHubu, verze
+  musí odpovídat tvaru čísla verze.
+* Všechny meta klíče začínají podtržítkem, takže se neobjeví v REST API ani
+  v editoru vlastních polí. Extrahovaný text se nikde nevypisuje, slouží
+  jen pro `LIKE` v dotazu.
+
 ## Zátěž serveru
 
 Návrh se drží několika pravidel, aby plugin nebyl drahý:

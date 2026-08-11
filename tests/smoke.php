@@ -492,6 +492,29 @@ if ( preg_match( '/data-wppdf="([^"]+)"/', $switcher, $m ) ) {
 }
 ok( 'sources passed to the reader', isset( $switcher_config['sources'] ) && 2 === count( $switcher_config['sources'] ) );
 
+
+echo "\n== External binaries run without a shell ==\n";
+if ( is_executable( '/bin/echo' ) ) {
+	$echoed = call_protected( 'WPPDF_Text', 'run_binary', array( array( '/bin/echo', 'hello world' ) ) );
+	ok( 'binary output captured', 'hello world' === trim( (string) $echoed ) );
+
+	// Passing the command as an array means there is no shell to expand this.
+	$injected = call_protected( 'WPPDF_Text', 'run_binary', array( array( '/bin/echo', '$(id); rm -rf /tmp/nope' ) ) );
+	ok( 'shell metacharacters stay literal', '$(id); rm -rf /tmp/nope' === trim( (string) $injected ) );
+} else {
+	echo "  SKIP  /bin/echo not available\n";
+}
+
+$hostile = make_pdf( 'Bezpecny obsah' );
+$canary = sys_get_temp_dir() . '/wppdf-pwned';
+@unlink( $canary );
+$hostile_name = sys_get_temp_dir() . '/wppdf smoke; touch ' . basename( $canary ) . ' $(id).pdf';
+copy( $hostile, $hostile_name );
+$hostile_text = WPPDF_Text::extract( $hostile_name );
+ok( 'file name with metacharacters still extracts', false !== strpos( $hostile_text, 'Bezpecny obsah' ) );
+ok( 'nothing was executed', ! file_exists( $canary ) && ! file_exists( getcwd() . '/wppdf-pwned' ) );
+@unlink( $hostile_name );
+
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";
 exit( empty( $GLOBALS['stub_failed'] ) ? 0 : 1 );

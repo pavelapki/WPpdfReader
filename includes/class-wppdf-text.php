@@ -43,8 +43,21 @@ class WPPDF_Text {
 
 	/**
 	 * Files larger than this are not parsed in PHP.
+	 *
+	 * pdftotext streams the file and has no such limit; this only bounds the
+	 * in-process fallback, which has to hold the document in memory.
 	 */
-	const MAX_BYTES = 62914560; // 60 MB.
+	const MAX_BYTES = 20971520; // 20 MB.
+
+	/**
+	 * Last file read, so page counting and extraction do not read it twice.
+	 *
+	 * @var array
+	 */
+	protected static $last_read = array(
+		'path' => '',
+		'raw'  => '',
+	);
 
 	/**
 	 * Register hooks.
@@ -140,6 +153,7 @@ class WPPDF_Text {
 		}
 
 		$text = self::extract( $path );
+		self::forget_file();
 
 		if ( '' !== $text ) {
 			update_post_meta( $post_id, self::text_meta_key( $code ), $text );
@@ -190,13 +204,7 @@ class WPPDF_Text {
 			return '';
 		}
 
-		$command = sprintf(
-			'%s -q -enc UTF-8 -eol unix -nopgbrk %s -',
-			escapeshellcmd( $binary ),
-			escapeshellarg( $path )
-		);
-
-		$output = self::shell( $command );
+		$output = self::run_binary( array( $binary, '-q', '-enc', 'UTF-8', '-eol', 'unix', '-nopgbrk', $path, '-' ) );
 
 		return null === $output ? '' : $output;
 	}
@@ -211,7 +219,7 @@ class WPPDF_Text {
 		$binary = self::binary( 'pdfinfo' );
 
 		if ( '' !== $binary ) {
-			$output = self::shell( sprintf( '%s %s', escapeshellcmd( $binary ), escapeshellarg( $path ) ) );
+			$output = self::run_binary( array( $binary, $path ) );
 
 			if ( null !== $output && preg_match( '/^Pages:\s+(\d+)/m', $output, $matches ) ) {
 				return (int) $matches[1];
@@ -254,14 +262,13 @@ class WPPDF_Text {
 
 		$path = '';
 
-		if ( self::can_shell() ) {
-			$found = self::shell( 'command -v ' . escapeshellarg( $name ) );
+		if ( self::can_run() ) {
+			foreach ( self::search_paths() as $directory ) {
+				$candidate = rtrim( $directory, '/' ) . '/' . $name;
 
-			if ( null !== $found ) {
-				$found = trim( strtok( $found, "\n" ) );
-
-				if ( '' !== $found && is_string( $found ) && 0 === strpos( $found, '/' ) && @is_executable( $found ) ) {
-					$path = $found;
+				if ( @is_file( $candidate ) && @is_executable( $candidate ) ) {
+					$path = $candidate;
+					break;
 				}
 			}
 		}
@@ -291,11 +298,32 @@ class WPPDF_Text {
 	}
 
 	/**
-	 * Whether shell commands can be run at all on this host.
+	 * Directories searched for the poppler binaries.
+	 *
+	 * @return string[]
+	 */
+	protected static function search_paths() {
+		$paths = array( '/usr/bin', '/usr/local/bin', '/opt/homebrew/bin', '/bin' );
+
+		$env = getenv( 'PATH' );
+
+		if ( is_string( $env ) && '' !== $env ) {
+			foreach ( explode( PATH_SEPARATOR, $env ) as $directory ) {
+				if ( '' !== $directory && 0 === strpos( $directory, '/' ) ) {
+					$paths[] = $directory;
+				}
+			}
+		}
+
+		return array_unique( $paths );
+	}
+
+	/**
+	 * Whether external binaries can be run at all on this host.
 	 *
 	 * @return bool
 	 */
-	protected static function can_shell() {
+	protected static function can_run() {
 		if ( ! function_exists( 'proc_open' ) ) {
 			return false;
 		}
@@ -306,26 +334,33 @@ class WPPDF_Text {
 	}
 
 	/**
-	 * Run a command and return its standard output.
+	 * Run a binary and return its standard output.
 	 *
-	 * @param string $command Full command line.
+	 * The command is passed as an array, so PHP executes the binary directly
+	 * instead of handing a string to a shell. There is no shell to inject
+	 * into, whatever a file name happens to contain.
+	 *
+	 * @param string[] $command Binary path followed by its arguments.
 	 * @return string|null Output, or null when the command could not run.
 	 */
-	protected static function shell( $command ) {
-		if ( ! self::can_shell() ) {
+	protected static function run_binary( array $command ) {
+		if ( ! self::can_run() || empty( $command[0] ) ) {
 			return null;
 		}
 
 		$descriptors = array(
+			0 => array( 'pipe', 'r' ),
 			1 => array( 'pipe', 'w' ),
 			2 => array( 'pipe', 'w' ),
 		);
 
-		$process = @proc_open( $command, $descriptors, $pipes );
+		$process = @proc_open( array_values( array_map( 'strval', $command ) ), $descriptors, $pipes );
 
 		if ( ! is_resource( $process ) ) {
 			return null;
 		}
+
+		fclose( $pipes[0] );
 
 		$output = stream_get_contents( $pipes[1] );
 		fclose( $pipes[1] );
@@ -347,19 +382,37 @@ class WPPDF_Text {
 	 * @return string
 	 */
 	protected static function read( $path ) {
-		if ( ! is_readable( $path ) ) {
-			return '';
+		if ( self::$last_read['path'] === $path ) {
+			return self::$last_read['raw'];
 		}
 
-		$size = (int) filesize( $path );
+		$raw = '';
 
-		if ( $size <= 0 || $size > self::MAX_BYTES ) {
-			return '';
+		if ( is_readable( $path ) ) {
+			$size = (int) filesize( $path );
+
+			if ( $size > 0 && $size <= self::MAX_BYTES ) {
+				$contents = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local file.
+				$raw      = is_string( $contents ) ? $contents : '';
+			}
 		}
 
-		$raw = file_get_contents( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local file.
+		self::$last_read = array(
+			'path' => $path,
+			'raw'  => $raw,
+		);
 
-		return is_string( $raw ) ? $raw : '';
+		return $raw;
+	}
+
+	/**
+	 * Release the cached file contents.
+	 */
+	public static function forget_file() {
+		self::$last_read = array(
+			'path' => '',
+			'raw'  => '',
+		);
 	}
 
 	/**
@@ -380,19 +433,45 @@ class WPPDF_Text {
 			return '';
 		}
 
-		if ( ! preg_match_all( '/stream\r?\n?(.*?)endstream/s', $raw, $streams ) ) {
-			return '';
-		}
-
 		$text   = '';
 		$chunks = 0;
+		$offset = 0;
+		$length = strlen( $raw );
 
-		foreach ( $streams[1] as $stream ) {
-			if ( strlen( $text ) > self::MAX_CHARS || $chunks > 5000 ) {
+		// Walked one stream at a time on purpose: capturing every stream of a
+		// large document at once would hold a second copy of the file in
+		// memory, on top of the file itself.
+		while ( $offset < $length && $chunks < 5000 && strlen( $text ) < self::MAX_CHARS ) {
+			$start = strpos( $raw, 'stream', $offset );
+
+			if ( false === $start ) {
 				break;
 			}
 
+			$from = $start + 6;
+
+			// Skip the end of line that follows the keyword.
+			if ( "\r" === substr( $raw, $from, 1 ) ) {
+				$from++;
+			}
+			if ( "\n" === substr( $raw, $from, 1 ) ) {
+				$from++;
+			}
+
+			$end = strpos( $raw, 'endstream', $from );
+
+			if ( false === $end ) {
+				break;
+			}
+
+			$offset = $end + 9;
 			$chunks++;
+
+			$stream = substr( $raw, $from, $end - $from );
+
+			if ( '' === $stream ) {
+				continue;
+			}
 
 			$content = @gzuncompress( $stream );
 
@@ -405,6 +484,8 @@ class WPPDF_Text {
 				// (images, fonts) simply will not match the text operators.
 				$content = $stream;
 			}
+
+			unset( $stream );
 
 			if ( ! is_string( $content ) || false === strpos( $content, 'T' ) ) {
 				continue;

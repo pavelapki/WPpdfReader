@@ -145,7 +145,8 @@ class WPPDF_Importer {
 			$code = WPPDF_Languages::get_default_language();
 		}
 
-		$status   = isset( $_POST['status'] ) && 'publish' === $_POST['status'] ? 'publish' : 'draft';
+		$status   = isset( $_POST['status'] ) ? sanitize_key( wp_unslash( $_POST['status'] ) ) : 'draft';
+		$status   = 'publish' === $status ? 'publish' : 'draft';
 		$category = isset( $_POST['category'] ) ? absint( wp_unslash( $_POST['category'] ) ) : 0;
 
 		if ( 'publish' === $status && ! current_user_can( 'publish_posts' ) ) {

@@ -415,7 +415,7 @@ msgstr "Nebyly vybrány žádné soubory."
 msgid "No matches"
 msgstr "Žádné výskyty"
 
-#: includes/class-wppdf-importer.php:162
+#: includes/class-wppdf-importer.php:163
 msgid "Not a PDF file."
 msgstr "Není to soubor PDF."
 
@@ -675,7 +675,7 @@ msgstr "Neznámý dokument."
 msgid "Unknown language."
 msgstr "Neznámý jazyk."
 
-#: includes/class-wppdf-importer.php:254
+#: includes/class-wppdf-importer.php:255
 msgid "Untitled document"
 msgstr "Dokument bez názvu"
 

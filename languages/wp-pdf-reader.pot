@@ -414,7 +414,7 @@ msgstr ""
 msgid "No matches"
 msgstr ""
 
-#: includes/class-wppdf-importer.php:162
+#: includes/class-wppdf-importer.php:163
 msgid "Not a PDF file."
 msgstr ""
 
@@ -674,7 +674,7 @@ msgstr ""
 msgid "Unknown language."
 msgstr ""
 
-#: includes/class-wppdf-importer.php:254
+#: includes/class-wppdf-importer.php:255
 msgid "Untitled document"
 msgstr ""
 
