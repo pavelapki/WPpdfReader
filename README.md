@@ -84,6 +84,43 @@ návštěvníka a jazyky se přidají do seznamu polí.
 * klávesy ←/→, PageUp/PageDown, Home/End,
 * respektuje `prefers-color-scheme` i `prefers-reduced-motion`.
 
+## Hledání
+
+Ve dvou rovinách:
+
+**Vyhledávání na webu vidí dovnitř PDF.** Po nahrání souboru se na pozadí
+(přes WP-Cron, ne v request editace) vytáhne text a uloží k dokumentu. Běžné
+hledání ve WordPressu ho pak prohledává spolu s názvem a popisem. Použije se
+`pdftotext`, pokud je na serveru; jinak zabere vestavěný PHP parser, který
+zvládne většinu textových PDF. Naskenované dokumenty potřebují OCR a
+indexovat je nelze — plugin raději neuloží nic, než aby do indexu nalil
+nesmysly (kontroluje se podíl smysluplných znaků).
+
+**Hledání v otevřeném dokumentu.** Lupa v toolbaru prohledá celý dokument,
+ignoruje diakritiku (`zprava` najde `zpráva`), ukazuje počet výskytů a
+mezi nálezy se skáče tlačítky nebo Enterem (Shift+Enter zpět). `Ctrl/Cmd+F`
+uvnitř prohlížeče otevře hledání v dokumentu místo v prohlížeči.
+
+## Hromadný import
+
+**PDF dokumenty → Import**: vybereš najednou libovolný počet PDF z knihovny
+médií a z každého vznikne dokument. Název se odvodí z názvu souboru, dá se
+zvolit jazyk, stav (koncept/publikováno) a kategorie. Zpracovává se po
+dávkách po 20 souborech, aby žádný request neběžel dlouho.
+
+## Statistiky, SEO a aktualizace
+
+* **Počítadlo zobrazení a stažení po jazycích** — v přehledu dokumentů je
+  vidět, jestli fallback verzi vůbec někdo otevírá. Počítá se jednou za
+  relaci prohlížeče, takže jde o řádový přehled, ne o analytiku.
+* **Schema.org `DigitalDocument` + Open Graph** na detailu dokumentu. Když
+  běží Yoast, Rank Math, SEOPress, AIOSEO nebo The SEO Framework, OG tagy se
+  nevypisují, aby se neduplikovaly.
+* **Aktualizace z GitHub releasů** — plugin si sám nabídne novou verzi
+  v přehledu pluginů. Odpověď API se cachuje na 6 hodin (neúspěch na 2), takže
+  administrace na GitHub nikdy nečeká. Balíček se přijme jen z HTTPS a jen
+  z domén GitHubu.
+
 ## Použití
 
 ### Shortcody
@@ -148,6 +185,12 @@ Přepsat lze i jednotlivé části: `wp-pdf-reader/parts/card.php` a
 | `wppdf_allowed_mime_types` | povolené typy souborů |
 | `wppdf_cover_width` | šířka generovaných obálek |
 | `wppdf_theme_template_directory` | složka pro přepsání šablon v tématu |
+| `wppdf_search_applies` | zda dotaz prohledává text PDF |
+| `wppdf_text_quality_ratio` | přísnost kontroly kvality extrahovaného textu |
+| `wppdf_binary_path` | cesta k `pdftotext` / `pdfinfo` mimo PATH |
+| `wppdf_count_hit` | zda se zobrazení započítá (rate limit, boti) |
+| `wppdf_schema_data` | data pro JSON-LD |
+| `wppdf_seo_plugin_active` | vypnutí OG tagů kvůli jinému SEO pluginu |
 
 Příklad — přidat pole i k běžným příspěvkům:
 
@@ -173,13 +216,33 @@ tests/smoke.php            smoke test bez WordPressu
 
 ## Testy
 
-`tests/smoke.php` obsahuje odlehčený harness, který si naStubuje potřebné
+`tests/smoke.php` obsahuje odlehčený harness, který si nastubuje potřebné
 funkce WordPressu a projde klíčové cesty — jazykový fallback, vyhodnocení
-souboru, HTML prohlížeče, shortcody i sanitizaci nastavení:
+souboru, HTML prohlížeče, shortcody, sanitizaci nastavení, extrakci textu
+z reálně vygenerovaného PDF, rozšíření SQL dotazu při hledání i validaci
+balíčků z GitHubu:
 
 ```bash
 php tests/smoke.php
 ```
+
+GitHub Action (`.github/workflows/ci.yml`) k tomu pouští lint na PHP 7.4, 8.1
+a 8.3, kontrolu syntaxe JavaScriptu a PHPCS podle WordPress Coding Standards
+(`composer install && vendor/bin/phpcs`).
+
+## Zátěž serveru
+
+Návrh se drží několika pravidel, aby plugin nebyl drahý:
+
+* Extrakce textu i generování obálek běží na WP-Cronu, ne v requestu uložení.
+* PDF.js (390 kB) se stahuje dynamickým importem jen na stránkách, kde
+  prohlížeč skutečně je.
+* Prohlížeč drží vykreslené jen stránky v okolí té aktuální, zbytek uvolní.
+* Extrahovaný text má strop 200 000 znaků na jazyk, soubory nad 60 MB se
+  v PHP neparsují.
+* JOIN na text PDF se do dotazu přidá jen při fulltextovém hledání a jen pro
+  typy obsahu, kterých se to týká.
+* Dostupnost `pdftotext` i odpověď GitHub API se cachují v transientech.
 
 ## Aktualizace PDF.js
 

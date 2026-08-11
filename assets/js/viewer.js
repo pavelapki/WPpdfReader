@@ -1,8 +1,9 @@
 /**
  * WP PDF Reader — front-end reader built on PDF.js.
  *
- * Continuous scrolling, on-demand page rendering, zoom, fullscreen and a
- * selectable text layer.
+ * Continuous scrolling with on-demand page rendering, a bounded number of
+ * rendered pages so long documents do not grow without limit, zoom, search
+ * across the whole document, language switching and a selectable text layer.
  */
 ( function () {
 	'use strict';
@@ -12,6 +13,9 @@
 	var MAX_DPR = 2;
 	var MIN_SCALE = 0.25;
 	var MAX_SCALE = 5;
+
+	// How many pages around the current one keep their rendered canvas.
+	var RENDER_WINDOW = 3;
 
 	var libPromise = null;
 
@@ -59,6 +63,38 @@
 	}
 
 	/**
+	 * Lowercase and strip diacritics so "Zprava" also finds "Zpráva".
+	 *
+	 * Returns the folded string together with a map from folded index back to
+	 * the index in the original string, so matches can be highlighted in the
+	 * text that is actually on screen.
+	 *
+	 * @param {string} text Original text.
+	 * @return {Object} Object with `text` and `map`.
+	 */
+	function fold( text ) {
+		var out = '';
+		var map = [];
+
+		for ( var i = 0; i < text.length; i++ ) {
+			var folded = text[ i ].toLowerCase();
+
+			if ( String.prototype.normalize ) {
+				folded = folded.normalize( 'NFD' ).replace( /[\u0300-\u036f]/g, '' );
+			}
+
+			for ( var j = 0; j < folded.length; j++ ) {
+				out += folded[ j ];
+				map.push( i );
+			}
+		}
+
+		map.push( text.length );
+
+		return { text: out, map: map };
+	}
+
+	/**
 	 * One reader instance.
 	 *
 	 * @param {HTMLElement} root Reader wrapper.
@@ -70,13 +106,19 @@
 		this.scale = 1;
 		this.baseViewport = null;
 		this.pdf = null;
+		this.lib = null;
 		this.currentPage = 1;
 		this.zoomMode = this.config.zoom || 'auto';
 		this.destroyed = false;
+		this.matches = [];
+		this.matchIndex = -1;
+		this.term = '';
+		this.indexed = false;
 
 		this.stage = root.querySelector( '.wppdf-viewer__pages' );
 		this.status = root.querySelector( '.wppdf-viewer__status' );
 		this.statusText = root.querySelector( '.wppdf-status-text' );
+		this.live = root.querySelector( '.wppdf-live' );
 
 		if ( ! this.stage || ! this.config.url ) {
 			return;
@@ -143,6 +185,17 @@
 		}
 	};
 
+	/**
+	 * Announce something to screen readers.
+	 *
+	 * @param {string} message Text to announce.
+	 */
+	Viewer.prototype.announce = function ( message ) {
+		if ( this.live ) {
+			this.live.textContent = message;
+		}
+	};
+
 	Viewer.prototype.load = function () {
 		var self = this;
 
@@ -173,6 +226,7 @@
 				}
 
 				var task = lib.getDocument( params );
+				self.task = task;
 
 				task.onProgress = function ( progress ) {
 					if ( progress.total && self.statusText ) {
@@ -187,6 +241,7 @@
 				self.loading = false;
 				self.pdf = pdf;
 				self.root.classList.add( 'is-loaded' );
+				self.countHit( 'view' );
 
 				return self.setup();
 			} )
@@ -245,7 +300,7 @@
 			case 'page-fit':
 				return clamp( Math.min( available / this.baseViewport.width, height / this.baseViewport.height ) );
 			case 'auto':
-				// Fit the width on small screens, cap at 100 % on large ones.
+				// Fit the width on small screens, cap the enlargement on large ones.
 				return clamp( Math.min( available / this.baseViewport.width, 1.5 ) );
 			default:
 				var numeric = parseFloat( mode );
@@ -267,6 +322,7 @@
 			var element = document.createElement( 'div' );
 			element.className = 'wppdf-page';
 			element.setAttribute( 'data-page', number );
+			element.setAttribute( 'aria-label', format( i18n.pageOf || 'Page %1$d of %2$d', number, this.pdf.numPages ) );
 
 			var canvas = document.createElement( 'canvas' );
 			canvas.className = 'wppdf-page__canvas';
@@ -287,7 +343,8 @@
 				rendering: false,
 				task: null,
 				textTask: null,
-				viewport: null
+				viewport: null,
+				index: null
 			} );
 		}
 
@@ -324,9 +381,7 @@
 		}
 
 		if ( ! ( 'IntersectionObserver' in window ) ) {
-			this.pages.forEach( function ( page ) {
-				self.renderPage( page );
-			} );
+			this.renderVisible();
 			return;
 		}
 
@@ -335,11 +390,7 @@
 				entries.forEach( function ( entry ) {
 					var page = self.pages[ parseInt( entry.target.getAttribute( 'data-page' ), 10 ) - 1 ];
 
-					if ( ! page ) {
-						return;
-					}
-
-					if ( entry.isIntersecting ) {
+					if ( page && entry.isIntersecting ) {
 						self.renderPage( page );
 					}
 				} );
@@ -353,9 +404,12 @@
 			self.pageObserver.observe( page.element );
 		} );
 
-		this.stage.addEventListener( 'scroll', throttle( function () {
-			self.trackCurrentPage();
-		}, 120 ) );
+		if ( ! this.scrollBound ) {
+			this.scrollBound = true;
+			this.stage.addEventListener( 'scroll', throttle( function () {
+				self.trackCurrentPage();
+			}, 120 ) );
+		}
 	};
 
 	Viewer.prototype.renderVisible = function () {
@@ -413,6 +467,10 @@
 
 					return self.renderTextLayer( pdfPage, page, viewport );
 				} )
+				.then( function () {
+					self.highlightPage( page );
+					self.evict();
+				} )
 				.catch( function ( error ) {
 					page.rendering = false;
 
@@ -458,6 +516,58 @@
 		} );
 	};
 
+	/**
+	 * Drop rendered canvases far away from the current page.
+	 *
+	 * Without this a long document keeps every page it ever showed in memory.
+	 */
+	Viewer.prototype.evict = function () {
+		var current = this.currentPage;
+
+		for ( var i = 0; i < this.pages.length; i++ ) {
+			var page = this.pages[ i ];
+
+			if ( ! page.rendered || Math.abs( page.number - current ) <= RENDER_WINDOW ) {
+				continue;
+			}
+
+			this.releasePage( page );
+		}
+	};
+
+	/**
+	 * Free the memory of one rendered page, keeping its placeholder box.
+	 *
+	 * @param {Object} page Page record.
+	 */
+	Viewer.prototype.releasePage = function ( page ) {
+		if ( page.task && page.task.cancel ) {
+			try {
+				page.task.cancel();
+			} catch ( e ) {}
+		}
+
+		if ( page.textTask && page.textTask.cancel ) {
+			try {
+				page.textTask.cancel();
+			} catch ( e ) {}
+		}
+
+		page.task = null;
+		page.textTask = null;
+		page.rendered = false;
+		page.rendering = false;
+		page.element.classList.remove( 'is-rendered' );
+		page.textLayer.innerHTML = '';
+
+		// Setting the dimensions to zero is what actually releases the backing
+		// store in every engine.
+		page.canvas.width = 0;
+		page.canvas.height = 0;
+		page.canvas.style.width = '';
+		page.canvas.style.height = '';
+	};
+
 	Viewer.prototype.rerender = function () {
 		var self = this;
 
@@ -468,24 +578,7 @@
 		var anchor = this.currentPage;
 
 		this.pages.forEach( function ( page ) {
-			if ( page.task && page.task.cancel ) {
-				try {
-					page.task.cancel();
-				} catch ( e ) {}
-			}
-
-			if ( page.textTask && page.textTask.cancel ) {
-				try {
-					page.textTask.cancel();
-				} catch ( e ) {}
-			}
-
-			page.task = null;
-			page.textTask = null;
-			page.rendered = false;
-			page.rendering = false;
-			page.element.classList.remove( 'is-rendered' );
-			page.textLayer.innerHTML = '';
+			self.releasePage( page );
 			self.sizePage( page );
 		} );
 
@@ -501,8 +594,8 @@
 	};
 
 	Viewer.prototype.zoomBy = function ( delta ) {
-		this.zoomMode = String( Math.round( clamp( this.scale + delta ) * 100 ) );
 		this.scale = clamp( this.scale + delta );
+		this.zoomMode = String( Math.round( this.scale * 100 ) );
 		this.rerender();
 	};
 
@@ -541,8 +634,387 @@
 		if ( current !== this.currentPage ) {
 			this.currentPage = current;
 			this.updateToolbar();
+			this.announce( format( i18n.pageOf || 'Page %1$d of %2$d', current, this.pages.length ) );
+			this.evict();
 		}
 	};
+
+	// --- Search ------------------------------------------------------------
+
+	/**
+	 * Build the folded text index of every page, once per document.
+	 *
+	 * @return {Promise} Resolved when the whole document is indexed.
+	 */
+	Viewer.prototype.buildIndex = function () {
+		var self = this;
+
+		if ( this.indexed ) {
+			return Promise.resolve();
+		}
+
+		if ( this.indexing ) {
+			return this.indexing;
+		}
+
+		this.indexing = this.pages.reduce( function ( chain, page ) {
+			return chain.then( function () {
+				if ( page.index ) {
+					return null;
+				}
+
+				return self.pdf.getPage( page.number )
+					.then( function ( pdfPage ) {
+						return pdfPage.getTextContent();
+					} )
+					.then( function ( textContent ) {
+						var text = '';
+						var items = [];
+
+						textContent.items.forEach( function ( item ) {
+							if ( 'undefined' === typeof item.str ) {
+								return;
+							}
+
+							items.push( { start: text.length, end: text.length + item.str.length } );
+							text += item.str;
+
+							if ( item.hasEOL ) {
+								text += '\n';
+							}
+						} );
+
+						var folded = fold( text );
+
+						page.index = {
+							text: text,
+							items: items,
+							folded: folded.text,
+							map: folded.map
+						};
+					} )
+					.catch( function () {
+						page.index = { text: '', items: [], folded: '', map: [] };
+					} );
+			} );
+		}, Promise.resolve() ).then( function () {
+			self.indexed = true;
+			self.indexing = null;
+		} );
+
+		return this.indexing;
+	};
+
+	/**
+	 * Run a search across the whole document.
+	 *
+	 * @param {string} term Raw search term.
+	 */
+	Viewer.prototype.find = function ( term ) {
+		var self = this;
+
+		term = ( term || '' ).trim();
+
+		if ( term === this.term ) {
+			return;
+		}
+
+		this.term = term;
+		this.clearHighlights();
+		this.matches = [];
+		this.matchIndex = -1;
+
+		if ( ! this.pdf || term.length < 2 ) {
+			this.updateSearchUi();
+			return;
+		}
+
+		if ( this.searchCount ) {
+			this.searchCount.textContent = i18n.searching || 'Searching…';
+		}
+
+		this.buildIndex().then( function () {
+			if ( self.term !== term ) {
+				return;
+			}
+
+			var needle = fold( term ).text;
+
+			self.pages.forEach( function ( page ) {
+				if ( ! page.index || ! page.index.folded ) {
+					return;
+				}
+
+				var haystack = page.index.folded;
+				var from = 0;
+				var found = haystack.indexOf( needle, from );
+
+				while ( -1 !== found && self.matches.length < 5000 ) {
+					self.matches.push( {
+						page: page.number,
+						start: page.index.map[ found ],
+						end: page.index.map[ Math.min( found + needle.length, page.index.map.length - 1 ) ]
+					} );
+
+					from = found + needle.length;
+					found = haystack.indexOf( needle, from );
+				}
+			} );
+
+			self.updateSearchUi();
+
+			if ( self.matches.length ) {
+				self.goToMatch( 0 );
+			} else {
+				self.announce( i18n.noMatches || 'No matches' );
+			}
+		} );
+	};
+
+	/**
+	 * Jump to one match and highlight it.
+	 *
+	 * @param {number} index Match index.
+	 */
+	Viewer.prototype.goToMatch = function ( index ) {
+		if ( ! this.matches.length ) {
+			return;
+		}
+
+		if ( index < 0 ) {
+			index = this.matches.length - 1;
+		}
+
+		if ( index >= this.matches.length ) {
+			index = 0;
+		}
+
+		this.matchIndex = index;
+
+		var match = this.matches[ index ];
+
+		this.clearHighlights();
+		this.goToPage( match.page );
+		this.highlightPage( this.pages[ match.page - 1 ] );
+		this.updateSearchUi();
+	};
+
+	/**
+	 * Paint the current match onto a page, if it belongs there.
+	 *
+	 * @param {Object} page Page record.
+	 */
+	Viewer.prototype.highlightPage = function ( page ) {
+		if ( ! page || ! page.rendered || this.matchIndex < 0 ) {
+			return;
+		}
+
+		var match = this.matches[ this.matchIndex ];
+
+		if ( ! match || match.page !== page.number || ! page.index ) {
+			return;
+		}
+
+		var spans = page.textLayer.querySelectorAll( 'span' );
+
+		page.index.items.forEach( function ( item, position ) {
+			if ( item.end <= match.start || item.start >= match.end ) {
+				return;
+			}
+
+			var span = spans[ position ];
+
+			if ( ! span ) {
+				return;
+			}
+
+			var from = Math.max( 0, match.start - item.start );
+			var to = Math.min( item.end - item.start, match.end - item.start );
+
+			highlightInSpan( span, from, to );
+		} );
+
+		var mark = page.textLayer.querySelector( '.wppdf-match' );
+
+		if ( mark && mark.scrollIntoView ) {
+			mark.scrollIntoView( { block: 'center', behavior: 'auto' } );
+		}
+	};
+
+	/**
+	 * Wrap part of a text layer span in a highlight.
+	 *
+	 * @param {HTMLElement} span Text layer span.
+	 * @param {number}      from Start offset.
+	 * @param {number}      to   End offset.
+	 */
+	function highlightInSpan( span, from, to ) {
+		var text = span.textContent;
+
+		if ( from >= to || ! text ) {
+			return;
+		}
+
+		if ( null === span.getAttribute( 'data-wppdf-text' ) ) {
+			span.setAttribute( 'data-wppdf-text', text );
+		}
+
+		var mark = document.createElement( 'mark' );
+		mark.className = 'wppdf-match';
+		mark.textContent = text.slice( from, to );
+
+		span.textContent = '';
+		span.appendChild( document.createTextNode( text.slice( 0, from ) ) );
+		span.appendChild( mark );
+		span.appendChild( document.createTextNode( text.slice( to ) ) );
+	}
+
+	Viewer.prototype.clearHighlights = function () {
+		this.pages.forEach( function ( page ) {
+			var spans = page.textLayer.querySelectorAll( 'span[data-wppdf-text]' );
+
+			Array.prototype.forEach.call( spans, function ( span ) {
+				span.textContent = span.getAttribute( 'data-wppdf-text' );
+				span.removeAttribute( 'data-wppdf-text' );
+			} );
+		} );
+	};
+
+	Viewer.prototype.updateSearchUi = function () {
+		var hasMatches = this.matches.length > 0;
+
+		if ( this.searchCount ) {
+			if ( ! this.term || this.term.length < 2 ) {
+				this.searchCount.textContent = '';
+			} else if ( ! hasMatches ) {
+				this.searchCount.textContent = i18n.noMatches || 'No matches';
+			} else {
+				this.searchCount.textContent = format(
+					i18n.matches || '%1$d of %2$d',
+					this.matchIndex + 1,
+					this.matches.length
+				);
+			}
+		}
+
+		if ( this.searchPrev ) {
+			this.searchPrev.disabled = ! hasMatches;
+		}
+
+		if ( this.searchNext ) {
+			this.searchNext.disabled = ! hasMatches;
+		}
+	};
+
+	// --- Languages and statistics -----------------------------------------
+
+	/**
+	 * Swap the loaded file for another language version.
+	 *
+	 * @param {string} code Language code.
+	 */
+	Viewer.prototype.switchLanguage = function ( code ) {
+		var sources = this.config.sources || [];
+		var target = null;
+
+		for ( var i = 0; i < sources.length; i++ ) {
+			if ( sources[ i ].lang === code ) {
+				target = sources[ i ];
+				break;
+			}
+		}
+
+		if ( ! target || target.url === this.config.url ) {
+			return;
+		}
+
+		this.pages.forEach( this.releasePage, this );
+
+		if ( this.pageObserver ) {
+			this.pageObserver.disconnect();
+			this.pageObserver = null;
+		}
+
+		if ( this.pdf && this.pdf.destroy ) {
+			this.pdf.destroy();
+		}
+
+		this.pdf = null;
+		this.pages = [];
+		this.matches = [];
+		this.matchIndex = -1;
+		this.term = '';
+		this.indexed = false;
+		this.indexing = null;
+		this.currentPage = 1;
+		this.config.url = target.url;
+		this.config.lang = target.lang;
+		this.stage.innerHTML = '';
+		this.root.setAttribute( 'lang', target.lang );
+
+		if ( this.searchInput ) {
+			this.searchInput.value = '';
+		}
+
+		this.updateSearchUi();
+
+		var download = this.root.querySelector( '.wppdf-download' );
+
+		if ( download ) {
+			download.setAttribute( 'href', target.url );
+		}
+
+		var fallbackNotice = this.root.querySelector( '.wppdf-viewer__fallback' );
+
+		if ( fallbackNotice ) {
+			fallbackNotice.hidden = true;
+		}
+
+		this.load();
+	};
+
+	/**
+	 * Report a view or a download, at most once per browser session.
+	 *
+	 * @param {string} type view or download.
+	 */
+	Viewer.prototype.countHit = function ( type ) {
+		if ( ! this.config.stats || ! settings.rest || ! settings.rest.hit || ! this.config.postId ) {
+			return;
+		}
+
+		var key = 'wppdf:' + type + ':' + this.config.postId + ':' + this.config.lang;
+
+		try {
+			if ( window.sessionStorage && window.sessionStorage.getItem( key ) ) {
+				return;
+			}
+
+			if ( window.sessionStorage ) {
+				window.sessionStorage.setItem( key, '1' );
+			}
+		} catch ( e ) {
+			// Private mode without storage: counting once per page view is fine.
+		}
+
+		var payload = JSON.stringify( {
+			id: this.config.postId,
+			lang: this.config.lang,
+			type: type
+		} );
+
+		if ( window.fetch ) {
+			window.fetch( settings.rest.hit, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: payload,
+				credentials: 'omit',
+				keepalive: true
+			} ).catch( function () {} );
+		}
+	};
+
+	// --- Toolbar and input -------------------------------------------------
 
 	Viewer.prototype.bindToolbar = function () {
 		var self = this;
@@ -551,6 +1023,12 @@
 		this.pageInput = root.querySelector( '.wppdf-page-input' );
 		this.pageTotal = root.querySelector( '.wppdf-page-total' );
 		this.zoomLevel = root.querySelector( '.wppdf-zoom-level' );
+		this.searchInput = root.querySelector( '.wppdf-search-input' );
+		this.searchCount = root.querySelector( '.wppdf-search-count' );
+		this.searchPrev = root.querySelector( '.wppdf-search-prev' );
+		this.searchNext = root.querySelector( '.wppdf-search-next' );
+		this.fitButton = root.querySelector( '.wppdf-fit' );
+		this.fullscreenButton = root.querySelector( '.wppdf-fullscreen' );
 
 		on( root, '.wppdf-prev', function () {
 			self.goToPage( self.currentPage - 1 );
@@ -580,15 +1058,72 @@
 			self.print();
 		} );
 
+		on( root, '.wppdf-search-prev', function () {
+			self.goToMatch( self.matchIndex - 1 );
+		} );
+
+		on( root, '.wppdf-search-next', function () {
+			self.goToMatch( self.matchIndex + 1 );
+		} );
+
+		var download = root.querySelector( '.wppdf-download' );
+
+		if ( download ) {
+			download.addEventListener( 'click', function () {
+				self.countHit( 'download' );
+			} );
+		}
+
 		if ( this.pageInput ) {
 			this.pageInput.addEventListener( 'change', function () {
 				self.goToPage( parseInt( self.pageInput.value, 10 ) || 1 );
 			} );
 		}
 
+		if ( this.searchInput ) {
+			var run = throttle( function () {
+				self.find( self.searchInput.value );
+			}, 350 );
+
+			this.searchInput.addEventListener( 'input', run );
+
+			this.searchInput.addEventListener( 'keydown', function ( event ) {
+				if ( 'Enter' === event.key ) {
+					event.preventDefault();
+
+					if ( self.matches.length && self.searchInput.value.trim() === self.term ) {
+						self.goToMatch( event.shiftKey ? self.matchIndex - 1 : self.matchIndex + 1 );
+					} else {
+						self.find( self.searchInput.value );
+					}
+				}
+
+				if ( 'Escape' === event.key ) {
+					self.searchInput.value = '';
+					self.find( '' );
+				}
+			} );
+		}
+
+		var languageSelect = root.querySelector( '.wppdf-language-select' );
+
+		if ( languageSelect ) {
+			languageSelect.addEventListener( 'change', function () {
+				self.switchLanguage( languageSelect.value );
+			} );
+		}
+
 		document.addEventListener( 'fullscreenchange', function () {
 			var isFullscreen = document.fullscreenElement === self.root;
 			self.root.classList.toggle( 'is-fullscreen', isFullscreen );
+
+			if ( self.fullscreenButton ) {
+				self.fullscreenButton.setAttribute( 'aria-pressed', isFullscreen ? 'true' : 'false' );
+			}
+
+			if ( isFullscreen ) {
+				self.stage.focus();
+			}
 
 			if ( self.pdf ) {
 				window.setTimeout( function () {
@@ -600,6 +1135,15 @@
 
 	Viewer.prototype.bindKeyboard = function () {
 		var self = this;
+
+		this.root.addEventListener( 'keydown', function ( event ) {
+			// Ctrl/Cmd+F searches this document instead of the page.
+			if ( 'f' === event.key.toLowerCase() && ( event.ctrlKey || event.metaKey ) && self.searchInput ) {
+				event.preventDefault();
+				self.searchInput.focus();
+				self.searchInput.select();
+			}
+		} );
 
 		this.stage.addEventListener( 'keydown', function ( event ) {
 			switch ( event.key ) {
@@ -708,6 +1252,10 @@
 		if ( this.zoomLevel ) {
 			this.zoomLevel.textContent = Math.round( this.scale * 100 ) + ' %';
 		}
+
+		if ( this.fitButton ) {
+			this.fitButton.setAttribute( 'aria-pressed', 'page-width' === this.zoomMode || 'page-fit' === this.zoomMode ? 'true' : 'false' );
+		}
 	};
 
 	/**
@@ -727,6 +1275,22 @@
 		element.addEventListener( 'click', function ( event ) {
 			event.preventDefault();
 			handler( event );
+		} );
+	}
+
+	/**
+	 * Fill %1$d style placeholders.
+	 *
+	 * @param {string} template Template string.
+	 * @return {string} Filled string.
+	 */
+	function format( template ) {
+		var values = Array.prototype.slice.call( arguments, 1 );
+
+		return String( template ).replace( /%(\d+)\$[ds]/g, function ( match, position ) {
+			var value = values[ parseInt( position, 10 ) - 1 ];
+
+			return 'undefined' === typeof value ? match : value;
 		} );
 	}
 

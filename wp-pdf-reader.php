@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       WP PDF Reader
  * Plugin URI:        https://github.com/pavelapki/WPpdfReader
- * Description:       Post-like library of PDF documents with a bundled PDF.js reader, shared categories and per-language files with a configurable fallback chain (cs → en by default).
- * Version:           1.0.0
+ * Description:       Post-like library of PDF documents with a bundled PDF.js reader, full text search inside PDFs, shared categories and per-language files with a configurable fallback chain (cs → en by default).
+ * Version:           1.1.0
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Pavel Apki
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPPDF_VERSION', '1.0.0' );
+define( 'WPPDF_VERSION', '1.1.0' );
 define( 'WPPDF_FILE', __FILE__ );
 define( 'WPPDF_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WPPDF_URL', plugin_dir_url( __FILE__ ) );
@@ -28,7 +28,13 @@ require_once WPPDF_PATH . 'includes/class-wppdf-languages.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-post-type.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-documents.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-cover.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-text.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-search.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-stats.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-seo.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-meta.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-importer.php';
+require_once WPPDF_PATH . 'includes/class-wppdf-updater.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-admin.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-viewer.php';
 require_once WPPDF_PATH . 'includes/class-wppdf-shortcodes.php';

@@ -80,6 +80,15 @@ class WPPDF_Viewer {
 					'fullscreen' => __( 'Fullscreen', 'wp-pdf-reader' ),
 					'download'   => __( 'Download', 'wp-pdf-reader' ),
 					'print'      => __( 'Print', 'wp-pdf-reader' ),
+					'searching'  => __( 'Searching…', 'wp-pdf-reader' ),
+					'noMatches'  => __( 'No matches', 'wp-pdf-reader' ),
+					/* translators: 1: current match, 2: total matches. */
+					'matches'    => __( '%1$d of %2$d', 'wp-pdf-reader' ),
+					/* translators: 1: current page, 2: total pages. */
+					'pageOf'     => __( 'Page %1$d of %2$d', 'wp-pdf-reader' ),
+				),
+				'rest'                => array(
+					'hit' => esc_url_raw( rest_url( WPPDF_Stats::NAMESPACE_ROUTE . '/hit' ) ),
 				),
 			)
 		);
@@ -191,7 +200,10 @@ class WPPDF_Viewer {
 			$classes[] = sanitize_html_class( $args['class'] );
 		}
 
+		$sources = self::get_sources( $post_id, $args );
+
 		$config = array(
+			'postId'   => $post_id,
 			'url'      => $file['url'],
 			'zoom'     => $zoom,
 			'page'     => max( 1, (int) $args['page'] ),
@@ -199,6 +211,8 @@ class WPPDF_Viewer {
 			'download' => (bool) $args['download'],
 			'print'    => (bool) $args['print'],
 			'lang'     => $file['lang'],
+			'sources'  => $sources,
+			'stats'    => (bool) WPPDF_Settings::get( 'count_views' ),
 		);
 
 		ob_start();
@@ -206,6 +220,9 @@ class WPPDF_Viewer {
 		<div id="<?php echo esc_attr( $id ); ?>"
 			class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>"
 			data-wppdf="<?php echo esc_attr( wp_json_encode( $config ) ); ?>"
+			role="region"
+			aria-label="<?php echo esc_attr( get_the_title( $post_id ) ); ?>"
+			lang="<?php echo esc_attr( $file['lang'] ); ?>"
 			style="--wppdf-height: <?php echo (int) $height; ?>px;">
 
 			<?php if ( $file['is_fallback'] && WPPDF_Settings::get( 'show_fallback_notice' ) ) : ?>
@@ -238,25 +255,45 @@ class WPPDF_Viewer {
 						<button type="button" class="wppdf-btn wppdf-fit" aria-label="<?php esc_attr_e( 'Fit width', 'wp-pdf-reader' ); ?>">&#9635;</button>
 					</div>
 
+					<div class="wppdf-toolbar__group wppdf-toolbar__search">
+						<label class="screen-reader-text" for="<?php echo esc_attr( $id ); ?>-search"><?php esc_html_e( 'Search in the document', 'wp-pdf-reader' ); ?></label>
+						<input type="search" id="<?php echo esc_attr( $id ); ?>-search" class="wppdf-search-input" placeholder="<?php esc_attr_e( 'Search…', 'wp-pdf-reader' ); ?>" />
+						<span class="wppdf-search-count" aria-live="polite"></span>
+						<button type="button" class="wppdf-btn wppdf-search-prev" aria-label="<?php esc_attr_e( 'Previous match', 'wp-pdf-reader' ); ?>" disabled>&#8249;</button>
+						<button type="button" class="wppdf-btn wppdf-search-next" aria-label="<?php esc_attr_e( 'Next match', 'wp-pdf-reader' ); ?>" disabled>&#8250;</button>
+					</div>
+
 					<div class="wppdf-toolbar__group wppdf-toolbar__group--end">
+						<?php if ( count( $sources ) > 1 ) : ?>
+							<label class="screen-reader-text" for="<?php echo esc_attr( $id ); ?>-lang"><?php esc_html_e( 'Document language', 'wp-pdf-reader' ); ?></label>
+							<select id="<?php echo esc_attr( $id ); ?>-lang" class="wppdf-language-select">
+								<?php foreach ( $sources as $source ) : ?>
+									<option value="<?php echo esc_attr( $source['lang'] ); ?>" <?php selected( $source['lang'], $file['lang'] ); ?>>
+										<?php echo esc_html( $source['label'] ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+						<?php endif; ?>
 						<?php if ( $args['print'] ) : ?>
 							<button type="button" class="wppdf-btn wppdf-print" aria-label="<?php esc_attr_e( 'Print', 'wp-pdf-reader' ); ?>">&#9113;</button>
 						<?php endif; ?>
 						<?php if ( $args['download'] ) : ?>
 							<a class="wppdf-btn wppdf-download" href="<?php echo esc_url( $file['url'] ); ?>" download aria-label="<?php esc_attr_e( 'Download', 'wp-pdf-reader' ); ?>">&#8595;</a>
 						<?php endif; ?>
-						<button type="button" class="wppdf-btn wppdf-fullscreen" aria-label="<?php esc_attr_e( 'Fullscreen', 'wp-pdf-reader' ); ?>">&#9974;</button>
+						<button type="button" class="wppdf-btn wppdf-fullscreen" aria-pressed="false" aria-label="<?php esc_attr_e( 'Fullscreen', 'wp-pdf-reader' ); ?>">&#9974;</button>
 					</div>
 				</div>
 			<?php endif; ?>
 
 			<div class="wppdf-viewer__stage">
-				<div class="wppdf-viewer__pages" tabindex="0"></div>
+				<div class="wppdf-viewer__pages" tabindex="0" role="document"></div>
 				<div class="wppdf-viewer__status" role="status">
 					<span class="wppdf-spinner" aria-hidden="true"></span>
 					<span class="wppdf-status-text"><?php esc_html_e( 'Loading document…', 'wp-pdf-reader' ); ?></span>
 				</div>
 			</div>
+
+			<p class="screen-reader-text wppdf-live" aria-live="polite"></p>
 
 			<noscript>
 				<p>
@@ -278,5 +315,36 @@ class WPPDF_Viewer {
 		 * @param array  $args    Reader arguments.
 		 */
 		return apply_filters( 'wppdf_viewer_html', $html, $post_id, $file, $args );
+	}
+
+	/**
+	 * The language versions a visitor can switch between in the toolbar.
+	 *
+	 * @param int   $post_id Post ID.
+	 * @param array $args    Reader arguments.
+	 * @return array List of arrays with lang, label and url.
+	 */
+	protected static function get_sources( $post_id, array $args ) {
+		if ( ! WPPDF_Settings::get( 'language_switcher' ) || ! empty( $args['lang'] ) ) {
+			return array();
+		}
+
+		$sources = array();
+
+		foreach ( WPPDF_Documents::get_available_languages( $post_id ) as $code ) {
+			$raw = WPPDF_Documents::get_raw_file( $post_id, $code );
+
+			if ( ! $raw ) {
+				continue;
+			}
+
+			$sources[] = array(
+				'lang'  => $code,
+				'label' => WPPDF_Languages::get_label( $code ),
+				'url'   => $raw['url'],
+			);
+		}
+
+		return count( $sources ) > 1 ? $sources : array();
 	}
 }

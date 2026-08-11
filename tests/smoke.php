@@ -86,6 +86,14 @@ class WP_Query {
 	public function get( $key ) { return isset( $this->args[ $key ] ) ? $this->args[ $key ] : ''; }
 	public function set( $key, $value ) { $this->args[ $key ] = $value; }
 	public function is_main_query() { return false; }
+	public function is_search() { return ! empty( $this->args['s'] ); }
+	public function is_post_type_archive( $t = '' ) { return false; }
+	public function is_home() { return false; }
+	public function is_feed() { return false; }
+	public function is_category() { return false; }
+	public function is_tag() { return false; }
+	public function is_author() { return false; }
+	public function is_date() { return false; }
 }
 
 // --- Sanitizing / escaping ----------------------------------------------.
@@ -167,13 +175,90 @@ function the_post() {}
 function the_title() { echo get_the_title( get_the_ID() ); }
 function the_content() { echo '<p>Content</p>'; }
 function clean_post_cache() {}
+function seems_utf8( $s ) { return (bool) preg_match( '//u', $s ); }
+function wp_check_invalid_utf8( $s, $strip = false ) { return $strip ? (string) preg_replace( '/[^\x00-\x7F]/', '', $s ) : $s; }
+function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
+function get_transient( $k ) { return isset( $GLOBALS['stub_transients'][ $k ] ) ? $GLOBALS['stub_transients'][ $k ] : false; }
+function set_transient( $k, $v, $t = 0 ) { $GLOBALS['stub_transients'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['stub_transients'][ $k ] ); }
+function get_site_transient( $k ) { return get_transient( $k ); }
+function set_site_transient( $k, $v, $t = 0 ) { return set_transient( $k, $v, $t ); }
+function delete_site_transient( $k ) { delete_transient( $k ); }
+function wp_next_scheduled( $hook, $args = array() ) { return isset( $GLOBALS['stub_cron'][ $hook . md5( serialize( $args ) ) ] ); }
+function wp_schedule_single_event( $when, $hook, $args = array() ) { $GLOBALS['stub_cron'][ $hook . md5( serialize( $args ) ) ] = $args; return true; }
+function register_rest_route() {}
+function rest_url( $path = '' ) { return 'https://example.test/wp-json/' . ltrim( $path, '/' ); }
+function wp_create_nonce( $a = '' ) { return 'nonce'; }
+function get_bloginfo( $what = '' ) { return '6.5'; }
+function get_edit_post_link( $id, $ctx = '' ) { return 'https://example.test/wp-admin/post.php?post=' . (int) $id; }
+function wp_dropdown_categories() {}
+function _n( $single, $plural, $number, $domain = '' ) { return 1 === (int) $number ? $single : $plural; }
+function get_queried_object_id() { return get_the_ID(); }
+function wp_get_attachment_image_url() { return 'https://example.test/cover.jpg'; }
+function get_the_modified_date( $f = '', $id = 0 ) { return '2026-08-11T00:00:00+00:00'; }
+function get_the_author_meta() { return 'Pavel'; }
+function get_post_field( $field, $id ) { return 1; }
+function wpautop( $s ) { return $s; }
+function wp_set_post_terms() { return true; }
+function wp_insert_post( $args, $error = false ) { $id = 500 + count( $GLOBALS['stub_posts'] ); $GLOBALS['stub_posts'][ $id ] = array_merge( array( 'ID' => $id ), $args ); return $id; }
+
+if ( ! defined( 'DAY_IN_SECONDS' ) ) { define( 'DAY_IN_SECONDS', 86400 ); }
+if ( ! defined( 'HOUR_IN_SECONDS' ) ) { define( 'HOUR_IN_SECONDS', 3600 ); }
+
+$GLOBALS['stub_transients'] = array();
+$GLOBALS['stub_cron'] = array();
+
+/**
+ * Call a protected static method.
+ *
+ * @param string $class  Class name.
+ * @param string $method Method name.
+ * @param array  $args   Arguments.
+ * @return mixed
+ */
+function call_protected( $class, $method, array $args = array() ) {
+	$reflection = new ReflectionMethod( $class, $method );
+	$reflection->setAccessible( true );
+
+	return $reflection->invokeArgs( null, $args );
+}
+
+/**
+ * Build a tiny but valid PDF holding one line of text.
+ *
+ * @param string $text Text to place on the page.
+ * @return string Path to the file.
+ */
+function make_pdf( $text ) {
+	$content = "BT /F1 24 Tf 72 760 Td (" . $text . ") Tj ET";
+	$pdf  = "%PDF-1.4\n";
+	$pdf .= "1 0 obj <</Type /Catalog /Pages 2 0 R>> endobj\n";
+	$pdf .= "2 0 obj <</Type /Pages /Kids [3 0 R] /Count 1>> endobj\n";
+	$pdf .= "3 0 obj <</Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R>> endobj\n";
+	$pdf .= "4 0 obj <</Length " . strlen( $content ) . ">>\nstream\n" . $content . "\nendstream endobj\n";
+	$pdf .= "5 0 obj <</Type /Font /Subtype /Type1 /BaseFont /Helvetica>> endobj\n";
+	$pdf .= "trailer <</Root 1 0 R>>\n%%EOF\n";
+
+	$path = sys_get_temp_dir() . '/wppdf-smoke-' . md5( $text ) . '.pdf';
+	file_put_contents( $path, $pdf );
+
+	return $path;
+}
 
 class Stub_WPDB {
 	public $posts = 'wp_posts';
 	public $blogs = 'wp_blogs';
+	public $postmeta = 'wp_postmeta';
 	public function update( $table, $data, $where ) { return 3; }
+	public function esc_like( $t ) { return addcslashes( (string) $t, '_%\\' ); }
+	public function query( $q ) { return 1; }
 	public function get_col( $q ) { return array( 10, 11 ); }
-	public function prepare( $q, ...$a ) { return $q; }
+	public function prepare( $q, ...$a ) {
+		foreach ( $a as $value ) {
+			$q = preg_replace( '/%[sd]/', is_int( $value ) ? (string) $value : "'" . $value . "'", $q, 1 );
+		}
+		return $q;
+	}
 }
 $GLOBALS['wpdb'] = new Stub_WPDB();
 
@@ -318,6 +403,94 @@ $args = $GLOBALS['stub_post_types']['pdf_document'];
 ok( 'shares post categories', in_array( 'category', $args['taxonomies'], true ) );
 ok( 'archive enabled', 'pdf' === $args['has_archive'] );
 ok( 'labels applied', 'PDF documents' === $args['labels']['name'] );
+
+
+echo "\n== PDF text extraction ==\n";
+$pdf_path = make_pdf( 'Vyrocni zprava 2025 o hospodareni spolecnosti' );
+$extracted = WPPDF_Text::extract( $pdf_path );
+ok( 'text extracted from a PDF', false !== strpos( $extracted, 'Vyrocni zprava 2025' ) );
+echo '  extracted: ' . $extracted . "\n";
+ok( 'page count read', 1 === WPPDF_Text::count_pages( $pdf_path ) );
+
+$garbage = call_protected( 'WPPDF_Text', 'normalise', array( "\x01\x02 ??? ### %%% @@@ ~~~ ^^^ ||| <<< >>> ¤¤¤ §§§" ) );
+ok( 'mojibake is not indexed', '' === $garbage );
+
+$clean = call_protected( 'WPPDF_Text', 'normalise', array( "  Zpráva   o\n\nhospodaření  za rok 2025.  " ) );
+ok( 'whitespace collapsed', 'Zpráva o hospodaření za rok 2025.' === $clean );
+
+$long = call_protected( 'WPPDF_Text', 'normalise', array( str_repeat( 'slovo ', 100000 ) ) );
+ok( 'stored text is capped', strlen( $long ) <= WPPDF_Text::MAX_CHARS );
+
+ok( 'text meta key derived from language', '_wppdf_text_en_gb' === WPPDF_Text::text_meta_key( 'en-GB' ) );
+
+echo "\n== Search widening ==\n";
+$search_obj = new WPPDF_Search();
+$GLOBALS['stub_query_ids'] = array();
+$search_query = new WP_Query( array( 's' => 'zpráva', 'post_type' => 'pdf_document' ) );
+$search_query->searching = true;
+$original = " AND (((wp_posts.post_title LIKE '%zpráva%') OR (wp_posts.post_excerpt LIKE '%zpráva%') OR (wp_posts.post_content LIKE '%zpráva%')))";
+$widened  = $search_obj->search( $original, $search_query );
+ok( 'search clause reaches the PDF text', false !== strpos( $widened, 'wppdf_text.meta_value LIKE' ) );
+ok( 'original title clause kept', false !== strpos( $widened, 'wp_posts.post_title' ) );
+$join = $search_obj->join( '', $search_query );
+ok( 'join restricted to the text meta keys', false !== strpos( $join, 'LEFT JOIN' ) && false !== strpos( $join, '\\_wppdf' ) );
+ok( 'distinct applied', 'DISTINCT' === $search_obj->distinct( '', $search_query ) );
+
+$other = new WP_Query( array( 's' => 'zpráva', 'post_type' => 'page' ) );
+$other->searching = true;
+ok( 'other post types are left alone', $original === $search_obj->search( $original, $other ) );
+
+echo "\n== Statistics ==\n";
+ok( 'view meta key', '_wppdf_views_cs' === WPPDF_Stats::meta_key( 'view', 'cs' ) );
+ok( 'download meta key', '_wppdf_downloads_en' === WPPDF_Stats::meta_key( 'download', 'en' ) );
+update_post_meta( 10, '_wppdf_views_cs', 12 );
+update_post_meta( 10, '_wppdf_views_en', 3 );
+ok( 'views summed across languages', 15 === WPPDF_Stats::get( 10, 'view' ) );
+ok( 'breakdown lists only used languages', array( 'cs', 'en' ) === array_keys( WPPDF_Stats::get_breakdown( 10 ) ) );
+
+echo "\n== GitHub updater ==\n";
+ok( 'https github asset accepted', true === call_protected( 'WPPDF_Updater', 'is_allowed_package', array( 'https://github.com/o/r/releases/download/1.1.0/p.zip' ) ) );
+ok( 'foreign host rejected', false === call_protected( 'WPPDF_Updater', 'is_allowed_package', array( 'https://evil.example/p.zip' ) ) );
+ok( 'plain http rejected', false === call_protected( 'WPPDF_Updater', 'is_allowed_package', array( 'http://github.com/o/r/p.zip' ) ) );
+
+$release = call_protected(
+	'WPPDF_Updater',
+	'parse',
+	array(
+		array(
+			'tag_name'    => 'v1.2.0',
+			'html_url'    => 'https://github.com/o/r/releases/tag/v1.2.0',
+			'zipball_url' => 'https://api.github.com/repos/o/r/zipball/v1.2.0',
+			'body'        => 'Notes',
+		),
+		'o/r',
+	)
+);
+ok( 'version parsed without the v prefix', '1.2.0' === $release['version'] );
+ok( 'package taken from the zipball', false !== strpos( $release['package'], 'api.github.com' ) );
+
+$bad = call_protected( 'WPPDF_Updater', 'parse', array( array( 'tag_name' => 'release-candidate; rm -rf', 'zipball_url' => 'https://api.github.com/x' ), 'o/r' ) );
+ok( 'nonsense tag rejected', ! isset( $bad['version'] ) );
+
+$hijack = call_protected( 'WPPDF_Updater', 'parse', array( array( 'tag_name' => '9.9.9', 'zipball_url' => 'https://attacker.example/evil.zip' ), 'o/r' ) );
+ok( 'package on a foreign host rejected', ! isset( $hijack['version'] ) );
+
+echo "\n== Importer ==\n";
+$GLOBALS['stub_posts'][30] = array( 'ID' => 30, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf', 'post_title' => 'vyrocni_zprava-2025', 'file' => '/tmp/x.pdf' );
+ok( 'title cleaned from the file name', 'Vyrocni zprava 2025' === WPPDF_Importer::title_from_attachment( 30 ) );
+
+echo "\n== Reader markup additions ==\n";
+update_post_meta( 11, '_wppdf_file_cs', 20 );
+WPPDF_Documents::flush_cache();
+$switcher = WPPDF_Viewer::render( 11 );
+ok( 'language switcher rendered for two versions', false !== strpos( $switcher, 'wppdf-language-select' ) );
+ok( 'search box rendered', false !== strpos( $switcher, 'wppdf-search-input' ) );
+ok( 'live region present', false !== strpos( $switcher, 'wppdf-live' ) );
+$switcher_config = array();
+if ( preg_match( '/data-wppdf="([^"]+)"/', $switcher, $m ) ) {
+	$switcher_config = json_decode( html_entity_decode( $m[1], ENT_QUOTES ), true );
+}
+ok( 'sources passed to the reader', isset( $switcher_config['sources'] ) && 2 === count( $switcher_config['sources'] ) );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

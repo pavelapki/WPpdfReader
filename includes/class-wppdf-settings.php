@@ -86,6 +86,17 @@ class WPPDF_Settings {
 
 			// Covers.
 			'generate_covers'     => 1,
+
+			// Text extraction and search.
+			'extract_text'        => 1,
+			'search_pdf_text'     => 1,
+
+			// Statistics, SEO and updates.
+			'count_views'         => 1,
+			'seo_metadata'        => 1,
+			'language_switcher'   => 1,
+			'github_updates'      => 1,
+			'github_repository'   => 'pavelapki/WPpdfReader',
 		);
 	}
 
@@ -294,9 +305,24 @@ class WPPDF_Settings {
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
 		$out['archive_per_page'] = isset( $input['archive_per_page'] ) ? min( 100, max( 1, absint( $input['archive_per_page'] ) ) ) : $defaults['archive_per_page'];
 
-		foreach ( array( 'override_templates', 'generate_covers' ) as $flag ) {
+		foreach ( array( 'override_templates', 'generate_covers', 'extract_text', 'search_pdf_text', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
 			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
+
+		// --- Updates ---------------------------------------------------.
+		$repository = isset( $input['github_repository'] ) ? sanitize_text_field( $input['github_repository'] ) : '';
+		$repository = trim( $repository );
+
+		if ( '' !== $repository && ! preg_match( '#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $repository ) ) {
+			$repository = $old['github_repository'];
+			add_settings_error(
+				self::OPTION,
+				'wppdf_repository',
+				__( 'The repository must be given as owner/name. The previous value was kept.', 'wp-pdf-reader' )
+			);
+		}
+
+		$out['github_repository'] = $repository;
 
 		// --- Side effects ----------------------------------------------.
 		if ( $old['post_type_key'] !== $out['post_type_key'] ) {

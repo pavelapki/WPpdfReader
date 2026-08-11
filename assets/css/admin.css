@@ -179,3 +179,28 @@
 	line-height: 1;
 	text-decoration: none;
 }
+
+/* Import screen ---------------------------------------------------------- */
+
+.wppdf-import__spinner {
+	float: none;
+	margin: 0 0 0 6px;
+	vertical-align: middle;
+}
+
+.wppdf-import__results {
+	max-width: 40em;
+	max-height: 24em;
+	overflow-y: auto;
+}
+
+.wppdf-import__results p {
+	margin: 0 0 4px;
+	padding: 4px 8px;
+	background: #fff;
+	border-left: 4px solid #00a32a;
+}
+
+.wppdf-import__results p.wppdf-import__error {
+	border-left-color: #d63638;
+}

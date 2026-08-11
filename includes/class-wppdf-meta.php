@@ -229,9 +229,12 @@ class WPPDF_Meta {
 
 			if ( $attachment_id !== $previous ) {
 				delete_post_meta( $post_id, WPPDF_Languages::cover_meta_key( $code ) );
+				WPPDF_Text::clear( $post_id, $code );
 
-				if ( $attachment_id && WPPDF_Settings::get( 'generate_covers' ) ) {
-					WPPDF_Cover::generate( $post_id, $code, $attachment_id );
+				if ( $attachment_id ) {
+					// Both are heavy, so they run on scheduled events.
+					WPPDF_Cover::schedule( $post_id, $code, $attachment_id );
+					WPPDF_Text::schedule( $post_id, $code, $attachment_id );
 				}
 			}
 		}

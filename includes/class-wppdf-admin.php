@@ -85,13 +85,39 @@ class WPPDF_Admin {
 
 		$is_editor   = in_array( $hook, array( 'post.php', 'post-new.php' ), true ) && $screen && in_array( $screen->post_type, $post_types, true );
 		$is_settings = $screen && false !== strpos( (string) $screen->id, self::PAGE );
+		$is_import   = $screen && false !== strpos( (string) $screen->id, WPPDF_Importer::PAGE );
 		$is_list     = 'edit.php' === $hook && $screen && in_array( $screen->post_type, $post_types, true );
 
-		if ( ! $is_editor && ! $is_settings && ! $is_list ) {
+		if ( ! $is_editor && ! $is_settings && ! $is_list && ! $is_import ) {
 			return;
 		}
 
 		wp_enqueue_style( 'wppdf-admin', WPPDF_URL . 'assets/css/admin.css', array(), WPPDF_VERSION );
+
+		if ( $is_import ) {
+			wp_enqueue_media();
+			wp_enqueue_script( 'wppdf-import', WPPDF_URL . 'assets/js/import.js', array( 'jquery' ), WPPDF_VERSION, true );
+
+			wp_localize_script(
+				'wppdf-import',
+				'wppdfImport',
+				array(
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( WPPDF_Importer::NONCE ),
+					'batch'   => WPPDF_Importer::BATCH,
+					'i18n'    => array(
+						'selectTitle'  => __( 'Select the PDFs to import', 'wp-pdf-reader' ),
+						'selectButton' => __( 'Import these PDFs', 'wp-pdf-reader' ),
+						'created'      => __( 'created', 'wp-pdf-reader' ),
+						'failed'       => __( 'The import request failed.', 'wp-pdf-reader' ),
+						/* translators: %d: number of files. */
+						'finished'     => __( 'Finished, %d files processed.', 'wp-pdf-reader' ),
+					),
+				)
+			);
+
+			return;
+		}
 
 		if ( $is_editor || $is_settings ) {
 			if ( $is_editor ) {
@@ -136,6 +162,10 @@ class WPPDF_Admin {
 
 			if ( 'title' === $key ) {
 				$new['wppdf_files'] = __( 'PDF files', 'wp-pdf-reader' );
+
+				if ( WPPDF_Settings::get( 'count_views' ) ) {
+					$new['wppdf_stats'] = __( 'Views', 'wp-pdf-reader' );
+				}
 			}
 		}
 
@@ -156,6 +186,38 @@ class WPPDF_Admin {
 				echo wp_kses_post( wp_get_attachment_image( $cover_id, array( 40, 55 ), false, array( 'class' => 'wppdf-column-cover' ) ) );
 			} else {
 				echo '<span class="wppdf-column-cover wppdf-column-cover--empty dashicons dashicons-media-document"></span>';
+			}
+
+			return;
+		}
+
+		if ( 'wppdf_stats' === $column ) {
+			$views     = WPPDF_Stats::get( $post_id, 'view' );
+			$downloads = WPPDF_Stats::get( $post_id, 'download' );
+
+			if ( ! $views && ! $downloads ) {
+				echo '<span class="wppdf-muted">—</span>';
+
+				return;
+			}
+
+			printf(
+				/* translators: 1: number of views, 2: number of downloads. */
+				esc_html__( '%1$d views, %2$d downloads', 'wp-pdf-reader' ),
+				(int) $views,
+				(int) $downloads
+			);
+
+			$breakdown = WPPDF_Stats::get_breakdown( $post_id );
+
+			if ( count( $breakdown ) > 1 ) {
+				$parts = array();
+
+				foreach ( $breakdown as $code => $numbers ) {
+					$parts[] = strtoupper( $code ) . ' ' . (int) $numbers['views'];
+				}
+
+				echo '<br /><span class="wppdf-muted">' . esc_html( implode( ' · ', $parts ) ) . '</span>';
 			}
 
 			return;
@@ -188,16 +250,29 @@ class WPPDF_Admin {
 			return;
 		}
 
-		$file = WPPDF_Documents::get_file( $post_id, WPPDF_Languages::get_default_language() );
+		$file  = WPPDF_Documents::get_file( $post_id, WPPDF_Languages::get_default_language() );
+		$notes = array();
 
 		if ( $file && $file['is_fallback'] ) {
-			echo '<br /><span class="wppdf-muted">';
-			printf(
+			$notes[] = sprintf(
 				/* translators: %s: language label. */
-				esc_html__( 'Default language falls back to %s', 'wp-pdf-reader' ),
-				esc_html( $file['language_label'] )
+				__( 'Default language falls back to %s', 'wp-pdf-reader' ),
+				$file['language_label']
 			);
-			echo '</span>';
+		}
+
+		$pages = $file ? WPPDF_Text::get_page_count( $post_id, $file['lang'] ) : 0;
+
+		if ( $pages > 0 ) {
+			$notes[] = sprintf(
+				/* translators: %d: number of pages. */
+				_n( '%d page', '%d pages', $pages, 'wp-pdf-reader' ),
+				$pages
+			);
+		}
+
+		if ( $notes ) {
+			echo '<br /><span class="wppdf-muted">' . esc_html( implode( ' · ', $notes ) ) . '</span>';
 		}
 	}
 
@@ -531,6 +606,60 @@ class WPPDF_Admin {
 							<?php if ( ! WPPDF_Cover::is_available() ) : ?>
 								<p class="description wppdf-warning"><?php esc_html_e( 'Imagick with PDF support is not available on this server, so covers cannot be generated. Featured images are used instead.', 'wp-pdf-reader' ); ?></p>
 							<?php endif; ?>
+						</td>
+					</tr>
+				</table>
+
+				<h2 class="title"><?php esc_html_e( 'Search, statistics and updates', 'wp-pdf-reader' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Text in PDFs', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<?php
+							$this->checkbox( 'extract_text', __( 'Extract the text of uploaded PDFs in the background', 'wp-pdf-reader' ) );
+							$this->checkbox( 'search_pdf_text', __( 'Let the site search look inside documents', 'wp-pdf-reader' ) );
+							?>
+							<p class="description">
+								<?php
+								if ( WPPDF_Text::binary_available() ) {
+									esc_html_e( 'pdftotext was found on this server, so extraction is fast and accurate.', 'wp-pdf-reader' );
+								} else {
+									esc_html_e( 'pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs; scanned documents need OCR and cannot be indexed.', 'wp-pdf-reader' );
+								}
+								?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Front end', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<?php
+							$this->checkbox( 'language_switcher', __( 'Let visitors switch language versions in the reader toolbar', 'wp-pdf-reader' ) );
+							$this->checkbox( 'count_views', __( 'Count views and downloads per language', 'wp-pdf-reader' ) );
+							$this->checkbox( 'seo_metadata', __( 'Output structured data and Open Graph tags on documents', 'wp-pdf-reader' ) );
+							?>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wppdf-github-repository"><?php esc_html_e( 'Updates from GitHub', 'wp-pdf-reader' ); ?></label></th>
+						<td>
+							<?php $this->checkbox( 'github_updates', __( 'Offer plugin updates from GitHub releases', 'wp-pdf-reader' ) ); ?>
+							<input type="text" id="wppdf-github-repository" class="regular-text" name="<?php echo esc_attr( $option ); ?>[github_repository]" value="<?php echo esc_attr( $settings['github_repository'] ); ?>" placeholder="owner/repository" />
+							<p class="description">
+								<?php esc_html_e( 'The repository in owner/name form. The newest published release is offered as an update.', 'wp-pdf-reader' ); ?>
+								<?php
+								$release = WPPDF_Updater::get_release();
+								if ( $release && ! empty( $release['version'] ) ) {
+									echo '<br />';
+									printf(
+										/* translators: 1: latest version, 2: installed version. */
+										esc_html__( 'Latest release: %1$s, installed: %2$s', 'wp-pdf-reader' ),
+										'<code>' . esc_html( $release['version'] ) . '</code>',
+										'<code>' . esc_html( WPPDF_VERSION ) . '</code>'
+									);
+								}
+								?>
+							</p>
 						</td>
 					</tr>
 				</table>

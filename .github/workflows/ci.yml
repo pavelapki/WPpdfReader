@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, 'claude/**' ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: [ '7.4', '8.1', '8.3' ]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer
+
+      - name: Lint every PHP file
+        run: |
+          set -e
+          find . -path ./vendor -prune -o -path ./assets/vendor -prune -o -name '*.php' -print0 \
+            | xargs -0 -n1 -P4 php -l
+
+      - name: Smoke test
+        run: php tests/smoke.php
+
+  coding-standards:
+    name: Coding standards
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer, cs2pr
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPCS
+        run: vendor/bin/phpcs --report-full --report-checkstyle=./phpcs-report.xml
+        continue-on-error: true
+
+      - name: Annotate the diff
+        run: cs2pr ./phpcs-report.xml
+        continue-on-error: true
+
+  javascript:
+    name: JavaScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check syntax
+        run: |
+          set -e
+          for file in assets/js/*.js; do
+            node --check "$file"
+          done
+
+      - name: Validate block metadata
+        run: |
+          set -e
+          for file in blocks/*/block.json; do
+            node -e "JSON.parse(require('fs').readFileSync('$file','utf8'))"
+          done

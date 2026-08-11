@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,20 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.1.0 =
+* Text of uploaded PDFs is extracted in the background and included in the site
+  search, using pdftotext when available and a built-in PHP parser otherwise.
+* Search inside the open document, diacritics insensitive, with match
+  navigation and highlighting.
+* Bulk import: pick many PDFs at once and get one document per file.
+* Language switcher in the reader toolbar.
+* View and download counters per language.
+* Schema.org DigitalDocument and Open Graph output.
+* Plugin updates from GitHub releases.
+* Page count shown in the admin, ordering support, ARIA and focus handling.
+* Rendered pages outside a window around the current one are released, so long
+  documents no longer grow in memory.
 
 = 1.0.0 =
 * Initial release.

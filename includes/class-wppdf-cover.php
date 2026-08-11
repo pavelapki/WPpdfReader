@@ -16,6 +16,66 @@ defined( 'ABSPATH' ) || exit;
 class WPPDF_Cover {
 
 	/**
+	 * Scheduled event name.
+	 */
+	const EVENT = 'wppdf_generate_cover';
+
+	/**
+	 * Register hooks.
+	 */
+	public function hooks() {
+		add_action( self::EVENT, array( __CLASS__, 'run' ), 10, 3 );
+	}
+
+	/**
+	 * Queue cover rendering.
+	 *
+	 * Rendering a page with Imagick is expensive, so it happens on a scheduled
+	 * event instead of inside the save request.
+	 *
+	 * @param int    $post_id       Document ID.
+	 * @param string $code          Language code.
+	 * @param int    $attachment_id Attachment ID.
+	 */
+	public static function schedule( $post_id, $code, $attachment_id ) {
+		if ( ! WPPDF_Settings::get( 'generate_covers' ) || ! self::is_available() ) {
+			return;
+		}
+
+		$args = array( (int) $post_id, (string) $code, (int) $attachment_id );
+
+		if ( wp_next_scheduled( self::EVENT, $args ) ) {
+			return;
+		}
+
+		wp_schedule_single_event( time() + 10, self::EVENT, $args );
+	}
+
+	/**
+	 * Scheduled callback: render the cover if the file is still in place.
+	 *
+	 * @param int    $post_id       Document ID.
+	 * @param string $code          Language code.
+	 * @param int    $attachment_id Attachment ID.
+	 */
+	public static function run( $post_id, $code, $attachment_id ) {
+		$post_id = absint( $post_id );
+		$code    = WPPDF_Settings::sanitize_language_code( $code );
+
+		if ( ! $post_id || '' === $code || ! get_post( $post_id ) ) {
+			return;
+		}
+
+		$current = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
+
+		if ( ! $current || $current !== absint( $attachment_id ) ) {
+			return;
+		}
+
+		self::generate( $post_id, $code, $current );
+	}
+
+	/**
 	 * Whether covers can be rendered on this server.
 	 *
 	 * @return bool

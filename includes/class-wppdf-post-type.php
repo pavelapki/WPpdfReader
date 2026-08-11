@@ -64,7 +64,8 @@ class WPPDF_Post_Type {
 		$singular = WPPDF_Settings::get( 'label_singular' );
 		$plural   = WPPDF_Settings::get( 'label_plural' );
 
-		$supports = array( 'title', 'editor', 'author', 'comments', 'custom-fields', 'revisions' );
+		// page-attributes provides the order field the menu_order sorting needs.
+		$supports = array( 'title', 'editor', 'author', 'comments', 'custom-fields', 'revisions', 'page-attributes' );
 		if ( WPPDF_Settings::get( 'supports_excerpt' ) ) {
 			$supports[] = 'excerpt';
 		}
