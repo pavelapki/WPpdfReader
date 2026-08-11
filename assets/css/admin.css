@@ -1,0 +1,181 @@
+/**
+ * WP PDF Reader — admin styles.
+ */
+
+/* Meta box --------------------------------------------------------------- */
+
+.wppdf-files__intro {
+	margin-top: 0;
+	color: #646970;
+}
+
+.wppdf-file-row {
+	padding: 12px;
+	margin-bottom: 10px;
+	border: 1px solid #dcdcde;
+	border-left: 4px solid #dcdcde;
+	border-radius: 3px;
+	background: #fff;
+}
+
+.wppdf-file-row.is-filled {
+	border-left-color: #00a32a;
+}
+
+.wppdf-file-row__header {
+	margin-bottom: 8px;
+}
+
+.wppdf-file-row__body {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.wppdf-file-row__cover {
+	width: 40px;
+	height: auto;
+	border: 1px solid #dcdcde;
+}
+
+.wppdf-file-row__info {
+	flex: 1 1 200px;
+	min-width: 0;
+}
+
+.wppdf-file-name {
+	display: block;
+	font-weight: 600;
+	word-break: break-all;
+}
+
+.wppdf-file-size {
+	display: block;
+	color: #646970;
+	font-size: 12px;
+}
+
+.wppdf-file-empty {
+	color: #8c8f94;
+	font-style: italic;
+}
+
+.wppdf-file-row__url {
+	margin-top: 8px;
+}
+
+.wppdf-file-row__url label {
+	display: block;
+	color: #646970;
+	font-size: 12px;
+}
+
+.wppdf-file-row__url input {
+	display: block;
+	margin-top: 3px;
+	max-width: 100%;
+}
+
+.wppdf-files__fallback {
+	color: #646970;
+}
+
+.wppdf-notice-warning {
+	padding: 8px 12px;
+	background: #fcf9e8;
+	border-left: 4px solid #dba617;
+}
+
+/* Badges ----------------------------------------------------------------- */
+
+.wppdf-lang-badge {
+	display: inline-block;
+	min-width: 24px;
+	padding: 1px 6px;
+	margin-right: 3px;
+	border-radius: 3px;
+	background: #f0f0f1;
+	color: #50575e;
+	font-size: 11px;
+	font-weight: 600;
+	line-height: 18px;
+	text-align: center;
+	letter-spacing: 0.04em;
+}
+
+.wppdf-lang-badge.is-available {
+	background: #d5f0d9;
+	color: #00622b;
+}
+
+.wppdf-lang-badge.is-missing {
+	background: #f6f7f7;
+	color: #a7aaad;
+}
+
+.wppdf-pill {
+	display: inline-block;
+	padding: 0 6px;
+	border-radius: 9px;
+	background: #e5f0fa;
+	color: #2271b1;
+	font-size: 11px;
+	line-height: 18px;
+}
+
+.wppdf-muted {
+	color: #8c8f94;
+	font-size: 12px;
+}
+
+/* List table ------------------------------------------------------------- */
+
+.column-wppdf_cover {
+	width: 52px;
+}
+
+.wppdf-column-cover {
+	display: block;
+	width: 40px;
+	height: auto;
+	border: 1px solid #dcdcde;
+}
+
+.wppdf-column-cover--empty {
+	width: 40px;
+	height: 52px;
+	line-height: 52px;
+	text-align: center;
+	color: #c3c4c7;
+	font-size: 22px;
+}
+
+.column-wppdf_files {
+	width: 180px;
+}
+
+/* Settings page ---------------------------------------------------------- */
+
+.wppdf-settings .wppdf-checkbox {
+	display: block;
+	margin-bottom: 6px;
+}
+
+.wppdf-settings .wppdf-warning {
+	color: #b32d2e;
+}
+
+.wppdf-language-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 6px;
+}
+
+.wppdf-language-row .wppdf-remove-language {
+	color: #b32d2e;
+	font-size: 18px;
+	line-height: 1;
+	text-decoration: none;
+}

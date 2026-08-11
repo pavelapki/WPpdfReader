@@ -1,0 +1,42 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 2,
+	"name": "wp-pdf-reader/reader",
+	"title": "PDF reader",
+	"category": "media",
+	"icon": "media-document",
+	"description": "Embed the PDF of a document with the bundled PDF.js reader.",
+	"textdomain": "wp-pdf-reader",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ]
+	},
+	"attributes": {
+		"postId": {
+			"type": "number",
+			"default": 0
+		},
+		"lang": {
+			"type": "string",
+			"default": ""
+		},
+		"height": {
+			"type": "number",
+			"default": 800
+		},
+		"zoom": {
+			"type": "string",
+			"default": "auto"
+		},
+		"toolbar": {
+			"type": "boolean",
+			"default": true
+		},
+		"download": {
+			"type": "boolean",
+			"default": true
+		}
+	},
+	"editorScript": "wppdf-blocks",
+	"style": "wppdf-viewer"
+}

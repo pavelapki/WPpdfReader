@@ -1,0 +1,46 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 2,
+	"name": "wp-pdf-reader/grid",
+	"title": "PDF library",
+	"category": "media",
+	"icon": "grid-view",
+	"description": "Show a grid or list of PDF documents.",
+	"textdomain": "wp-pdf-reader",
+	"supports": {
+		"html": false,
+		"align": [ "wide", "full" ]
+	},
+	"attributes": {
+		"columns": {
+			"type": "number",
+			"default": 3
+		},
+		"perPage": {
+			"type": "number",
+			"default": 12
+		},
+		"layout": {
+			"type": "string",
+			"default": "grid"
+		},
+		"category": {
+			"type": "string",
+			"default": ""
+		},
+		"orderby": {
+			"type": "string",
+			"default": "date"
+		},
+		"order": {
+			"type": "string",
+			"default": "DESC"
+		},
+		"excerpt": {
+			"type": "boolean",
+			"default": true
+		}
+	},
+	"editorScript": "wppdf-blocks",
+	"style": "wppdf-archive"
+}

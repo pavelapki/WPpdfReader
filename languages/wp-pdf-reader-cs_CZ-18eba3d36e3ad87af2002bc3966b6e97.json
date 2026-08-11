@@ -1,0 +1,101 @@
+{
+    "translation-revision-date": "2026-08-11 00:00:00+0000",
+    "generator": "wp-pdf-reader",
+    "domain": "messages",
+    "locale_data": {
+        "messages": {
+            "": {
+                "domain": "messages",
+                "lang": "cs_CZ",
+                "plural-forms": "nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;"
+            },
+            "Ascending": [
+                "Vzestupně"
+            ],
+            "Automatic": [
+                "Automaticky"
+            ],
+            "Category slug": [
+                "Slug kategorie"
+            ],
+            "Columns": [
+                "Sloupce"
+            ],
+            "Date": [
+                "Datum"
+            ],
+            "Descending": [
+                "Sestupně"
+            ],
+            "Document": [
+                "Dokument"
+            ],
+            "Document ID": [
+                "ID dokumentu"
+            ],
+            "Documents": [
+                "Dokumenty"
+            ],
+            "Filtering": [
+                "Filtrování"
+            ],
+            "Fit page": [
+                "Celá stránka"
+            ],
+            "Fit width": [
+                "Na šířku"
+            ],
+            "Grid": [
+                "Mřížka"
+            ],
+            "Height (px)": [
+                "Výška (px)"
+            ],
+            "Initial zoom": [
+                "Výchozí přiblížení"
+            ],
+            "Language": [
+                "Jazyk"
+            ],
+            "Layout": [
+                "Rozvržení"
+            ],
+            "Leave empty to use the document the block is placed on.": [
+                "Nechte prázdné, použije se dokument, na kterém je blok umístěný."
+            ],
+            "List": [
+                "Seznam"
+            ],
+            "Menu order": [
+                "Pořadí v menu"
+            ],
+            "Order": [
+                "Řazení"
+            ],
+            "Order by": [
+                "Řadit podle"
+            ],
+            "Random": [
+                "Náhodně"
+            ],
+            "Reader": [
+                "Prohlížeč"
+            ],
+            "Show excerpts": [
+                "Zobrazit stručné výpisy"
+            ],
+            "Show the download button": [
+                "Zobrazit tlačítko pro stažení"
+            ],
+            "Show the toolbar": [
+                "Zobrazit lištu nástrojů"
+            ],
+            "Title": [
+                "Název"
+            ],
+            "Visitor language (with fallback)": [
+                "Jazyk návštěvníka (s náhradou)"
+            ]
+        }
+    }
+}
