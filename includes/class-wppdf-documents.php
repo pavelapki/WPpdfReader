@@ -315,6 +315,64 @@ class WPPDF_Documents {
 	}
 
 	/**
+	 * Meta query matching documents that hold a file in a language.
+	 *
+	 * A key can exist with an empty value, so presence alone is not enough.
+	 *
+	 * @param string $code Language code.
+	 * @return array
+	 */
+	public static function language_meta_query( $code ) {
+		return array(
+			'relation' => 'OR',
+			array(
+				'key'     => WPPDF_Languages::file_meta_key( $code ),
+				'value'   => '',
+				'compare' => '!=',
+			),
+			array(
+				'key'     => self::url_meta_key( $code ),
+				'value'   => '',
+				'compare' => '!=',
+			),
+		);
+	}
+
+	/**
+	 * Years that hold at least one document, newest first.
+	 *
+	 * @return int[]
+	 */
+	public static function get_years() {
+		global $wpdb;
+
+		$cached = get_transient( 'wppdf_years' );
+
+		if ( is_array( $cached ) ) {
+			return $cached;
+		}
+
+		$post_types   = WPPDF_Post_Type::get_supported_post_types();
+		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+		$years = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT DISTINCT YEAR( post_date ) AS y FROM {$wpdb->posts}
+				WHERE post_type IN ( {$placeholders} ) AND post_status = 'publish'
+				ORDER BY y DESC",
+				$post_types
+			)
+		);
+
+		$years = array_values( array_filter( array_map( 'absint', (array) $years ) ) );
+
+		set_transient( 'wppdf_years', $years, 12 * HOUR_IN_SECONDS );
+
+		return $years;
+	}
+
+	/**
 	 * Query documents.
 	 *
 	 * @param array $args Overrides for WP_Query.

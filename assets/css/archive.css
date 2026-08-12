@@ -133,6 +133,104 @@
 	opacity: 0.7;
 }
 
+/* Filters ---------------------------------------------------------------- */
+
+.wppdf-filters {
+	margin: 0 0 1.5rem;
+	padding: 1rem;
+	border: 1px solid rgba( 0, 0, 0, 0.1 );
+	border-radius: 6px;
+	background: rgba( 0, 0, 0, 0.02 );
+}
+
+.wppdf-filters__row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 0.75rem 1rem;
+}
+
+.wppdf-filters__field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.2rem;
+	margin: 0;
+	min-width: 0;
+}
+
+.wppdf-filters__field label {
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	opacity: 0.7;
+}
+
+.wppdf-filters__field--search {
+	flex: 1 1 16rem;
+}
+
+.wppdf-filters__field--search input {
+	width: 100%;
+}
+
+.wppdf-filters__field input,
+.wppdf-filters__field select {
+	max-width: 100%;
+	padding: 0.4rem 0.5rem;
+	border: 1px solid rgba( 0, 0, 0, 0.2 );
+	border-radius: 4px;
+	background: #fff;
+	color: inherit;
+	font-size: 0.9rem;
+}
+
+.wppdf-filters__actions {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 0;
+}
+
+.wppdf-filters__submit {
+	padding: 0.45rem 1.1rem;
+	border: 0;
+	border-radius: 4px;
+	background: #2271b1;
+	color: #fff;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.wppdf-filters__submit:hover,
+.wppdf-filters__submit:focus {
+	background: #135e96;
+}
+
+.wppdf-filters__reset {
+	font-size: 0.85rem;
+}
+
+.wppdf-archive__count {
+	margin: 0 0 1rem;
+	font-size: 0.9rem;
+	opacity: 0.75;
+}
+
+@media ( prefers-color-scheme: dark ) {
+	.wppdf-filters {
+		border-color: rgba( 255, 255, 255, 0.12 );
+		background: rgba( 255, 255, 255, 0.04 );
+	}
+
+	.wppdf-filters__field input,
+	.wppdf-filters__field select {
+		border-color: rgba( 255, 255, 255, 0.2 );
+		background: rgba( 0, 0, 0, 0.3 );
+		color: inherit;
+	}
+}
+
 /* Archive header and pagination ------------------------------------------ */
 
 .wppdf-archive__header {

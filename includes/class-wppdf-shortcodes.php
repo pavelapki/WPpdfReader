@@ -101,10 +101,13 @@ class WPPDF_Shortcodes {
 				'excerpt'    => 1,
 				'meta'       => 1,
 				'pagination' => 0,
+				'filters'    => 0,
 			),
 			$atts,
 			$tag
 		);
+
+		$filters = self::to_bool( $atts['filters'] );
 
 		$query_args = array(
 			'posts_per_page' => (int) $atts['per_page'],
@@ -153,6 +156,10 @@ class WPPDF_Shortcodes {
 			$query_args['paged'] = max( 1, (int) get_query_var( 'paged' ), (int) get_query_var( 'page' ) );
 		}
 
+		if ( $filters ) {
+			$query_args = WPPDF_Filters::apply_to_args( $query_args );
+		}
+
 		$query = WPPDF_Documents::query( $query_args );
 
 		$html = WPPDF_Templates::get_part(
@@ -169,6 +176,10 @@ class WPPDF_Shortcodes {
 		);
 
 		wp_reset_postdata();
+
+		if ( $filters ) {
+			$html = WPPDF_Filters::render( array( 'action' => get_permalink() ? get_permalink() : home_url( '/' ) ) ) . $html;
+		}
 
 		return $html;
 	}

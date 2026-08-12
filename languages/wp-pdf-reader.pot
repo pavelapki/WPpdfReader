@@ -10,7 +10,7 @@ msgstr ""
 "POT-Creation-Date: 2026-08-11T00:00:00+00:00\n"
 "X-Domain: wp-pdf-reader\n"
 
-#: includes/class-wppdf-settings.php:344
+#: includes/class-wppdf-settings.php:345
 msgid "%1$d documents were moved from \"%2$s\" to \"%3$s\"."
 msgstr ""
 
@@ -22,7 +22,7 @@ msgstr ""
 msgid "%1$d of %2$d"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:673
+#: includes/class-wppdf-admin.php:674
 msgid "%1$d of %2$d documents have no extracted text yet."
 msgstr ""
 
@@ -58,12 +58,20 @@ msgstr ""
 msgid "Add new %s"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:297
+#: includes/class-wppdf-viewer.php:297 templates/parts/filters.php:47 templates/parts/filters.php:75
 msgid "All"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:298
 msgid "All languages"
+msgstr ""
+
+#: templates/parts/filters.php:39
+msgid "Also inside the documents…"
+msgstr ""
+
+#: templates/parts/filters.php:61
+msgid "Any language"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:575
@@ -82,12 +90,16 @@ msgstr ""
 msgid "Ascending"
 msgstr ""
 
-#: includes/class-wppdf-settings.php:259
+#: includes/class-wppdf-settings.php:260
 msgid "At least one language is required. The default languages were restored."
 msgstr ""
 
 #: assets/js/blocks.js:91 includes/class-wppdf-admin.php:553
 msgid "Automatic"
+msgstr ""
+
+#: templates/parts/filters.php:59
+msgid "Available in"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:568
@@ -102,12 +114,16 @@ msgstr ""
 msgid "Categories"
 msgstr ""
 
-#: includes/class-wppdf-importer.php:94
+#: includes/class-wppdf-importer.php:94 templates/parts/filters.php:45
 msgid "Category"
 msgstr ""
 
 #: assets/js/blocks.js:188
 msgid "Category slug"
+msgstr ""
+
+#: templates/parts/filters.php:100
+msgid "Clear"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:144
@@ -138,7 +154,7 @@ msgstr ""
 msgid "Copy this link:"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:700
+#: includes/class-wppdf-admin.php:701
 msgid "Count views and downloads per language"
 msgstr ""
 
@@ -226,7 +242,7 @@ msgstr ""
 msgid "Download"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:734 includes/class-wppdf-shortcodes.php:210
+#: includes/class-wppdf-admin.php:735 includes/class-wppdf-shortcodes.php:221
 msgid "Download PDF"
 msgstr ""
 
@@ -254,11 +270,11 @@ msgstr ""
 msgid "Everything is indexed."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:666
+#: includes/class-wppdf-admin.php:667
 msgid "Existing documents"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:624
+#: includes/class-wppdf-admin.php:625
 msgid "Extract the text of uploaded PDFs in the background"
 msgstr ""
 
@@ -268,6 +284,10 @@ msgstr ""
 
 #: includes/class-wppdf-meta.php:174
 msgid "Fallback order: %s"
+msgstr ""
+
+#: templates/parts/filters.php:97
+msgid "Filter"
 msgstr ""
 
 #: assets/js/blocks.js:186
@@ -290,15 +310,19 @@ msgstr ""
 msgid "From"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:696
+#: includes/class-wppdf-admin.php:697
 msgid "Front end"
+msgstr ""
+
+#: includes/class-wppdf-admin.php:608
+msgid "Full text, category, language and year, plus sorting. The same filters can be put anywhere with [pdf_grid filters=\"1\"]."
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:80 includes/class-wppdf-viewer.php:289
 msgid "Fullscreen"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:609
+#: includes/class-wppdf-admin.php:610
 msgid "Generate a cover image from the first page when a PDF is uploaded"
 msgstr ""
 
@@ -318,7 +342,7 @@ msgstr ""
 msgid "Height (px)"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:612
+#: includes/class-wppdf-admin.php:613
 msgid "Imagick with PDF support is not available on this server, so covers cannot be generated. Featured images are used instead."
 msgstr ""
 
@@ -334,7 +358,7 @@ msgstr ""
 msgid "Import these PDFs"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:681
+#: includes/class-wppdf-admin.php:682
 msgid "Index them now"
 msgstr ""
 
@@ -366,7 +390,7 @@ msgstr ""
 msgid "Language: %s"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:479 includes/class-wppdf-admin.php:644
+#: includes/class-wppdf-admin.php:479 includes/class-wppdf-admin.php:645
 msgid "Languages"
 msgstr ""
 
@@ -374,7 +398,7 @@ msgstr ""
 msgid "Languages and fallback"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:718
+#: includes/class-wppdf-admin.php:719
 msgid "Latest release: %1$s, installed: %2$s"
 msgstr ""
 
@@ -386,11 +410,11 @@ msgstr ""
 msgid "Leave empty to use the document the block is placed on."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:625
+#: includes/class-wppdf-admin.php:626
 msgid "Let the site search look inside documents"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:699
+#: includes/class-wppdf-admin.php:700
 msgid "Let visitors switch language versions in the reader toolbar"
 msgstr ""
 
@@ -410,6 +434,10 @@ msgstr ""
 msgid "Loading document…"
 msgstr ""
 
+#: includes/class-wppdf-filters.php:129
+msgid "Manual order"
+msgstr ""
+
 #: includes/class-wppdf-admin.php:455
 msgid "Menu icon"
 msgstr ""
@@ -424,6 +452,10 @@ msgstr ""
 
 #: includes/class-wppdf-post-type.php:170
 msgid "New %s"
+msgstr ""
+
+#: includes/class-wppdf-filters.php:114
+msgid "Newest first"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:268
@@ -478,12 +510,16 @@ msgstr ""
 msgid "Not available"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:657
+#: includes/class-wppdf-admin.php:658
 msgid "OCR needs pdftoppm (poppler) and tesseract on the server. Neither was found, so scans stay unindexed."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:708
+#: includes/class-wppdf-admin.php:709
 msgid "Offer plugin updates from GitHub releases"
+msgstr ""
+
+#: includes/class-wppdf-filters.php:119
+msgid "Oldest first"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:493
@@ -510,7 +546,7 @@ msgstr ""
 msgid "Other language versions"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:701
+#: includes/class-wppdf-admin.php:702
 msgid "Output structured data and Open Graph tags on documents"
 msgstr ""
 
@@ -542,7 +578,7 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:648
+#: includes/class-wppdf-admin.php:649
 msgid "Pages at most"
 msgstr ""
 
@@ -586,11 +622,11 @@ msgstr ""
 msgid "Random"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:685
+#: includes/class-wppdf-admin.php:686
 msgid "Re-extract everything, including documents that already have text"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:641
+#: includes/class-wppdf-admin.php:642
 msgid "Read scans with OCR when a document has no text layer"
 msgstr ""
 
@@ -614,8 +650,12 @@ msgstr ""
 msgid "Remove this language? Files already uploaded for it stay in the media library."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:639
+#: includes/class-wppdf-admin.php:640
 msgid "Scanned documents"
+msgstr ""
+
+#: templates/parts/filters.php:33
+msgid "Search"
 msgstr ""
 
 #: includes/class-wppdf-post-type.php:176
@@ -626,7 +666,7 @@ msgstr ""
 msgid "Search in the document"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:618
+#: includes/class-wppdf-admin.php:619
 msgid "Search, statistics and updates"
 msgstr ""
 
@@ -670,7 +710,7 @@ msgstr ""
 msgid "Share the post categories and tags"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:729
+#: includes/class-wppdf-admin.php:730
 msgid "Shortcodes"
 msgstr ""
 
@@ -684,6 +724,10 @@ msgstr ""
 
 #: assets/js/blocks.js:110 includes/class-wppdf-admin.php:572
 msgid "Show the download button"
+msgstr ""
+
+#: includes/class-wppdf-admin.php:608
+msgid "Show the filter bar on the document archive"
 msgstr ""
 
 #: includes/class-wppdf-admin.php:573
@@ -706,6 +750,10 @@ msgstr ""
 msgid "Singular"
 msgstr ""
 
+#: templates/parts/filters.php:86
+msgid "Sort by"
+msgstr ""
+
 #: includes/class-wppdf-admin.php:516
 msgid "Take the current language from WPML or Polylang when active"
 msgstr ""
@@ -722,15 +770,15 @@ msgstr ""
 msgid "Templates and covers"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:661
+#: includes/class-wppdf-admin.php:662
 msgid "Tesseract language codes joined with a plus, for example ces+eng."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:621
+#: includes/class-wppdf-admin.php:622
 msgid "Text in PDFs"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:690
+#: includes/class-wppdf-admin.php:691
 msgid "Text is extracted when a file is saved, so documents added before this feature existed need one pass. Large libraries are better served by WP-CLI: wp pdf-reader reindex"
 msgstr ""
 
@@ -750,15 +798,15 @@ msgstr ""
 msgid "The import request failed."
 msgstr ""
 
-#: includes/class-wppdf-settings.php:205
+#: includes/class-wppdf-settings.php:206
 msgid "The post type key is empty or reserved by WordPress. The previous value was kept."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:711
+#: includes/class-wppdf-admin.php:712
 msgid "The repository in owner/name form. The newest published release is offered as an update."
 msgstr ""
 
-#: includes/class-wppdf-settings.php:329
+#: includes/class-wppdf-settings.php:330
 msgid "The repository must be given as owner/name. The previous value was kept."
 msgstr ""
 
@@ -794,6 +842,10 @@ msgstr ""
 msgid "Title"
 msgstr ""
 
+#: includes/class-wppdf-filters.php:124
+msgid "Title A–Z"
+msgstr ""
+
 #: includes/class-wppdf-admin.php:432
 msgid "URL slug"
 msgstr ""
@@ -810,7 +862,7 @@ msgstr ""
 msgid "Untitled document"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:706
+#: includes/class-wppdf-admin.php:707
 msgid "Updates from GitHub"
 msgstr ""
 
@@ -822,7 +874,7 @@ msgstr ""
 msgid "Use as cover image"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:608
+#: includes/class-wppdf-admin.php:609
 msgid "Use the bundled archive and single templates when the theme has none"
 msgstr ""
 
@@ -840,6 +892,10 @@ msgstr ""
 
 #: assets/js/blocks.js:30
 msgid "Visitor language (with fallback)"
+msgstr ""
+
+#: templates/parts/filters.php:73
+msgid "Year"
 msgstr ""
 
 #: includes/class-wppdf-importer.php:132
@@ -874,19 +930,31 @@ msgstr ""
 msgid "or external URL:"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:655
+#: includes/class-wppdf-admin.php:656
 msgid "pdftoppm and tesseract were found. OCR only runs for documents with no text layer at all, on a scheduled event, and is slow — keep the page limit sensible."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:630
+#: includes/class-wppdf-admin.php:631
 msgid "pdftotext was found on this server, so extraction is fast and accurate."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:632
+#: includes/class-wppdf-admin.php:633
 msgid "pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs."
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:303
 msgid "to"
 msgstr ""
+
+#: includes/class-wppdf-admin.php
+msgid "%d page"
+msgid_plural "%d pages"
+msgstr[0] ""
+msgstr[1] ""
+
+#: templates/archive-document.php
+msgid "%d document found"
+msgid_plural "%d documents found"
+msgstr[0] ""
+msgstr[1] ""
 

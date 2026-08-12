@@ -49,6 +49,7 @@ class WPPDF_Plugin {
 			'cover'      => new WPPDF_Cover(),
 			'text'       => new WPPDF_Text(),
 			'search'     => new WPPDF_Search(),
+			'filters'    => new WPPDF_Filters(),
 			'stats'      => new WPPDF_Stats(),
 			'seo'        => new WPPDF_Seo(),
 			'protection' => new WPPDF_Protection(),

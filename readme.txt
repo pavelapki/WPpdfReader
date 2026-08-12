@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,12 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.3.0 =
+* Filter bar on the document archive: full text that also reaches inside the
+  PDFs, category, language, year and sorting, all kept in the URL so a result
+  can be linked. Available anywhere through [pdf_grid filters="1"].
+* Czech plural forms are now translated properly.
 
 = 1.2.0 =
 * Links inside PDFs are clickable, both external ones and jumps within the

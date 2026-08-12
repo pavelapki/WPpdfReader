@@ -24,6 +24,25 @@ get_header();
 	</header>
 
 	<?php
+	if ( WPPDF_Settings::get( 'archive_filters' ) ) {
+		echo WPPDF_Filters::render(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output.
+
+		if ( WPPDF_Filters::is_filtered() ) {
+			$wppdf_found = (int) $GLOBALS['wp_query']->found_posts;
+
+			printf(
+				'<p class="wppdf-archive__count">%s</p>',
+				esc_html(
+					sprintf(
+						/* translators: %d: number of documents found. */
+						_n( '%d document found', '%d documents found', $wppdf_found, 'wp-pdf-reader' ),
+						$wppdf_found
+					)
+				)
+			);
+		}
+	}
+
 	echo WPPDF_Templates::get_part( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output.
 		'parts/archive-loop.php',
 		array(

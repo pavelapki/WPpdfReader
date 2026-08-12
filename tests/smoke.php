@@ -99,7 +99,15 @@ class WP_Query {
 // --- Sanitizing / escaping ----------------------------------------------.
 function absint( $v ) { return abs( (int) $v ); }
 function sanitize_key( $v ) { return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $v ) ); }
-function sanitize_title( $v ) { return preg_replace( '/[^a-z0-9\-]/', '', strtolower( str_replace( ' ', '-', (string) $v ) ) ); }
+function sanitize_title( $v ) {
+	$v = (string) $v;
+	if ( function_exists( 'iconv' ) ) {
+		$converted = @iconv( 'UTF-8', 'ASCII//TRANSLIT//IGNORE', $v );
+		if ( false !== $converted ) { $v = $converted; }
+	}
+	$v = strtolower( str_replace( array( ' ', '_' ), '-', $v ) );
+	return trim( preg_replace( '/-+/', '-', preg_replace( '/[^a-z0-9\-]/', '', $v ) ), '-' );
+}
 function sanitize_text_field( $v ) { return trim( strip_tags( (string) $v ) ); }
 function sanitize_html_class( $v ) { return preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $v ); }
 function sanitize_file_name( $v ) { return preg_replace( '/[^A-Za-z0-9_\-\.]/', '-', (string) $v ); }
@@ -184,6 +192,9 @@ function get_query_var( $v, $d = '' ) { return isset( $GLOBALS['stub_query_vars'
 function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function update_attached_file( $id, $file ) { $GLOBALS['stub_posts'][ $id ]['file'] = $file; return true; }
 function wp_using_ext_object_cache() { return false; }
+function get_terms( $args = array() ) { return $GLOBALS['stub_terms']; }
+function get_post_type_archive_link( $t ) { return 'https://example.test/pdf/'; }
+$GLOBALS['stub_terms'] = array( (object) array( 'slug' => 'vyrocni-zpravy', 'name' => 'Výroční zprávy' ) );
 function wp_cache_get( $k, $g = '' ) { return false; }
 function wp_cache_set( $k, $v, $g = '', $t = 0 ) { return true; }
 function wp_cache_delete( $k, $g = '' ) { return true; }
@@ -267,6 +278,7 @@ class Stub_WPDB {
 	public function query( $q ) { return 1; }
 	public function get_col( $q ) { return array( 10, 11 ); }
 	public function prepare( $q, ...$a ) {
+		if ( 1 === count( $a ) && is_array( $a[0] ) ) { $a = $a[0]; }
 		foreach ( $a as $value ) {
 			$q = preg_replace( '/%[sd]/', is_int( $value ) ? (string) $value : "'" . $value . "'", $q, 1 );
 		}
@@ -570,6 +582,60 @@ WPPDF_Reindex::index_document( 12, false, false );
 $indexed_text = get_post_meta( 12, WPPDF_Text::text_meta_key( 'cs' ), true );
 ok( 'backfill stored the text', false !== strpos( (string) $indexed_text, 'Doindexovany dokument' ) );
 ok( 'backfill stored the page count', 1 === (int) get_post_meta( 12, WPPDF_Text::pages_meta_key( 'cs' ), true ) );
+
+
+echo "\n== Archive filters ==\n";
+$_GET = array(
+	WPPDF_Filters::VAR_SEARCH   => '  hospodaření  ',
+	WPPDF_Filters::VAR_CATEGORY => 'Výroční Zprávy',
+	WPPDF_Filters::VAR_LANGUAGE => 'EN',
+	WPPDF_Filters::VAR_YEAR     => '2025',
+	WPPDF_Filters::VAR_SORT     => 'title',
+);
+
+$selected = WPPDF_Filters::get_current();
+ok( 'search term trimmed', 'hospodaření' === $selected['search'] );
+ok( 'category turned into a slug', 'vyrocni-zpravy' === $selected['category'] );
+ok( 'language code normalised', 'en' === $selected['language'] );
+ok( 'year read as a number', 2025 === $selected['year'] );
+ok( 'filters reported as active', true === WPPDF_Filters::is_filtered() );
+
+$filter_args = WPPDF_Filters::apply_to_args( array( 'posts_per_page' => 12 ) );
+ok( 'search passed to the query', 'hospodaření' === $filter_args['s'] );
+ok( 'category became a tax query', 'category' === $filter_args['tax_query'][0]['taxonomy'] && array( 'vyrocni-zpravy' ) === $filter_args['tax_query'][0]['terms'] );
+ok( 'language became a meta query', 'OR' === $filter_args['meta_query'][0]['relation'] && '_wppdf_file_en' === $filter_args['meta_query'][0][0]['key'] );
+ok( 'year became a date query', 2025 === $filter_args['date_query'][0]['year'] );
+ok( 'sorting applied', 'title' === $filter_args['orderby'] && 'ASC' === $filter_args['order'] );
+ok( 'other arguments survive', 12 === $filter_args['posts_per_page'] );
+
+// A term the filter does not know about must not reach the query.
+$_GET[ WPPDF_Filters::VAR_LANGUAGE ] = 'zz';
+$_GET[ WPPDF_Filters::VAR_SORT ]     = '; DROP TABLE';
+$hostile = WPPDF_Filters::get_current();
+ok( 'unknown language dropped', '' === $hostile['language'] );
+ok( 'unknown sort dropped', '' === $hostile['sort'] );
+$hostile_args = WPPDF_Filters::apply_to_args( array() );
+ok( 'no meta query without a language', ! isset( $hostile_args['meta_query'] ) );
+ok( 'no ordering without a sort', ! isset( $hostile_args['orderby'] ) );
+
+// The filter sets only the term, so the query is not a search query — the
+// text join has to key off the term itself.
+$filtered_query = new WP_Query( array( 's' => 'hospodaření', 'post_type' => 'pdf_document' ) );
+$search_widened = ( new WPPDF_Search() )->search(
+	" AND (((wp_posts.post_title LIKE '%hospoda%')))",
+	$filtered_query
+);
+ok( 'filtered archive still searches inside PDFs', false !== strpos( $search_widened, 'wppdf_text.meta_value' ) );
+
+$GLOBALS['stub_query_ids'] = array( 10 );
+$filter_form = ( new WPPDF_Shortcodes() )->grid( array( 'filters' => '1' ) );
+ok( 'shortcode renders the filter form', false !== strpos( $filter_form, 'wppdf-filters' ) );
+ok( 'form offers the category', false !== strpos( $filter_form, 'vyrocni-zpravy' ) );
+ok( 'form offers the languages', false !== strpos( $filter_form, 'wppdf-filter-language' ) );
+
+$_GET = array();
+ok( 'no filters means nothing is active', false === WPPDF_Filters::is_filtered() );
+ok( 'no filters leaves the query untouched', array() === WPPDF_Filters::apply_to_args( array() ) );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

@@ -37,10 +37,12 @@ class WPPDF_Search {
 			return false;
 		}
 
-		if ( ! is_a( $query, 'WP_Query' ) || ! $query->is_search() ) {
+		if ( ! is_a( $query, 'WP_Query' ) ) {
 			return false;
 		}
 
+		// The archive filter sets only the search term, without turning the
+		// query into a search query, so the term itself is what counts here.
 		if ( '' === trim( (string) $query->get( 's' ) ) ) {
 			return false;
 		}

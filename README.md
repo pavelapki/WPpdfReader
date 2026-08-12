@@ -98,9 +98,8 @@ Ve dvou rovinách:
 (přes WP-Cron, ne v request editace) vytáhne text a uloží k dokumentu. Běžné
 hledání ve WordPressu ho pak prohledává spolu s názvem a popisem. Použije se
 `pdftotext`, pokud je na serveru; jinak zabere vestavěný PHP parser, který
-zvládne většinu textových PDF. Naskenované dokumenty potřebují OCR a
-indexovat je nelze — plugin raději neuloží nic, než aby do indexu nalil
-nesmysly (kontroluje se podíl smysluplných znaků).
+zvládne většinu textových PDF. Plugin raději neuloží nic, než aby do indexu
+nalil nesmysly — kontroluje se podíl smysluplných znaků.
 
 **Naskenované dokumenty.** Sken nemá textovou vrstvu, takže z něj nic vytáhnout
 nejde. Když jsou na serveru `pdftoppm` a `tesseract`, plugin takový dokument
@@ -123,6 +122,31 @@ uvnitř prohlížeče otevře hledání v dokumentu místo v prohlížeči.
 médií a z každého vznikne dokument. Název se odvodí z názvu souboru, dá se
 zvolit jazyk, stav (koncept/publikováno) a kategorie. Zpracovává se po
 dávkách po 20 souborech, aby žádný request neběžel dlouho.
+
+## Filtrování archivu
+
+Nad výpisem dokumentů je lišta s fulltextem, kategorií, jazykem, rokem
+a řazením. Vypíná se v nastavení.
+
+* **Fulltext** hledá i uvnitř PDF — používá stejný index jako vyhledávání na
+  webu. Nastavuje se přitom jen hledaný výraz, ne příznak „tohle je
+  vyhledávání“, takže archiv si nechá svou šablonu a nespadne do `search.php`.
+* **Jazyk** znamená „dokumenty, které mají soubor v tomto jazyce“, ne jazyk
+  návštěvníka. Hodí se, když chceš vidět, co existuje anglicky.
+* **Rok** se nabízí jen z let, ve kterých nějaký dokument je; seznam se cachuje
+  a zneplatní při uložení nebo smazání dokumentu.
+* **Řazení**: od nejnovějších, od nejstarších, podle názvu, nebo ruční pořadí
+  (pole Pořadí u dokumentu).
+
+Stejnou lištu jde umístit kamkoli:
+
+```
+[pdf_grid filters="1" per_page="24" pagination="1"]
+```
+
+Filtry se drží v URL (`?wppdf_q=…&wppdf_lang_filter=en`), takže výsledek jde
+poslat odkazem. Formulář se dá přepsat v tématu jako
+`wp-pdf-reader/parts/filters.php`.
 
 ## Dokumenty jen pro přihlášené
 

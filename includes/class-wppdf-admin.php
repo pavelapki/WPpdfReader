@@ -605,6 +605,7 @@ class WPPDF_Admin {
 						<th scope="row"><?php esc_html_e( 'Templates and covers', 'wp-pdf-reader' ); ?></th>
 						<td>
 							<?php
+							$this->checkbox( 'archive_filters', __( 'Show the filter bar on the document archive', 'wp-pdf-reader' ), __( 'Full text, category, language and year, plus sorting. The same filters can be put anywhere with [pdf_grid filters="1"].', 'wp-pdf-reader' ) );
 							$this->checkbox( 'override_templates', __( 'Use the bundled archive and single templates when the theme has none', 'wp-pdf-reader' ) );
 							$this->checkbox( 'generate_covers', __( 'Generate a cover image from the first page when a PDF is uploaded', 'wp-pdf-reader' ) );
 							?>
