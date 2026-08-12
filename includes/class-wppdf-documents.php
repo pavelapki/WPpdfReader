@@ -18,6 +18,43 @@ class WPPDF_Documents {
 	const META_URL = '_wppdf_url_';
 
 	/**
+	 * Register hooks.
+	 */
+	public function hooks() {
+		add_filter( 'the_posts', array( $this, 'prime_from_query' ), 10, 2 );
+	}
+
+	/**
+	 * Warm the caches for any query that returned documents.
+	 *
+	 * Catching it here covers the archive, the admin list table, shortcodes
+	 * and blocks in one place, instead of every caller remembering to do it.
+	 *
+	 * @param array $posts Posts returned by the query.
+	 * @return array
+	 */
+	public function prime_from_query( $posts ) {
+		if ( empty( $posts ) || ! is_array( $posts ) ) {
+			return $posts;
+		}
+
+		$supported = WPPDF_Post_Type::get_supported_post_types();
+		$ids       = array();
+
+		foreach ( $posts as $post ) {
+			if ( is_object( $post ) && isset( $post->post_type ) && in_array( $post->post_type, $supported, true ) ) {
+				$ids[] = $post->ID;
+			}
+		}
+
+		if ( ! empty( $ids ) ) {
+			self::prime_caches( $ids );
+		}
+
+		return $posts;
+	}
+
+	/**
 	 * Resolved files, keyed by post + requested language.
 	 *
 	 * @var array
@@ -312,6 +349,51 @@ class WPPDF_Documents {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Warm the object cache for the attachments a set of documents points at.
+	 *
+	 * Resolving a file touches the attachment post and its meta, so a grid of
+	 * twelve documents would otherwise fire dozens of single row queries. One
+	 * primed lookup replaces all of them.
+	 *
+	 * @param int[] $post_ids Document IDs.
+	 */
+	public static function prime_caches( array $post_ids ) {
+		$post_ids = array_filter( array_map( 'absint', $post_ids ) );
+
+		if ( empty( $post_ids ) ) {
+			return;
+		}
+
+		// The documents' own meta is what holds the attachment ids.
+		update_meta_cache( 'post', $post_ids );
+
+		$attachment_ids = array();
+		$codes          = WPPDF_Languages::get_codes();
+
+		foreach ( $post_ids as $post_id ) {
+			foreach ( $codes as $code ) {
+				$file = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
+
+				if ( $file ) {
+					$attachment_ids[] = $file;
+				}
+
+				$cover = absint( get_post_meta( $post_id, WPPDF_Languages::cover_meta_key( $code ), true ) );
+
+				if ( $cover ) {
+					$attachment_ids[] = $cover;
+				}
+			}
+		}
+
+		$attachment_ids = array_values( array_unique( $attachment_ids ) );
+
+		if ( ! empty( $attachment_ids ) && function_exists( '_prime_post_caches' ) ) {
+			_prime_post_caches( $attachment_ids, false, true );
+		}
 	}
 
 	/**

@@ -43,6 +43,29 @@ class WPPDF_Reindex {
 	 * @return int[]
 	 */
 	public static function get_document_ids( $only_missing = true, $limit = 0, $offset = 0 ) {
+		return self::query_documents( $only_missing, $limit, $offset, false );
+	}
+
+	/**
+	 * How many documents match, without pulling every ID into PHP.
+	 *
+	 * @param bool $only_missing Limit to documents without an index yet.
+	 * @return int
+	 */
+	public static function count_documents( $only_missing = true ) {
+		return (int) self::query_documents( $only_missing, 0, 0, true );
+	}
+
+	/**
+	 * Shared query for both the list and the count.
+	 *
+	 * @param bool $only_missing Limit to documents without an index yet.
+	 * @param int  $limit        Maximum IDs to return, 0 for all.
+	 * @param int  $offset       Offset for batching.
+	 * @param bool $count_only   Return the number of matches instead of IDs.
+	 * @return int[]|int
+	 */
+	protected static function query_documents( $only_missing, $limit, $offset, $count_only ) {
 		global $wpdb;
 
 		$post_types = WPPDF_Post_Type::get_supported_post_types();
@@ -51,7 +74,9 @@ class WPPDF_Reindex {
 		$file_prefix = $wpdb->esc_like( WPPDF_Languages::META_FILE ) . '%';
 		$text_prefix = $wpdb->esc_like( WPPDF_Text::META_TEXT ) . '%';
 
-		$sql = "SELECT DISTINCT p.ID
+		$select = $count_only ? 'COUNT( DISTINCT p.ID )' : 'DISTINCT p.ID';
+
+		$sql = "SELECT {$select}
 			FROM {$wpdb->posts} AS p
 			INNER JOIN {$wpdb->postmeta} AS f ON ( f.post_id = p.ID AND f.meta_key LIKE %s AND f.meta_value != '' )
 			WHERE p.post_type IN ( {$types} )
@@ -62,6 +87,11 @@ class WPPDF_Reindex {
 		if ( $only_missing ) {
 			$sql     .= " AND NOT EXISTS ( SELECT 1 FROM {$wpdb->postmeta} AS t WHERE t.post_id = p.ID AND t.meta_key LIKE %s AND t.meta_value != '' )";
 			$params[] = $text_prefix;
+		}
+
+		if ( $count_only ) {
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+			return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
 		}
 
 		$sql .= ' ORDER BY p.ID ASC';
@@ -85,8 +115,8 @@ class WPPDF_Reindex {
 	 */
 	public static function get_progress() {
 		return array(
-			'total'   => count( self::get_document_ids( false ) ),
-			'pending' => count( self::get_document_ids( true ) ),
+			'total'   => self::count_documents( false ),
+			'pending' => self::count_documents( true ),
 		);
 	}
 

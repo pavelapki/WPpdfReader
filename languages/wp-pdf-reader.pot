@@ -34,7 +34,7 @@ msgstr ""
 msgid "%1$s cover (%2$s)"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:182
+#: includes/class-wppdf-post-type.php:204
 msgid "%s archive"
 msgstr ""
 
@@ -50,11 +50,11 @@ msgstr ""
 msgid "Add language"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:166
+#: includes/class-wppdf-post-type.php:188
 msgid "Add new"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:165
+#: includes/class-wppdf-post-type.php:187
 msgid "Add new %s"
 msgstr ""
 
@@ -110,7 +110,7 @@ msgstr ""
 msgid "Cancel"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:137
+#: includes/class-wppdf-post-type.php:159
 msgid "Categories"
 msgstr ""
 
@@ -162,7 +162,7 @@ msgstr ""
 msgid "Cover"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:183
+#: includes/class-wppdf-post-type.php:205
 msgid "Cover image"
 msgstr ""
 
@@ -206,11 +206,11 @@ msgstr ""
 msgid "Document ID"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:135
+#: includes/class-wppdf-post-type.php:157
 msgid "Document categories"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:136
+#: includes/class-wppdf-post-type.php:158
 msgid "Document category"
 msgstr ""
 
@@ -250,7 +250,7 @@ msgstr ""
 msgid "Draft"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:168
+#: includes/class-wppdf-post-type.php:190
 msgid "Edit %s"
 msgstr ""
 
@@ -450,7 +450,7 @@ msgstr ""
 msgid "Missing %s file"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:170
+#: includes/class-wppdf-post-type.php:192
 msgid "New %s"
 msgstr ""
 
@@ -466,11 +466,11 @@ msgstr ""
 msgid "Next page"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:178
+#: includes/class-wppdf-post-type.php:200
 msgid "No %s found"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:180
+#: includes/class-wppdf-post-type.php:202
 msgid "No %s found in Trash"
 msgstr ""
 
@@ -506,7 +506,7 @@ msgstr ""
 msgid "Not a PDF file."
 msgstr ""
 
-#: includes/class-wppdf-protection.php:207
+#: includes/class-wppdf-protection.php:253
 msgid "Not available"
 msgstr ""
 
@@ -638,7 +638,7 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:185
+#: includes/class-wppdf-post-type.php:207
 msgid "Remove cover image"
 msgstr ""
 
@@ -658,7 +658,7 @@ msgstr ""
 msgid "Search"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:176
+#: includes/class-wppdf-post-type.php:198
 msgid "Search %s"
 msgstr ""
 
@@ -698,7 +698,7 @@ msgstr ""
 msgid "Select the PDFs to import"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:184
+#: includes/class-wppdf-post-type.php:206
 msgid "Set cover image"
 msgstr ""
 
@@ -742,7 +742,11 @@ msgstr ""
 msgid "Shown in the admin menu and on archive pages."
 msgstr ""
 
-#: includes/class-wppdf-protection.php:200
+#: includes/class-wppdf-protection.php:244
+msgid "Sign in"
+msgstr ""
+
+#: includes/class-wppdf-protection.php:246
 msgid "Sign in required"
 msgstr ""
 
@@ -826,11 +830,11 @@ msgstr ""
 msgid "This document is not available in your language, showing the %s version."
 msgstr ""
 
-#: includes/class-wppdf-protection.php:206
+#: includes/class-wppdf-protection.php:252
 msgid "This document is not available."
 msgstr ""
 
-#: includes/class-wppdf-protection.php:199
+#: includes/class-wppdf-protection.php:242
 msgid "This document is only available to logged in users."
 msgstr ""
 
@@ -870,7 +874,7 @@ msgstr ""
 msgid "Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain."
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:186
+#: includes/class-wppdf-post-type.php:208
 msgid "Use as cover image"
 msgstr ""
 
@@ -882,7 +886,7 @@ msgstr ""
 msgid "Use this PDF"
 msgstr ""
 
-#: includes/class-wppdf-post-type.php:172 includes/class-wppdf-post-type.php:174
+#: includes/class-wppdf-post-type.php:194 includes/class-wppdf-post-type.php:196
 msgid "View %s"
 msgstr ""
 
@@ -902,7 +906,7 @@ msgstr ""
 msgid "You are not allowed to create documents."
 msgstr ""
 
-#: includes/class-wppdf-reindex.php:133
+#: includes/class-wppdf-reindex.php:163
 msgid "You are not allowed to reindex documents."
 msgstr ""
 

@@ -46,6 +46,7 @@ class WPPDF_Plugin {
 		$this->components = array(
 			'settings'   => new WPPDF_Settings(),
 			'post_type'  => new WPPDF_Post_Type(),
+			'documents'  => new WPPDF_Documents(),
 			'cover'      => new WPPDF_Cover(),
 			'text'       => new WPPDF_Text(),
 			'search'     => new WPPDF_Search(),
@@ -97,6 +98,8 @@ class WPPDF_Plugin {
 	public function flush_caches() {
 		WPPDF_Settings::flush_cache();
 		WPPDF_Languages::flush_cache();
+		WPPDF_Post_Type::flush_cache();
+		WPPDF_Documents::flush_cache();
 	}
 
 	/**

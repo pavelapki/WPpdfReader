@@ -163,7 +163,7 @@ function wp_verify_nonce() { return true; }
 function wp_is_post_revision() { return false; }
 function wp_is_post_autosave() { return false; }
 function get_current_screen() { return null; }
-function wp_upload_dir() { return array( 'path' => '/tmp', 'error' => false ); }
+function wp_upload_dir() { return array( 'path' => '/tmp', 'basedir' => '/tmp', 'baseurl' => 'https://example.test/uploads', 'subdir' => '', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { return $name; }
 function wp_insert_attachment() { return 0; }
 function wp_update_attachment_metadata() {}
@@ -192,6 +192,12 @@ function get_query_var( $v, $d = '' ) { return isset( $GLOBALS['stub_query_vars'
 function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function update_attached_file( $id, $file ) { $GLOBALS['stub_posts'][ $id ]['file'] = $file; return true; }
 function wp_using_ext_object_cache() { return false; }
+function _prime_post_caches( $ids, $terms = true, $meta = true ) { $GLOBALS['stub_primed'] = array_merge( isset( $GLOBALS['stub_primed'] ) ? $GLOBALS['stub_primed'] : array(), (array) $ids ); }
+function update_meta_cache( $type, $ids ) { return true; }
+function wp_get_attachment_metadata( $id ) { return isset( $GLOBALS['stub_attachment_meta'][ $id ] ) ? $GLOBALS['stub_attachment_meta'][ $id ] : array(); }
+function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+function wp_safe_redirect( $u, $s = 302 ) { $GLOBALS['stub_redirect'] = $u; return true; }
+$GLOBALS['stub_primed'] = array();
 function get_terms( $args = array() ) { return $GLOBALS['stub_terms']; }
 function get_post_type_archive_link( $t ) { return 'https://example.test/pdf/'; }
 $GLOBALS['stub_terms'] = array( (object) array( 'slug' => 'vyrocni-zpravy', 'name' => 'Výroční zprávy' ) );
@@ -277,6 +283,7 @@ class Stub_WPDB {
 	public function esc_like( $t ) { return addcslashes( (string) $t, '_%\\' ); }
 	public function query( $q ) { return 1; }
 	public function get_col( $q ) { return array( 10, 11 ); }
+	public function get_var( $q ) { return 2; }
 	public function prepare( $q, ...$a ) {
 		if ( 1 === count( $a ) && is_array( $a[0] ) ) { $a = $a[0]; }
 		foreach ( $a as $value ) {
@@ -636,6 +643,32 @@ ok( 'form offers the languages', false !== strpos( $filter_form, 'wppdf-filter-l
 $_GET = array();
 ok( 'no filters means nothing is active', false === WPPDF_Filters::is_filtered() );
 ok( 'no filters leaves the query untouched', array() === WPPDF_Filters::apply_to_args( array() ) );
+
+
+echo "\n== Cache priming ==\n";
+$GLOBALS['stub_primed'] = array();
+$GLOBALS['stub_posts'][60] = array( 'ID' => 60, 'post_type' => 'pdf_document', 'post_title' => 'Karta' );
+update_post_meta( 60, '_wppdf_file_cs', 20 );
+update_post_meta( 60, '_wppdf_file_en', 21 );
+update_post_meta( 60, '_wppdf_cover_cs', 22 );
+
+$documents = new WPPDF_Documents();
+$documents->prime_from_query( array( (object) array( 'ID' => 60, 'post_type' => 'pdf_document' ) ) );
+
+ok( 'files primed in one batch', in_array( 20, $GLOBALS['stub_primed'], true ) && in_array( 21, $GLOBALS['stub_primed'], true ) );
+ok( 'covers primed too', in_array( 22, $GLOBALS['stub_primed'], true ) );
+
+$GLOBALS['stub_primed'] = array();
+$documents->prime_from_query( array( (object) array( 'ID' => 5, 'post_type' => 'page' ) ) );
+ok( 'other post types are skipped', array() === $GLOBALS['stub_primed'] );
+
+echo "\n== Reindex counting ==\n";
+ok( 'counting returns a number, not a list of IDs', is_int( WPPDF_Reindex::count_documents( false ) ) );
+
+echo "\n== Protected delivery ==\n";
+ok( 'a path inside uploads is accepted', true === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/wppdf-inside.pdf' ) ) );
+ok( 'a path outside uploads is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/etc/passwd' ) ) );
+ok( 'a traversal attempt is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/../etc/passwd' ) ) );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

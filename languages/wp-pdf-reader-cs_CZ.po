@@ -35,7 +35,7 @@ msgstr "%1$d zobrazení, %2$d stažení"
 msgid "%1$s cover (%2$s)"
 msgstr "%1$s – obálka (%2$s)"
 
-#: includes/class-wppdf-post-type.php:182
+#: includes/class-wppdf-post-type.php:204
 msgid "%s archive"
 msgstr "Archiv: %s"
 
@@ -51,11 +51,11 @@ msgstr "Přidat samostatnou taxonomii kategorií dokumentů"
 msgid "Add language"
 msgstr "Přidat jazyk"
 
-#: includes/class-wppdf-post-type.php:166
+#: includes/class-wppdf-post-type.php:188
 msgid "Add new"
 msgstr "Přidat nový"
 
-#: includes/class-wppdf-post-type.php:165
+#: includes/class-wppdf-post-type.php:187
 msgid "Add new %s"
 msgstr "Přidat %s"
 
@@ -111,7 +111,7 @@ msgstr "Chování"
 msgid "Cancel"
 msgstr "Zrušit"
 
-#: includes/class-wppdf-post-type.php:137
+#: includes/class-wppdf-post-type.php:159
 msgid "Categories"
 msgstr "Kategorie"
 
@@ -163,7 +163,7 @@ msgstr "Počítat zobrazení a stažení po jazycích"
 msgid "Cover"
 msgstr "Obálka"
 
-#: includes/class-wppdf-post-type.php:183
+#: includes/class-wppdf-post-type.php:205
 msgid "Cover image"
 msgstr "Obrázek obálky"
 
@@ -207,11 +207,11 @@ msgstr "Dokument"
 msgid "Document ID"
 msgstr "ID dokumentu"
 
-#: includes/class-wppdf-post-type.php:135
+#: includes/class-wppdf-post-type.php:157
 msgid "Document categories"
 msgstr "Kategorie dokumentů"
 
-#: includes/class-wppdf-post-type.php:136
+#: includes/class-wppdf-post-type.php:158
 msgid "Document category"
 msgstr "Kategorie dokumentu"
 
@@ -251,7 +251,7 @@ msgstr "Stáhnout PDF"
 msgid "Draft"
 msgstr "Koncept"
 
-#: includes/class-wppdf-post-type.php:168
+#: includes/class-wppdf-post-type.php:190
 msgid "Edit %s"
 msgstr "Upravit %s"
 
@@ -451,7 +451,7 @@ msgstr "Pořadí v menu"
 msgid "Missing %s file"
 msgstr "Chybí soubor: %s"
 
-#: includes/class-wppdf-post-type.php:170
+#: includes/class-wppdf-post-type.php:192
 msgid "New %s"
 msgstr "Nový %s"
 
@@ -467,11 +467,11 @@ msgstr "Další výskyt"
 msgid "Next page"
 msgstr "Další stránka"
 
-#: includes/class-wppdf-post-type.php:178
+#: includes/class-wppdf-post-type.php:200
 msgid "No %s found"
 msgstr "Nenalezeno: %s"
 
-#: includes/class-wppdf-post-type.php:180
+#: includes/class-wppdf-post-type.php:202
 msgid "No %s found in Trash"
 msgstr "V koši nenalezeno: %s"
 
@@ -507,7 +507,7 @@ msgstr "Žádné výskyty"
 msgid "Not a PDF file."
 msgstr "Není to soubor PDF."
 
-#: includes/class-wppdf-protection.php:207
+#: includes/class-wppdf-protection.php:253
 msgid "Not available"
 msgstr "Není k dispozici"
 
@@ -639,7 +639,7 @@ msgstr "Prohlížeč"
 msgid "Remove"
 msgstr "Odebrat"
 
-#: includes/class-wppdf-post-type.php:185
+#: includes/class-wppdf-post-type.php:207
 msgid "Remove cover image"
 msgstr "Odebrat obrázek obálky"
 
@@ -659,7 +659,7 @@ msgstr "Naskenované dokumenty"
 msgid "Search"
 msgstr "Hledat"
 
-#: includes/class-wppdf-post-type.php:176
+#: includes/class-wppdf-post-type.php:198
 msgid "Search %s"
 msgstr "Hledat %s"
 
@@ -699,7 +699,7 @@ msgstr "Vyberte soubor PDF"
 msgid "Select the PDFs to import"
 msgstr "Vyberte PDF k importu"
 
-#: includes/class-wppdf-post-type.php:184
+#: includes/class-wppdf-post-type.php:206
 msgid "Set cover image"
 msgstr "Nastavit obrázek obálky"
 
@@ -743,7 +743,11 @@ msgstr "Zobrazit lištu nástrojů"
 msgid "Shown in the admin menu and on archive pages."
 msgstr "Zobrazuje se v menu administrace a na stránkách archivu."
 
-#: includes/class-wppdf-protection.php:200
+#: includes/class-wppdf-protection.php:244
+msgid "Sign in"
+msgstr "Přihlásit se"
+
+#: includes/class-wppdf-protection.php:246
 msgid "Sign in required"
 msgstr "Vyžaduje přihlášení"
 
@@ -827,11 +831,11 @@ msgstr "Tento dokument zatím nemá žádný soubor, prohlížeč se proto nezob
 msgid "This document is not available in your language, showing the %s version."
 msgstr "Tento dokument není ve vašem jazyce, zobrazujeme verzi %s."
 
-#: includes/class-wppdf-protection.php:206
+#: includes/class-wppdf-protection.php:252
 msgid "This document is not available."
 msgstr "Tento dokument není k dispozici."
 
-#: includes/class-wppdf-protection.php:199
+#: includes/class-wppdf-protection.php:242
 msgid "This document is only available to logged in users."
 msgstr "Tento dokument je dostupný jen přihlášeným uživatelům."
 
@@ -871,7 +875,7 @@ msgstr "Aktualizace z GitHubu"
 msgid "Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain."
 msgstr "Nahrajte jedno PDF pro každý jazyk. U prázdných jazyků se použije první dostupný jazyk z řetězce náhrad."
 
-#: includes/class-wppdf-post-type.php:186
+#: includes/class-wppdf-post-type.php:208
 msgid "Use as cover image"
 msgstr "Použít jako obrázek obálky"
 
@@ -883,7 +887,7 @@ msgstr "Použít přibalené šablony archivu a detailu, pokud je téma nemá"
 msgid "Use this PDF"
 msgstr "Použít toto PDF"
 
-#: includes/class-wppdf-post-type.php:172 includes/class-wppdf-post-type.php:174
+#: includes/class-wppdf-post-type.php:194 includes/class-wppdf-post-type.php:196
 msgid "View %s"
 msgstr "Zobrazit %s"
 
@@ -903,7 +907,7 @@ msgstr "Rok"
 msgid "You are not allowed to create documents."
 msgstr "Nemáte oprávnění vytvářet dokumenty."
 
-#: includes/class-wppdf-reindex.php:133
+#: includes/class-wppdf-reindex.php:163
 msgid "You are not allowed to reindex documents."
 msgstr "Nemáte oprávnění dokumenty přeindexovat."
 

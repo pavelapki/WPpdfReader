@@ -160,6 +160,16 @@ celý soubor.
 Původní URL souboru tím přestane fungovat — to je záměr, ale počítej s tím,
 pokud jsi ho někam nalinkoval.
 
+Spolu s PDF se přesouvají i **náhledy, které si WordPress z první stránky
+vyrábí sám**. Bez toho by po zamčení dokumentu zůstal v uploads veřejně ležet
+čitelný obrázek první stránky. Co zůstává veřejné, je malá obálka v gridu —
+je to jen dlaždice a název i popis dokumentu jsou stejně veřejné, ale pokud
+nechceš ukazovat ani ji, nastav u chráněného dokumentu vlastní náhledový
+obrázek.
+
+Když ochranu zase vypneš, endpoint na soubor přesměruje, takže odkazy vzniklé
+během ochrany dál fungují a veřejné PDF se nežene přes PHP.
+
 **Na nginxu `.htaccess` nic nedělá.** Metabox na to upozorní; do konfigurace
 serveru je potřeba přidat:
 
@@ -326,6 +336,11 @@ Návrh se drží několika pravidel, aby plugin nebyl drahý:
 * JOIN na text PDF se do dotazu přidá jen při fulltextovém hledání a jen pro
   typy obsahu, kterých se to týká.
 * Dostupnost `pdftotext` i odpověď GitHub API se cachují v transientech.
+* Výpisy si předehřejí cache příloh jednou dávkou. Grid o dvanácti kartách
+  dřív odpálil 48 samostatných dotazů na přílohy, teď žádný — měřeno
+  harnessem v `tests/`.
+* Seznam let a počty dokumentů pro doindexování se počítají v databázi, ne
+  natažením všech ID do PHP.
 
 ## Aktualizace PDF.js
 

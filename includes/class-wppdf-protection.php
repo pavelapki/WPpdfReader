@@ -162,7 +162,7 @@ class WPPDF_Protection {
 		}
 
 		if ( self::is_protected( $post_id ) && ! self::current_user_can_read( $post_id ) ) {
-			self::deny( is_user_logged_in() ? 403 : 401 );
+			self::deny( is_user_logged_in() ? 403 : 401, $post_id );
 		}
 
 		if ( 'publish' !== $post->post_status && ! current_user_can( 'read_post', $post_id ) ) {
@@ -176,9 +176,21 @@ class WPPDF_Protection {
 			self::deny( 404 );
 		}
 
+		// A document that is no longer protected has no business being piped
+		// through PHP: send the client to the file itself, so links that were
+		// generated while it was protected keep working without the overhead.
+		if ( ! self::is_protected( $post_id ) ) {
+			$direct = wp_get_attachment_url( $raw['attachment_id'] );
+
+			if ( $direct ) {
+				wp_safe_redirect( $direct, 302 );
+				exit;
+			}
+		}
+
 		$path = get_attached_file( $raw['attachment_id'] );
 
-		if ( ! $path || ! is_readable( $path ) ) {
+		if ( ! $path || ! is_readable( $path ) || ! self::is_inside_uploads( $path ) ) {
 			self::deny( 404 );
 		}
 
@@ -186,17 +198,51 @@ class WPPDF_Protection {
 	}
 
 	/**
+	 * Whether a path really sits inside the uploads directory.
+	 *
+	 * The path comes from the attachment record rather than the request, but
+	 * this endpoint reads a file from disk and echoes it, so it verifies where
+	 * that file lives before doing so.
+	 *
+	 * @param string $path Absolute file path.
+	 * @return bool
+	 */
+	protected static function is_inside_uploads( $path ) {
+		$uploads = wp_upload_dir();
+
+		if ( ! empty( $uploads['error'] ) ) {
+			return false;
+		}
+
+		$real = realpath( $path );
+		$base = realpath( $uploads['basedir'] );
+
+		if ( ! $real || ! $base ) {
+			return false;
+		}
+
+		return 0 === strpos( $real, trailingslashit( $base ) );
+	}
+
+	/**
 	 * Stop with a status code.
 	 *
 	 * @param int $status HTTP status.
 	 */
-	protected static function deny( $status ) {
+	protected static function deny( $status, $post_id = 0 ) {
 		status_header( $status );
 		nocache_headers();
 
 		if ( 401 === $status ) {
+			$login = wp_login_url( $post_id ? get_permalink( $post_id ) : home_url( '/' ) );
+
 			wp_die(
-				esc_html__( 'This document is only available to logged in users.', 'wp-pdf-reader' ),
+				sprintf(
+					'%s <a href="%s">%s</a>',
+					esc_html__( 'This document is only available to logged in users.', 'wp-pdf-reader' ),
+					esc_url( $login ),
+					esc_html__( 'Sign in', 'wp-pdf-reader' )
+				),
 				esc_html__( 'Sign in required', 'wp-pdf-reader' ),
 				array( 'response' => 401 )
 			);
@@ -259,6 +305,11 @@ class WPPDF_Protection {
 
 		if ( function_exists( 'wp_ob_end_flush_all' ) ) {
 			wp_ob_end_flush_all();
+		}
+
+		// Sending a large file to a slow client must not trip the time limit.
+		if ( function_exists( 'set_time_limit' ) && ! ini_get( 'safe_mode' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Generic.PHP.NoSilencedErrors -- disabled on some hosts.
 		}
 
 		$handle = fopen( $path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- streaming a local file.
@@ -422,8 +473,53 @@ class WPPDF_Protection {
 			return false;
 		}
 
+		self::move_generated_sizes( $attachment_id, dirname( $path ), dirname( $target ) );
+
 		update_attached_file( $attachment_id, $target );
 
 		return true;
+	}
+
+	/**
+	 * Move the preview images WordPress renders for a PDF.
+	 *
+	 * WordPress rasterises the first page of an uploaded PDF into ordinary
+	 * JPEGs next to it. Leaving those behind would publish a readable image of
+	 * page one of a document that was just locked down. Their names live in the
+	 * attachment metadata and are resolved relative to the main file, so moving
+	 * the files is enough — the metadata stays valid.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $from          Directory the file came from.
+	 * @param string $to            Directory the file moved to.
+	 */
+	protected static function move_generated_sizes( $attachment_id, $from, $to ) {
+		$metadata = wp_get_attachment_metadata( $attachment_id );
+
+		if ( ! is_array( $metadata ) || empty( $metadata['sizes'] ) || ! is_array( $metadata['sizes'] ) ) {
+			return;
+		}
+
+		foreach ( $metadata['sizes'] as $size ) {
+			if ( empty( $size['file'] ) ) {
+				continue;
+			}
+
+			$name = basename( (string) $size['file'] );
+			$old  = trailingslashit( $from ) . $name;
+			$new  = trailingslashit( $to ) . $name;
+
+			if ( ! file_exists( $old ) || file_exists( $new ) ) {
+				continue;
+			}
+
+			@rename( $old, $new ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a preview that cannot move is deleted below.
+
+			if ( file_exists( $old ) && ! file_exists( $new ) ) {
+				// Better to lose a thumbnail than to leave a readable page
+				// behind in a public directory.
+				wp_delete_file( $old );
+			}
+		}
 	}
 }

@@ -18,6 +18,13 @@ class WPPDF_Post_Type {
 	const OWN_TAXONOMY = 'pdf_category';
 
 	/**
+	 * Memoised list of supported post types.
+	 *
+	 * @var string[]|null
+	 */
+	protected static $supported = null;
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -44,6 +51,12 @@ class WPPDF_Post_Type {
 	 * @return string[]
 	 */
 	public static function get_supported_post_types() {
+		// Called from query filters that run for every WP_Query, so the answer
+		// is memoised rather than refiltered dozens of times per request.
+		if ( null !== self::$supported ) {
+			return self::$supported;
+		}
+
 		/**
 		 * Filter the post types that can hold PDF files.
 		 *
@@ -51,7 +64,16 @@ class WPPDF_Post_Type {
 		 *
 		 * @param string[] $post_types Post type keys.
 		 */
-		return array_values( array_unique( (array) apply_filters( 'wppdf_supported_post_types', array( self::get_key() ) ) ) );
+		self::$supported = array_values( array_unique( (array) apply_filters( 'wppdf_supported_post_types', array( self::get_key() ) ) ) );
+
+		return self::$supported;
+	}
+
+	/**
+	 * Clear the memoised post type list.
+	 */
+	public static function flush_cache() {
+		self::$supported = null;
 	}
 
 	/**

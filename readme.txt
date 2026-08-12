@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,17 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.3.1 =
+* Security: protecting a document now also moves the preview images WordPress
+  renders from its first page. They were left behind in a public directory.
+* The delivery endpoint verifies the file really sits inside the uploads
+  directory, redirects to the file itself once a document is no longer
+  protected, and offers a sign in link instead of a bare 401.
+* Listings prime the attachment caches in one batch. A twelve card grid used
+  to fire 48 single row queries; it now fires none.
+* Counting documents for the reindex screen uses COUNT instead of loading
+  every ID into PHP.
 
 = 1.3.0 =
 * Filter bar on the document archive: full text that also reaches inside the
