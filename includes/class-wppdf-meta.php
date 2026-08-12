@@ -156,6 +156,18 @@ class WPPDF_Meta {
 			echo '</div>';
 		}
 
+		printf(
+			'<p class="wppdf-files__protection"><label><input type="checkbox" name="wppdf_protected" value="1" %1$s /> %2$s</label></p>',
+			checked( WPPDF_Protection::is_protected( $post->ID ), true, false ),
+			esc_html__( 'Only logged in visitors may open this document', 'wp-pdf-reader' )
+		);
+
+		echo '<p class="description">' . esc_html__( 'The files are moved into a directory that denies direct access and are served through PHP after a permission check, so the old file URL stops working.', 'wp-pdf-reader' ) . '</p>';
+
+		if ( ! WPPDF_Protection::guards_are_effective() ) {
+			echo '<p class="wppdf-notice-warning">' . esc_html__( 'This server is not Apache or LiteSpeed, so the deny file has no effect. Add a rule to the server config that blocks /wp-content/uploads/wppdf-protected/.', 'wp-pdf-reader' ) . '</p>';
+		}
+
 		echo '<p class="wppdf-files__fallback">';
 		printf(
 			/* translators: %s: ordered list of language labels. */
@@ -200,6 +212,9 @@ class WPPDF_Meta {
 
 		WPPDF_Documents::flush_cache();
 
+		$protected     = ! empty( $_POST['wppdf_protected'] );
+		$was_protected = WPPDF_Protection::is_protected( $post_id );
+
 		$files = isset( $_POST['wppdf_file'] ) && is_array( $_POST['wppdf_file'] ) ? wp_unslash( $_POST['wppdf_file'] ) : array();
 		$urls  = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] ) ? wp_unslash( $_POST['wppdf_url'] ) : array();
 
@@ -237,6 +252,18 @@ class WPPDF_Meta {
 					WPPDF_Text::schedule( $post_id, $code, $attachment_id );
 				}
 			}
+		}
+
+		// Files are moved after they were stored, so newly attached ones are
+		// protected straight away.
+		if ( $protected ) {
+			update_post_meta( $post_id, WPPDF_Protection::META, 1 );
+		} else {
+			delete_post_meta( $post_id, WPPDF_Protection::META );
+		}
+
+		if ( $protected !== $was_protected || $protected ) {
+			WPPDF_Protection::apply( $post_id, $protected );
 		}
 	}
 }

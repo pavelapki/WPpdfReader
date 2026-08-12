@@ -90,6 +90,9 @@ class WPPDF_Settings {
 			// Text extraction and search.
 			'extract_text'        => 1,
 			'search_pdf_text'     => 1,
+			'ocr_enabled'         => 1,
+			'ocr_max_pages'       => 20,
+			'ocr_languages'       => 'ces+eng',
 
 			// Statistics, SEO and updates.
 			'count_views'         => 1,
@@ -305,9 +308,14 @@ class WPPDF_Settings {
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
 		$out['archive_per_page'] = isset( $input['archive_per_page'] ) ? min( 100, max( 1, absint( $input['archive_per_page'] ) ) ) : $defaults['archive_per_page'];
 
-		foreach ( array( 'override_templates', 'generate_covers', 'extract_text', 'search_pdf_text', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
+		foreach ( array( 'override_templates', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
 			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
+
+		$out['ocr_max_pages'] = isset( $input['ocr_max_pages'] ) ? min( 500, max( 1, absint( $input['ocr_max_pages'] ) ) ) : $defaults['ocr_max_pages'];
+
+		$ocr_languages = isset( $input['ocr_languages'] ) ? preg_replace( '/[^a-zA-Z+_]/', '', (string) $input['ocr_languages'] ) : '';
+		$out['ocr_languages'] = '' !== $ocr_languages ? $ocr_languages : $defaults['ocr_languages'];
 
 		// --- Updates ---------------------------------------------------.
 		$repository = isset( $input['github_repository'] ) ? sanitize_text_field( $input['github_repository'] ) : '';

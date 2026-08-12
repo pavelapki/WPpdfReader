@@ -130,7 +130,12 @@ class WPPDF_Admin {
 				'wppdf-admin',
 				'wppdfAdmin',
 				array(
+					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
 					'i18n' => array(
+						/* translators: 1: number of documents indexed, 2: number still pending. */
+						'reindexed'    => __( '%1$d indexed, %2$d left.', 'wp-pdf-reader' ),
+						'reindexDone'  => __( 'Everything is indexed.', 'wp-pdf-reader' ),
+						'reindexError' => __( 'The request failed, the remaining documents were not indexed.', 'wp-pdf-reader' ),
 						'selectTitle'  => __( 'Select a PDF file', 'wp-pdf-reader' ),
 						'selectButton' => __( 'Use this PDF', 'wp-pdf-reader' ),
 						'noFile'       => __( 'No file for this language.', 'wp-pdf-reader' ),
@@ -624,10 +629,67 @@ class WPPDF_Admin {
 								if ( WPPDF_Text::binary_available() ) {
 									esc_html_e( 'pdftotext was found on this server, so extraction is fast and accurate.', 'wp-pdf-reader' );
 								} else {
-									esc_html_e( 'pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs; scanned documents need OCR and cannot be indexed.', 'wp-pdf-reader' );
+									esc_html_e( 'pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs.', 'wp-pdf-reader' );
 								}
 								?>
 							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="wppdf-ocr-languages"><?php esc_html_e( 'Scanned documents', 'wp-pdf-reader' ); ?></label></th>
+						<td>
+							<?php $this->checkbox( 'ocr_enabled', __( 'Read scans with OCR when a document has no text layer', 'wp-pdf-reader' ) ); ?>
+							<p>
+								<label>
+									<?php esc_html_e( 'Languages', 'wp-pdf-reader' ); ?>
+									<input type="text" id="wppdf-ocr-languages" name="<?php echo esc_attr( $option ); ?>[ocr_languages]" value="<?php echo esc_attr( $settings['ocr_languages'] ); ?>" size="12" />
+								</label>
+								<label>
+									<?php esc_html_e( 'Pages at most', 'wp-pdf-reader' ); ?>
+									<input type="number" name="<?php echo esc_attr( $option ); ?>[ocr_max_pages]" value="<?php echo (int) $settings['ocr_max_pages']; ?>" min="1" max="500" />
+								</label>
+							</p>
+							<p class="description">
+								<?php
+								if ( WPPDF_Text::ocr_available() ) {
+									esc_html_e( 'pdftoppm and tesseract were found. OCR only runs for documents with no text layer at all, on a scheduled event, and is slow — keep the page limit sensible.', 'wp-pdf-reader' );
+								} else {
+									esc_html_e( 'OCR needs pdftoppm (poppler) and tesseract on the server. Neither was found, so scans stay unindexed.', 'wp-pdf-reader' );
+								}
+								?>
+								<br />
+								<?php esc_html_e( 'Tesseract language codes joined with a plus, for example ces+eng.', 'wp-pdf-reader' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Existing documents', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<?php $progress = WPPDF_Reindex::get_progress(); ?>
+							<p id="wppdf-reindex-status">
+								<?php
+								printf(
+									/* translators: 1: number of documents without an index, 2: total number of documents. */
+									esc_html__( '%1$d of %2$d documents have no extracted text yet.', 'wp-pdf-reader' ),
+									(int) $progress['pending'],
+									(int) $progress['total']
+								);
+								?>
+							</p>
+							<p>
+								<button type="button" class="button" id="wppdf-reindex-start" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Reindex::NONCE ) ); ?>">
+									<?php esc_html_e( 'Index them now', 'wp-pdf-reader' ); ?>
+								</button>
+								<label class="wppdf-checkbox wppdf-inline">
+									<input type="checkbox" id="wppdf-reindex-force" value="1" />
+									<?php esc_html_e( 'Re-extract everything, including documents that already have text', 'wp-pdf-reader' ); ?>
+								</label>
+								<span class="spinner wppdf-reindex__spinner"></span>
+							</p>
+							<p class="description">
+								<?php esc_html_e( 'Text is extracted when a file is saved, so documents added before this feature existed need one pass. Large libraries are better served by WP-CLI: wp pdf-reader reindex', 'wp-pdf-reader' ); ?>
+							</p>
+							<div id="wppdf-reindex-log" class="wppdf-import__results" aria-live="polite"></div>
 						</td>
 					</tr>
 					<tr>

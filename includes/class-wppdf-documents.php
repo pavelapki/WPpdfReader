@@ -63,7 +63,18 @@ class WPPDF_Documents {
 			if ( $url ) {
 				return array(
 					'attachment_id' => $attachment_id,
-					'url'           => $url,
+					/**
+					 * Filter the URL a document file is served from.
+					 *
+					 * Protected documents route through a PHP endpoint here,
+					 * so no caller ever hands out the direct path.
+					 *
+					 * @param string $url           File URL.
+					 * @param int    $post_id       Document ID.
+					 * @param string $code          Language code.
+					 * @param int    $attachment_id Attachment ID.
+					 */
+					'url'           => apply_filters( 'wppdf_file_url', $url, $post_id, $code, $attachment_id ),
 				);
 			}
 		}

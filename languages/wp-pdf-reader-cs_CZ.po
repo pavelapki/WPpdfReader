@@ -11,15 +11,23 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
 "X-Domain: wp-pdf-reader\n"
 
-#: includes/class-wppdf-settings.php:336
+#: includes/class-wppdf-settings.php:344
 msgid "%1$d documents were moved from \"%2$s\" to \"%3$s\"."
 msgstr "Počet přesunutých dokumentů z „%2$s“ do „%3$s“: %1$d."
 
-#: includes/class-wppdf-viewer.php:86
+#: includes/class-wppdf-admin.php:136
+msgid "%1$d indexed, %2$d left."
+msgstr "Zpracováno: %1$d, zbývá: %2$d."
+
+#: includes/class-wppdf-viewer.php:90
 msgid "%1$d of %2$d"
 msgstr "%1$d z %2$d"
 
-#: includes/class-wppdf-admin.php:206
+#: includes/class-wppdf-admin.php:673
+msgid "%1$d of %2$d documents have no extracted text yet."
+msgstr "Bez vytaženého textu: %1$d z %2$d dokumentů."
+
+#: includes/class-wppdf-admin.php:211
 msgid "%1$d views, %2$d downloads"
 msgstr "%1$d zobrazení, %2$d stažení"
 
@@ -31,15 +39,15 @@ msgstr "%1$s – obálka (%2$s)"
 msgid "%s archive"
 msgstr "Archiv: %s"
 
-#: includes/class-wppdf-admin.php:453
+#: includes/class-wppdf-admin.php:458
 msgid "A Dashicons class, for example dashicons-media-document."
 msgstr "Třída Dashicons, například dashicons-media-document."
 
-#: includes/class-wppdf-admin.php:461
+#: includes/class-wppdf-admin.php:466
 msgid "Add a separate document category taxonomy"
 msgstr "Přidat samostatnou taxonomii kategorií dokumentů"
 
-#: includes/class-wppdf-admin.php:486
+#: includes/class-wppdf-admin.php:491
 msgid "Add language"
 msgstr "Přidat jazyk"
 
@@ -51,19 +59,23 @@ msgstr "Přidat nový"
 msgid "Add new %s"
 msgstr "Přidat %s"
 
-#: includes/class-wppdf-admin.php:293
+#: includes/class-wppdf-viewer.php:297
+msgid "All"
+msgstr "Vše"
+
+#: includes/class-wppdf-admin.php:298
 msgid "All languages"
 msgstr "Všechny jazyky"
 
-#: includes/class-wppdf-admin.php:570
+#: includes/class-wppdf-admin.php:575
 msgid "Append the reader to the content of single documents"
 msgstr "Připojit prohlížeč pod obsah detailu dokumentu"
 
-#: includes/class-wppdf-admin.php:576
+#: includes/class-wppdf-admin.php:581
 msgid "Archive and grid"
 msgstr "Archiv a výpis"
 
-#: includes/class-wppdf-admin.php:509
+#: includes/class-wppdf-admin.php:514
 msgid "As a last resort use any language that has a file"
 msgstr "Jako poslední možnost použít jakýkoli jazyk, ve kterém soubor existuje"
 
@@ -71,17 +83,21 @@ msgstr "Jako poslední možnost použít jakýkoli jazyk, ve kterém soubor exis
 msgid "Ascending"
 msgstr "Vzestupně"
 
-#: includes/class-wppdf-settings.php:256
+#: includes/class-wppdf-settings.php:259
 msgid "At least one language is required. The default languages were restored."
 msgstr "Je potřeba alespoň jeden jazyk. Byly obnoveny výchozí jazyky."
 
-#: assets/js/blocks.js:91 includes/class-wppdf-admin.php:548
+#: assets/js/blocks.js:91 includes/class-wppdf-admin.php:553
 msgid "Automatic"
 msgstr "Automaticky"
 
-#: includes/class-wppdf-admin.php:563
+#: includes/class-wppdf-admin.php:568
 msgid "Behaviour"
 msgstr "Chování"
+
+#: includes/class-wppdf-viewer.php:309
+msgid "Cancel"
+msgstr "Zrušit"
 
 #: includes/class-wppdf-post-type.php:137
 msgid "Categories"
@@ -95,23 +111,39 @@ msgstr "Kategorie"
 msgid "Category slug"
 msgstr "Slug kategorie"
 
-#: includes/class-wppdf-admin.php:139
+#: includes/class-wppdf-admin.php:144
 msgid "Code"
 msgstr "Kód"
 
-#: assets/js/blocks.js:159 includes/class-wppdf-admin.php:588
+#: assets/js/blocks.js:159 includes/class-wppdf-admin.php:593
 msgid "Columns"
 msgstr "Sloupce"
 
-#: includes/class-wppdf-admin.php:507
+#: includes/class-wppdf-admin.php:512
 msgid "Comma separated codes tried in order when the current language has no file, for example: cs, en"
 msgstr "Kódy oddělené čárkou, které se zkusí v tomto pořadí, když v aktuálním jazyce soubor chybí. Například: cs, en"
 
-#: includes/class-wppdf-admin.php:638
+#: includes/class-wppdf-viewer.php:320
+msgid "Contents"
+msgstr "Obsah"
+
+#: includes/class-wppdf-viewer.php:247
+msgid "Contents and thumbnails"
+msgstr "Obsah a náhledy stránek"
+
+#: includes/class-wppdf-viewer.php:282
+msgid "Copy a link to this page"
+msgstr "Zkopírovat odkaz na tuto stránku"
+
+#: includes/class-wppdf-viewer.php:85
+msgid "Copy this link:"
+msgstr "Zkopírujte tento odkaz:"
+
+#: includes/class-wppdf-admin.php:700
 msgid "Count views and downloads per language"
 msgstr "Počítat zobrazení a stažení po jazycích"
 
-#: includes/class-wppdf-admin.php:158
+#: includes/class-wppdf-admin.php:163
 msgid "Cover"
 msgstr "Obálka"
 
@@ -123,7 +155,11 @@ msgstr "Obrázek obálky"
 msgid "Create as"
 msgstr "Vytvořit jako"
 
-#: includes/class-wppdf-admin.php:516
+#: includes/class-wppdf-viewer.php:298
+msgid "Current page"
+msgstr "Aktuální stránka"
+
+#: includes/class-wppdf-admin.php:521
 msgid "Current resolution"
 msgstr "Aktuální vyhodnocení"
 
@@ -131,11 +167,11 @@ msgstr "Aktuální vyhodnocení"
 msgid "Date"
 msgstr "Datum"
 
-#: includes/class-wppdf-admin.php:492
+#: includes/class-wppdf-admin.php:497
 msgid "Default language"
 msgstr "Výchozí jazyk"
 
-#: includes/class-wppdf-admin.php:259
+#: includes/class-wppdf-admin.php:264
 msgid "Default language falls back to %s"
 msgstr "Výchozí jazyk používá náhradu: %s"
 
@@ -143,7 +179,7 @@ msgstr "Výchozí jazyk používá náhradu: %s"
 msgid "Descending"
 msgstr "Sestupně"
 
-#: includes/class-wppdf-admin.php:525
+#: includes/class-wppdf-admin.php:530
 msgid "Detected admin language: %s"
 msgstr "Rozpoznaný jazyk administrace: %s"
 
@@ -163,11 +199,11 @@ msgstr "Kategorie dokumentů"
 msgid "Document category"
 msgstr "Kategorie dokumentu"
 
-#: includes/class-wppdf-viewer.php:268
+#: includes/class-wppdf-viewer.php:273
 msgid "Document language"
 msgstr "Jazyk dokumentu"
 
-#: includes/class-wppdf-admin.php:417
+#: includes/class-wppdf-admin.php:422
 msgid "Document type"
 msgstr "Typ dokumentu"
 
@@ -175,23 +211,23 @@ msgstr "Typ dokumentu"
 msgid "Documents"
 msgstr "Dokumenty"
 
-#: includes/class-wppdf-admin.php:594
+#: includes/class-wppdf-admin.php:599
 msgid "Documents per page"
 msgstr "Dokumentů na stránku"
 
-#: includes/class-wppdf-admin.php:460
+#: includes/class-wppdf-admin.php:465
 msgid "Documents use the same category tree as posts, so category archives list both."
 msgstr "Dokumenty používají stejný strom kategorií jako příspěvky, archivy kategorií tak zobrazí obojí."
 
-#: includes/class-wppdf-admin.php:434
+#: includes/class-wppdf-admin.php:439
 msgid "Documents will live at %s."
 msgstr "Dokumenty budou dostupné na %s."
 
-#: includes/class-wppdf-viewer.php:81 includes/class-wppdf-viewer.php:281
+#: includes/class-wppdf-viewer.php:81 includes/class-wppdf-viewer.php:287
 msgid "Download"
 msgstr "Stáhnout"
 
-#: includes/class-wppdf-admin.php:672 includes/class-wppdf-shortcodes.php:210
+#: includes/class-wppdf-admin.php:734 includes/class-wppdf-shortcodes.php:210
 msgid "Download PDF"
 msgstr "Stáhnout PDF"
 
@@ -203,27 +239,35 @@ msgstr "Koncept"
 msgid "Edit %s"
 msgstr "Upravit %s"
 
-#: includes/class-wppdf-admin.php:464
+#: includes/class-wppdf-admin.php:469
 msgid "Enable excerpts"
 msgstr "Povolit stručné výpisy"
 
-#: includes/class-wppdf-admin.php:465
+#: includes/class-wppdf-admin.php:470
 msgid "Enable featured images"
 msgstr "Povolit náhledové obrázky"
 
-#: includes/class-wppdf-admin.php:463
+#: includes/class-wppdf-admin.php:468
 msgid "Enable the document archive page"
 msgstr "Povolit stránku archivu dokumentů"
 
-#: includes/class-wppdf-admin.php:619
+#: includes/class-wppdf-admin.php:137
+msgid "Everything is indexed."
+msgstr "Vše je zaindexované."
+
+#: includes/class-wppdf-admin.php:666
+msgid "Existing documents"
+msgstr "Stávající dokumenty"
+
+#: includes/class-wppdf-admin.php:624
 msgid "Extract the text of uploaded PDFs in the background"
 msgstr "Na pozadí vytáhnout text z nahraných PDF"
 
-#: includes/class-wppdf-admin.php:504
+#: includes/class-wppdf-admin.php:509
 msgid "Fallback chain"
 msgstr "Řetězec náhradních jazyků"
 
-#: includes/class-wppdf-meta.php:162
+#: includes/class-wppdf-meta.php:174
 msgid "Fallback order: %s"
 msgstr "Pořadí náhrad: %s"
 
@@ -235,35 +279,39 @@ msgstr "Filtrování"
 msgid "Finished, %d files processed."
 msgstr "Hotovo, zpracováno souborů: %d."
 
-#: assets/js/blocks.js:93 includes/class-wppdf-admin.php:550 includes/class-wppdf-viewer.php:79
+#: assets/js/blocks.js:93 includes/class-wppdf-admin.php:555 includes/class-wppdf-viewer.php:79
 msgid "Fit page"
 msgstr "Celá stránka"
 
-#: assets/js/blocks.js:92 includes/class-wppdf-admin.php:549 includes/class-wppdf-viewer.php:78 includes/class-wppdf-viewer.php:255
+#: assets/js/blocks.js:92 includes/class-wppdf-admin.php:554 includes/class-wppdf-viewer.php:78 includes/class-wppdf-viewer.php:260
 msgid "Fit width"
 msgstr "Na šířku"
 
-#: includes/class-wppdf-admin.php:634
+#: includes/class-wppdf-viewer.php:301
+msgid "From"
+msgstr "Od"
+
+#: includes/class-wppdf-admin.php:696
 msgid "Front end"
 msgstr "Web"
 
-#: includes/class-wppdf-viewer.php:80 includes/class-wppdf-viewer.php:283
+#: includes/class-wppdf-viewer.php:80 includes/class-wppdf-viewer.php:289
 msgid "Fullscreen"
 msgstr "Celá obrazovka"
 
-#: includes/class-wppdf-admin.php:604
+#: includes/class-wppdf-admin.php:609
 msgid "Generate a cover image from the first page when a PDF is uploaded"
 msgstr "Po nahrání PDF vygenerovat obálku z první stránky"
 
-#: assets/js/blocks.js:151 includes/class-wppdf-admin.php:582
+#: assets/js/blocks.js:151 includes/class-wppdf-admin.php:587
 msgid "Grid"
 msgstr "Mřížka"
 
-#: includes/class-wppdf-admin.php:301
+#: includes/class-wppdf-admin.php:306
 msgid "Has %s file"
 msgstr "Má soubor: %s"
 
-#: includes/class-wppdf-admin.php:537
+#: includes/class-wppdf-admin.php:542
 msgid "Height"
 msgstr "Výška"
 
@@ -271,7 +319,7 @@ msgstr "Výška"
 msgid "Height (px)"
 msgstr "Výška (px)"
 
-#: includes/class-wppdf-admin.php:607
+#: includes/class-wppdf-admin.php:612
 msgid "Imagick with PDF support is not available on this server, so covers cannot be generated. Featured images are used instead."
 msgstr "Na tomto serveru není k dispozici Imagick s podporou PDF, obálky proto nelze generovat. Použijí se náhledové obrázky."
 
@@ -287,19 +335,23 @@ msgstr "Import PDF"
 msgid "Import these PDFs"
 msgstr "Importovat tato PDF"
 
-#: assets/js/blocks.js:88 includes/class-wppdf-admin.php:543
+#: includes/class-wppdf-admin.php:681
+msgid "Index them now"
+msgstr "Zaindexovat je teď"
+
+#: assets/js/blocks.js:88 includes/class-wppdf-admin.php:548
 msgid "Initial zoom"
 msgstr "Výchozí přiblížení"
 
-#: includes/class-wppdf-admin.php:423
+#: includes/class-wppdf-admin.php:428
 msgid "Internal key, lowercase, max 20 characters. Existing documents are moved automatically when you change it."
 msgstr "Interní klíč, malými písmeny, max. 20 znaků. Při jeho změně se existující dokumenty automaticky přesunou."
 
-#: includes/class-wppdf-admin.php:140
+#: includes/class-wppdf-admin.php:145
 msgid "Label"
 msgstr "Název"
 
-#: includes/class-wppdf-admin.php:442
+#: includes/class-wppdf-admin.php:447
 msgid "Labels"
 msgstr "Názvy"
 
@@ -315,19 +367,19 @@ msgstr "Jazyk souborů"
 msgid "Language: %s"
 msgstr "Jazyk: %s"
 
-#: includes/class-wppdf-admin.php:474
+#: includes/class-wppdf-admin.php:479 includes/class-wppdf-admin.php:644
 msgid "Languages"
 msgstr "Jazyky"
 
-#: includes/class-wppdf-admin.php:471
+#: includes/class-wppdf-admin.php:476
 msgid "Languages and fallback"
 msgstr "Jazyky a náhrady"
 
-#: includes/class-wppdf-admin.php:656
+#: includes/class-wppdf-admin.php:718
 msgid "Latest release: %1$s, installed: %2$s"
 msgstr "Poslední vydání: %1$s, nainstalováno: %2$s"
 
-#: assets/js/blocks.js:146 assets/js/blocks.js:148 includes/class-wppdf-admin.php:579
+#: assets/js/blocks.js:146 assets/js/blocks.js:148 includes/class-wppdf-admin.php:584
 msgid "Layout"
 msgstr "Rozvržení"
 
@@ -335,27 +387,31 @@ msgstr "Rozvržení"
 msgid "Leave empty to use the document the block is placed on."
 msgstr "Nechte prázdné, použije se dokument, na kterém je blok umístěný."
 
-#: includes/class-wppdf-admin.php:620
+#: includes/class-wppdf-admin.php:625
 msgid "Let the site search look inside documents"
 msgstr "Umožnit vyhledávání na webu prohledávat obsah dokumentů"
 
-#: includes/class-wppdf-admin.php:637
+#: includes/class-wppdf-admin.php:699
 msgid "Let visitors switch language versions in the reader toolbar"
 msgstr "Umožnit návštěvníkům přepínat jazykové verze v liště prohlížeče"
 
-#: assets/js/blocks.js:152 includes/class-wppdf-admin.php:583
+#: includes/class-wppdf-viewer.php:84
+msgid "Link copied"
+msgstr "Odkaz zkopírován"
+
+#: assets/js/blocks.js:152 includes/class-wppdf-admin.php:588
 msgid "List"
 msgstr "Seznam"
 
-#: includes/class-wppdf-admin.php:569
+#: includes/class-wppdf-admin.php:574
 msgid "Load the document only when it scrolls into view"
 msgstr "Načíst dokument, až když se objeví na obrazovce"
 
-#: includes/class-wppdf-viewer.php:69 includes/class-wppdf-viewer.php:292
+#: includes/class-wppdf-viewer.php:69 includes/class-wppdf-viewer.php:330
 msgid "Loading document…"
 msgstr "Načítám dokument…"
 
-#: includes/class-wppdf-admin.php:450
+#: includes/class-wppdf-admin.php:455
 msgid "Menu icon"
 msgstr "Ikona v menu"
 
@@ -363,7 +419,7 @@ msgstr "Ikona v menu"
 msgid "Menu order"
 msgstr "Pořadí v menu"
 
-#: includes/class-wppdf-admin.php:308
+#: includes/class-wppdf-admin.php:313
 msgid "Missing %s file"
 msgstr "Chybí soubor: %s"
 
@@ -371,11 +427,11 @@ msgstr "Chybí soubor: %s"
 msgid "New %s"
 msgstr "Nový %s"
 
-#: includes/class-wppdf-viewer.php:263
+#: includes/class-wppdf-viewer.php:268
 msgid "Next match"
 msgstr "Další výskyt"
 
-#: includes/class-wppdf-viewer.php:75 includes/class-wppdf-viewer.php:248
+#: includes/class-wppdf-viewer.php:75 includes/class-wppdf-viewer.php:253
 msgid "Next page"
 msgstr "Další stránka"
 
@@ -399,11 +455,11 @@ msgstr "Bez kategorie"
 msgid "No documents found."
 msgstr "Nebyly nalezeny žádné dokumenty."
 
-#: includes/class-wppdf-admin.php:248
+#: includes/class-wppdf-admin.php:253
 msgid "No file"
 msgstr "Bez souboru"
 
-#: includes/class-wppdf-admin.php:136 includes/class-wppdf-meta.php:129
+#: includes/class-wppdf-admin.php:141 includes/class-wppdf-meta.php:129
 msgid "No file for this language."
 msgstr "Pro tento jazyk není nahraný soubor."
 
@@ -411,7 +467,7 @@ msgstr "Pro tento jazyk není nahraný soubor."
 msgid "No files were selected."
 msgstr "Nebyly vybrány žádné soubory."
 
-#: includes/class-wppdf-viewer.php:84
+#: includes/class-wppdf-viewer.php:88
 msgid "No matches"
 msgstr "Žádné výskyty"
 
@@ -419,15 +475,27 @@ msgstr "Žádné výskyty"
 msgid "Not a PDF file."
 msgstr "Není to soubor PDF."
 
-#: includes/class-wppdf-admin.php:646
+#: includes/class-wppdf-protection.php:207
+msgid "Not available"
+msgstr "Není k dispozici"
+
+#: includes/class-wppdf-admin.php:657
+msgid "OCR needs pdftoppm (poppler) and tesseract on the server. Neither was found, so scans stay unindexed."
+msgstr "OCR potřebuje na serveru pdftoppm (poppler) a tesseract. Ani jeden nebyl nalezen, skeny proto zůstanou nezaindexované."
+
+#: includes/class-wppdf-admin.php:708
 msgid "Offer plugin updates from GitHub releases"
 msgstr "Nabízet aktualizace pluginu z vydání na GitHubu"
 
-#: includes/class-wppdf-admin.php:488
+#: includes/class-wppdf-admin.php:493
 msgid "One PDF field per language is shown on every document. Codes such as cs, en or en-gb."
 msgstr "U každého dokumentu se zobrazí jedno pole pro PDF na jazyk. Kódy jako cs, en nebo en-gb."
 
-#: includes/class-wppdf-viewer.php:301
+#: includes/class-wppdf-meta.php:162
+msgid "Only logged in visitors may open this document"
+msgstr "Tento dokument mohou otevřít jen přihlášení návštěvníci"
+
+#: includes/class-wppdf-viewer.php:340
 msgid "Open the PDF"
 msgstr "Otevřít PDF"
 
@@ -443,11 +511,11 @@ msgstr "Řadit podle"
 msgid "Other language versions"
 msgstr "Další jazykové verze"
 
-#: includes/class-wppdf-admin.php:639
+#: includes/class-wppdf-admin.php:701
 msgid "Output structured data and Open Graph tags on documents"
 msgstr "Vypisovat u dokumentů strukturovaná data a Open Graph tagy"
 
-#: includes/class-wppdf-admin.php:49 includes/class-wppdf-admin.php:410
+#: includes/class-wppdf-admin.php:49 includes/class-wppdf-admin.php:415
 msgid "PDF Reader settings"
 msgstr "Nastavení PDF prohlížeče"
 
@@ -455,7 +523,7 @@ msgstr "Nastavení PDF prohlížeče"
 msgid "PDF document library with a bundled PDF.js reader and per-language files."
 msgstr "Knihovna PDF dokumentů s přibaleným prohlížečem PDF.js a soubory po jazycích."
 
-#: includes/class-wppdf-admin.php:164
+#: includes/class-wppdf-admin.php:169
 msgid "PDF files"
 msgstr "Soubory PDF"
 
@@ -463,35 +531,51 @@ msgstr "Soubory PDF"
 msgid "PDF files by language"
 msgstr "Soubory PDF podle jazyka"
 
-#: includes/class-wppdf-viewer.php:71 includes/class-wppdf-viewer.php:245
+#: includes/class-wppdf-viewer.php:71 includes/class-wppdf-viewer.php:250
 msgid "Page"
 msgstr "Stránka"
 
-#: includes/class-wppdf-viewer.php:88
+#: includes/class-wppdf-viewer.php:92
 msgid "Page %1$d of %2$d"
 msgstr "Stránka %1$d z %2$d"
+
+#: includes/class-wppdf-viewer.php:319
+msgid "Pages"
+msgstr "Stránky"
+
+#: includes/class-wppdf-admin.php:648
+msgid "Pages at most"
+msgstr "Nejvýše stránek"
+
+#: includes/class-wppdf-viewer.php:296
+msgid "Pages to print"
+msgstr "Stránky k tisku"
 
 #: includes/class-wppdf-importer.php:67
 msgid "Pick several PDFs at once and each of them becomes a document. The file name is used as the title, so rename the files before uploading if you want tidy titles."
 msgstr "Vyberte najednou několik PDF a z každého vznikne dokument. Jako název se použije název souboru, takže pokud chcete úhledné názvy, přejmenujte soubory před nahráním."
 
-#: includes/class-wppdf-admin.php:445
+#: includes/class-wppdf-admin.php:450
 msgid "Plural"
 msgstr "Množné číslo"
 
-#: includes/class-wppdf-admin.php:420
+#: includes/class-wppdf-admin.php:425
 msgid "Post type key"
 msgstr "Klíč typu obsahu"
 
-#: includes/class-wppdf-viewer.php:262
+#: includes/class-wppdf-viewer.php:86
+msgid "Preparing pages…"
+msgstr "Připravuji stránky…"
+
+#: includes/class-wppdf-viewer.php:267
 msgid "Previous match"
 msgstr "Předchozí výskyt"
 
-#: includes/class-wppdf-viewer.php:74 includes/class-wppdf-viewer.php:243
+#: includes/class-wppdf-viewer.php:74 includes/class-wppdf-viewer.php:248
 msgid "Previous page"
 msgstr "Předchozí stránka"
 
-#: includes/class-wppdf-viewer.php:82 includes/class-wppdf-viewer.php:278
+#: includes/class-wppdf-viewer.php:82 includes/class-wppdf-viewer.php:284 includes/class-wppdf-viewer.php:308
 msgid "Print"
 msgstr "Tisk"
 
@@ -503,7 +587,15 @@ msgstr "Publikováno"
 msgid "Random"
 msgstr "Náhodně"
 
-#: assets/js/blocks.js:76 includes/class-wppdf-admin.php:534
+#: includes/class-wppdf-admin.php:685
+msgid "Re-extract everything, including documents that already have text"
+msgstr "Vytáhnout text znovu u všeho, i u dokumentů, které ho už mají"
+
+#: includes/class-wppdf-admin.php:641
+msgid "Read scans with OCR when a document has no text layer"
+msgstr "Přečíst skeny pomocí OCR, když dokument nemá textovou vrstvu"
+
+#: assets/js/blocks.js:76 includes/class-wppdf-admin.php:539
 msgid "Reader"
 msgstr "Prohlížeč"
 
@@ -515,23 +607,27 @@ msgstr "Odebrat"
 msgid "Remove cover image"
 msgstr "Odebrat obrázek obálky"
 
-#: includes/class-wppdf-admin.php:137 includes/class-wppdf-admin.php:481
+#: includes/class-wppdf-admin.php:142 includes/class-wppdf-admin.php:486
 msgid "Remove language"
 msgstr "Odebrat jazyk"
 
-#: includes/class-wppdf-admin.php:138
+#: includes/class-wppdf-admin.php:143
 msgid "Remove this language? Files already uploaded for it stay in the media library."
 msgstr "Odebrat tento jazyk? Už nahrané soubory zůstanou v knihovně médií."
+
+#: includes/class-wppdf-admin.php:639
+msgid "Scanned documents"
+msgstr "Naskenované dokumenty"
 
 #: includes/class-wppdf-post-type.php:176
 msgid "Search %s"
 msgstr "Hledat %s"
 
-#: includes/class-wppdf-viewer.php:259
+#: includes/class-wppdf-viewer.php:264
 msgid "Search in the document"
 msgstr "Hledat v dokumentu"
 
-#: includes/class-wppdf-admin.php:613
+#: includes/class-wppdf-admin.php:618
 msgid "Search, statistics and updates"
 msgstr "Hledání, statistiky a aktualizace"
 
@@ -539,7 +635,7 @@ msgstr "Hledání, statistiky a aktualizace"
 msgid "Searching…"
 msgstr "Hledám…"
 
-#: includes/class-wppdf-viewer.php:260
+#: includes/class-wppdf-viewer.php:265
 msgid "Search…"
 msgstr "Hledat…"
 
@@ -555,7 +651,7 @@ msgstr "Vybrat PDF"
 msgid "Select PDFs and import"
 msgstr "Vybrat PDF a importovat"
 
-#: includes/class-wppdf-admin.php:134
+#: includes/class-wppdf-admin.php:139
 msgid "Select a PDF file"
 msgstr "Vyberte soubor PDF"
 
@@ -571,15 +667,15 @@ msgstr "Nastavit obrázek obálky"
 msgid "Settings"
 msgstr "Nastavení"
 
-#: includes/class-wppdf-admin.php:460
+#: includes/class-wppdf-admin.php:465
 msgid "Share the post categories and tags"
 msgstr "Sdílet kategorie a štítky s příspěvky"
 
-#: includes/class-wppdf-admin.php:667
+#: includes/class-wppdf-admin.php:729
 msgid "Shortcodes"
 msgstr "Shortcody"
 
-#: includes/class-wppdf-admin.php:462
+#: includes/class-wppdf-admin.php:467
 msgid "Show documents in the blog loop, feeds and author/date archives"
 msgstr "Zobrazovat dokumenty ve výpisu blogu, feedech a archivech autorů a data"
 
@@ -587,45 +683,57 @@ msgstr "Zobrazovat dokumenty ve výpisu blogu, feedech a archivech autorů a dat
 msgid "Show excerpts"
 msgstr "Zobrazit stručné výpisy"
 
-#: assets/js/blocks.js:110 includes/class-wppdf-admin.php:567
+#: assets/js/blocks.js:110 includes/class-wppdf-admin.php:572
 msgid "Show the download button"
 msgstr "Zobrazit tlačítko pro stažení"
 
-#: includes/class-wppdf-admin.php:568
+#: includes/class-wppdf-admin.php:573
 msgid "Show the print button"
 msgstr "Zobrazit tlačítko tisku"
 
-#: assets/js/blocks.js:103 includes/class-wppdf-admin.php:566
+#: assets/js/blocks.js:103 includes/class-wppdf-admin.php:571
 msgid "Show the toolbar"
 msgstr "Zobrazit lištu nástrojů"
 
-#: includes/class-wppdf-admin.php:446
+#: includes/class-wppdf-admin.php:451
 msgid "Shown in the admin menu and on archive pages."
 msgstr "Zobrazuje se v menu administrace a na stránkách archivu."
 
-#: includes/class-wppdf-admin.php:444
+#: includes/class-wppdf-protection.php:200
+msgid "Sign in required"
+msgstr "Vyžaduje přihlášení"
+
+#: includes/class-wppdf-admin.php:449
 msgid "Singular"
 msgstr "Jednotné číslo"
 
-#: includes/class-wppdf-admin.php:511
+#: includes/class-wppdf-admin.php:516
 msgid "Take the current language from WPML or Polylang when active"
 msgstr "Když je aktivní WPML nebo Polylang, převzít z nich aktuální jazyk"
 
-#: includes/class-wppdf-admin.php:457
+#: includes/class-wppdf-admin.php:462
 msgid "Taxonomies"
 msgstr "Taxonomie"
 
-#: includes/class-wppdf-admin.php:510
+#: includes/class-wppdf-admin.php:515
 msgid "Tell visitors when they are seeing a fallback language"
 msgstr "Upozornit návštěvníky, že vidí náhradní jazykovou verzi"
 
-#: includes/class-wppdf-admin.php:600
+#: includes/class-wppdf-admin.php:605
 msgid "Templates and covers"
 msgstr "Šablony a obálky"
 
-#: includes/class-wppdf-admin.php:616
+#: includes/class-wppdf-admin.php:661
+msgid "Tesseract language codes joined with a plus, for example ces+eng."
+msgstr "Kódy jazyků pro Tesseract spojené plusem, například ces+eng."
+
+#: includes/class-wppdf-admin.php:621
 msgid "Text in PDFs"
 msgstr "Text v PDF"
+
+#: includes/class-wppdf-admin.php:690
+msgid "Text is extracted when a file is saved, so documents added before this feature existed need one pass. Large libraries are better served by WP-CLI: wp pdf-reader reindex"
+msgstr "Text se vytahuje při uložení souboru, takže dokumenty přidané dřív potřebují jeden průchod. U velkých knihoven je lepší WP-CLI: wp pdf-reader reindex"
 
 #: includes/class-wppdf-viewer.php:70
 msgid "The document could not be loaded."
@@ -635,35 +743,59 @@ msgstr "Dokument se nepodařilo načíst."
 msgid "The downloaded package could not be prepared for installation."
 msgstr "Stažený balíček se nepodařilo připravit k instalaci."
 
+#: includes/class-wppdf-meta.php:165
+msgid "The files are moved into a directory that denies direct access and are served through PHP after a permission check, so the old file URL stops working."
+msgstr "Soubory se přesunou do složky se zákazem přímého přístupu a servírují se přes PHP po kontrole oprávnění, takže původní URL souboru přestane fungovat."
+
 #: includes/class-wppdf-admin.php:112
 msgid "The import request failed."
 msgstr "Požadavek na import selhal."
 
-#: includes/class-wppdf-settings.php:202
+#: includes/class-wppdf-settings.php:205
 msgid "The post type key is empty or reserved by WordPress. The previous value was kept."
 msgstr "Klíč typu obsahu je prázdný nebo rezervovaný WordPressem. Byla ponechána předchozí hodnota."
 
-#: includes/class-wppdf-admin.php:649
+#: includes/class-wppdf-admin.php:711
 msgid "The repository in owner/name form. The newest published release is offered as an update."
 msgstr "Repozitář ve tvaru vlastník/název. Jako aktualizace se nabídne nejnovější publikované vydání."
 
-#: includes/class-wppdf-settings.php:321
+#: includes/class-wppdf-settings.php:329
 msgid "The repository must be given as owner/name. The previous value was kept."
 msgstr "Repozitář musí být zadaný ve tvaru vlastník/název. Byla ponechána předchozí hodnota."
 
-#: includes/class-wppdf-meta.php:168
+#: includes/class-wppdf-admin.php:138
+msgid "The request failed, the remaining documents were not indexed."
+msgstr "Požadavek selhal, zbývající dokumenty nebyly zaindexované."
+
+#: includes/class-wppdf-viewer.php:87
+msgid "This document has no contents."
+msgstr "Tento dokument nemá obsah."
+
+#: includes/class-wppdf-meta.php:180
 msgid "This document has no file yet, so the reader will not be rendered."
 msgstr "Tento dokument zatím nemá žádný soubor, prohlížeč se proto nezobrazí."
 
-#: includes/class-wppdf-viewer.php:233
+#: includes/class-wppdf-viewer.php:237
 msgid "This document is not available in your language, showing the %s version."
 msgstr "Tento dokument není ve vašem jazyce, zobrazujeme verzi %s."
+
+#: includes/class-wppdf-protection.php:206
+msgid "This document is not available."
+msgstr "Tento dokument není k dispozici."
+
+#: includes/class-wppdf-protection.php:199
+msgid "This document is only available to logged in users."
+msgstr "Tento dokument je dostupný jen přihlášeným uživatelům."
+
+#: includes/class-wppdf-meta.php:168
+msgid "This server is not Apache or LiteSpeed, so the deny file has no effect. Add a rule to the server config that blocks /wp-content/uploads/wppdf-protected/."
+msgstr "Tento server není Apache ani LiteSpeed, soubor se zákazem přístupu tu proto nemá účinek. Přidejte do konfigurace serveru pravidlo, které zablokuje /wp-content/uploads/wppdf-protected/."
 
 #: assets/js/blocks.js:199
 msgid "Title"
 msgstr "Název"
 
-#: includes/class-wppdf-admin.php:427
+#: includes/class-wppdf-admin.php:432
 msgid "URL slug"
 msgstr "URL slug"
 
@@ -679,7 +811,7 @@ msgstr "Neznámý jazyk."
 msgid "Untitled document"
 msgstr "Dokument bez názvu"
 
-#: includes/class-wppdf-admin.php:644
+#: includes/class-wppdf-admin.php:706
 msgid "Updates from GitHub"
 msgstr "Aktualizace z GitHubu"
 
@@ -691,11 +823,11 @@ msgstr "Nahrajte jedno PDF pro každý jazyk. U prázdných jazyků se použije 
 msgid "Use as cover image"
 msgstr "Použít jako obrázek obálky"
 
-#: includes/class-wppdf-admin.php:603
+#: includes/class-wppdf-admin.php:608
 msgid "Use the bundled archive and single templates when the theme has none"
 msgstr "Použít přibalené šablony archivu a detailu, pokud je téma nemá"
 
-#: includes/class-wppdf-admin.php:135
+#: includes/class-wppdf-admin.php:140
 msgid "Use this PDF"
 msgstr "Použít toto PDF"
 
@@ -703,7 +835,7 @@ msgstr "Použít toto PDF"
 msgid "View %s"
 msgstr "Zobrazit %s"
 
-#: includes/class-wppdf-admin.php:167
+#: includes/class-wppdf-admin.php:172
 msgid "Views"
 msgstr "Zobrazení"
 
@@ -715,11 +847,15 @@ msgstr "Jazyk návštěvníka (s náhradou)"
 msgid "You are not allowed to create documents."
 msgstr "Nemáte oprávnění vytvářet dokumenty."
 
-#: includes/class-wppdf-viewer.php:76 includes/class-wppdf-viewer.php:254
+#: includes/class-wppdf-reindex.php:133
+msgid "You are not allowed to reindex documents."
+msgstr "Nemáte oprávnění dokumenty přeindexovat."
+
+#: includes/class-wppdf-viewer.php:76 includes/class-wppdf-viewer.php:259
 msgid "Zoom in"
 msgstr "Přiblížit"
 
-#: includes/class-wppdf-viewer.php:77 includes/class-wppdf-viewer.php:252
+#: includes/class-wppdf-viewer.php:77 includes/class-wppdf-viewer.php:257
 msgid "Zoom out"
 msgstr "Oddálit"
 
@@ -739,11 +875,19 @@ msgstr "z %s"
 msgid "or external URL:"
 msgstr "nebo externí URL:"
 
-#: includes/class-wppdf-admin.php:625
+#: includes/class-wppdf-admin.php:655
+msgid "pdftoppm and tesseract were found. OCR only runs for documents with no text layer at all, on a scheduled event, and is slow — keep the page limit sensible."
+msgstr "pdftoppm i tesseract byly nalezeny. OCR běží jen u dokumentů zcela bez textové vrstvy, na naplánované úloze, a je pomalé — držte limit stránek rozumný."
+
+#: includes/class-wppdf-admin.php:630
 msgid "pdftotext was found on this server, so extraction is fast and accurate."
 msgstr "Na tomto serveru byl nalezen pdftotext, extrakce je proto rychlá a přesná."
 
-#: includes/class-wppdf-admin.php:627
-msgid "pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs; scanned documents need OCR and cannot be indexed."
-msgstr "pdftotext nebyl nalezen, použije se vestavěný parser v PHP. Zvládne většinu textových PDF; naskenované dokumenty potřebují OCR a indexovat je nelze."
+#: includes/class-wppdf-admin.php:632
+msgid "pdftotext was not found, so the built-in PHP parser is used. It handles most text PDFs."
+msgstr "pdftotext nebyl nalezen, použije se vestavěný parser v PHP. Zvládne většinu textových PDF."
+
+#: includes/class-wppdf-viewer.php:303
+msgid "to"
+msgstr "do"
 

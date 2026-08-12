@@ -266,12 +266,16 @@
 			self.setStatus( '' );
 			self.updateToolbar();
 			self.observePages();
+			self.setupSidebar();
 
-			var start = Math.min( Math.max( 1, self.config.page || 1 ), self.pdf.numPages );
+			var start = self.applyDeepLink() || self.config.page || 1;
+			start = Math.min( Math.max( 1, start ), self.pdf.numPages );
+
 			if ( start > 1 ) {
 				self.goToPage( start, false );
 			}
 
+			self.markCurrentThumbnail();
 			self.renderVisible();
 		} );
 	};
@@ -468,6 +472,9 @@
 					return self.renderTextLayer( pdfPage, page, viewport );
 				} )
 				.then( function () {
+					return self.renderLinks( pdfPage, page, viewport );
+				} )
+				.then( function () {
 					self.highlightPage( page );
 					self.evict();
 				} )
@@ -517,6 +524,145 @@
 	};
 
 	/**
+	 * Place clickable areas over the link annotations of a page.
+	 *
+	 * PDF.js ships a full annotation layer, but it needs a link service and
+	 * brings form widgets and popups with it. Links are what a document
+	 * library actually needs, so they are drawn directly from the annotation
+	 * rectangles instead.
+	 *
+	 * @param {Object} pdfPage  PDF.js page.
+	 * @param {Object} page     Page record.
+	 * @param {Object} viewport Scaled viewport.
+	 * @return {Promise} Resolved when the links are placed.
+	 */
+	Viewer.prototype.renderLinks = function ( pdfPage, page, viewport ) {
+		var self = this;
+
+		return pdfPage.getAnnotations( { intent: 'display' } ).then( function ( annotations ) {
+			if ( page.linkLayer && page.linkLayer.parentNode ) {
+				page.linkLayer.parentNode.removeChild( page.linkLayer );
+			}
+
+			var layer = document.createElement( 'div' );
+			layer.className = 'wppdf-page__links';
+			page.linkLayer = layer;
+
+			annotations.forEach( function ( annotation ) {
+				if ( 'Link' !== annotation.subtype || ! annotation.rect ) {
+					return;
+				}
+
+				var rect = viewport.convertToViewportRectangle( annotation.rect );
+				var left = Math.min( rect[ 0 ], rect[ 2 ] );
+				var top = Math.min( rect[ 1 ], rect[ 3 ] );
+				var width = Math.abs( rect[ 2 ] - rect[ 0 ] );
+				var height = Math.abs( rect[ 3 ] - rect[ 1 ] );
+
+				if ( width < 1 || height < 1 ) {
+					return;
+				}
+
+				var element = self.buildLink( annotation );
+
+				if ( ! element ) {
+					return;
+				}
+
+				element.className = 'wppdf-link';
+				element.style.left = left + 'px';
+				element.style.top = top + 'px';
+				element.style.width = width + 'px';
+				element.style.height = height + 'px';
+
+				layer.appendChild( element );
+			} );
+
+			if ( layer.childNodes.length ) {
+				page.element.appendChild( layer );
+			} else {
+				page.linkLayer = null;
+			}
+		} ).catch( function () {
+			return Promise.resolve();
+		} );
+	};
+
+	/**
+	 * Build the element for one link annotation.
+	 *
+	 * @param {Object} annotation PDF.js annotation.
+	 * @return {HTMLElement|null} Anchor or button.
+	 */
+	Viewer.prototype.buildLink = function ( annotation ) {
+		var self = this;
+
+		if ( annotation.url ) {
+			if ( ! /^(https?|mailto):/i.test( annotation.url ) ) {
+				return null;
+			}
+
+			var anchor = document.createElement( 'a' );
+			anchor.href = annotation.url;
+			anchor.target = '_blank';
+			anchor.rel = 'noopener noreferrer';
+			anchor.title = annotation.url;
+
+			return anchor;
+		}
+
+		if ( ! annotation.dest ) {
+			return null;
+		}
+
+		var button = document.createElement( 'button' );
+		button.type = 'button';
+
+		button.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			self.goToDestination( annotation.dest );
+		} );
+
+		return button;
+	};
+
+	/**
+	 * Resolve a PDF destination and scroll to it.
+	 *
+	 * @param {Array|string} dest Destination array or named destination.
+	 */
+	Viewer.prototype.goToDestination = function ( dest ) {
+		var self = this;
+
+		if ( ! this.pdf || ! dest ) {
+			return;
+		}
+
+		var resolve = 'string' === typeof dest ? this.pdf.getDestination( dest ) : Promise.resolve( dest );
+
+		resolve.then( function ( target ) {
+			if ( ! target || ! target.length ) {
+				return null;
+			}
+
+			var reference = target[ 0 ];
+
+			if ( reference && 'object' === typeof reference ) {
+				return self.pdf.getPageIndex( reference );
+			}
+
+			// Some documents store a plain page index instead of a reference.
+			return 'number' === typeof reference ? reference : null;
+		} ).then( function ( index ) {
+			if ( null === index || 'undefined' === typeof index ) {
+				return;
+			}
+
+			self.goToPage( index + 1 );
+		} ).catch( function () {} );
+	};
+
+	/**
 	 * Drop rendered canvases far away from the current page.
 	 *
 	 * Without this a long document keeps every page it ever showed in memory.
@@ -559,6 +705,12 @@
 		page.rendering = false;
 		page.element.classList.remove( 'is-rendered' );
 		page.textLayer.innerHTML = '';
+
+		if ( page.linkLayer && page.linkLayer.parentNode ) {
+			page.linkLayer.parentNode.removeChild( page.linkLayer );
+		}
+
+		page.linkLayer = null;
 
 		// Setting the dimensions to zero is what actually releases the backing
 		// store in every engine.
@@ -615,6 +767,7 @@
 		} );
 
 		this.updateToolbar();
+		this.markCurrentThumbnail();
 		this.renderVisible();
 	};
 
@@ -634,6 +787,7 @@
 		if ( current !== this.currentPage ) {
 			this.currentPage = current;
 			this.updateToolbar();
+			this.markCurrentThumbnail();
 			this.announce( format( i18n.pageOf || 'Page %1$d of %2$d', current, this.pages.length ) );
 			this.evict();
 		}
@@ -935,6 +1089,21 @@
 			this.pageObserver = null;
 		}
 
+		if ( this.thumbObserver ) {
+			this.thumbObserver.disconnect();
+			this.thumbObserver = null;
+		}
+
+		this.thumbs = [];
+
+		if ( this.thumbsPanel ) {
+			this.thumbsPanel.innerHTML = '';
+		}
+
+		if ( this.outlinePanel ) {
+			this.outlinePanel.innerHTML = '';
+		}
+
 		if ( this.pdf && this.pdf.destroy ) {
 			this.pdf.destroy();
 		}
@@ -1014,6 +1183,381 @@
 		}
 	};
 
+	// --- Sidebar: thumbnails and outline -----------------------------------
+
+	Viewer.prototype.setupSidebar = function () {
+		this.buildThumbnails();
+		this.loadOutline();
+	};
+
+	Viewer.prototype.toggleSidebar = function ( force ) {
+		if ( ! this.sidebar ) {
+			return;
+		}
+
+		var open = 'undefined' === typeof force ? this.sidebar.hidden : force;
+
+		this.sidebar.hidden = ! open;
+		this.root.classList.toggle( 'has-sidebar', open );
+
+		if ( this.sidebarToggle ) {
+			this.sidebarToggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		}
+
+		if ( open ) {
+			this.renderVisibleThumbnails();
+		}
+
+		// The stage changed width, so a fitted zoom has to be recomputed.
+		if ( this.pdf && ( 'auto' === this.zoomMode || 'page-width' === this.zoomMode || 'page-fit' === this.zoomMode ) ) {
+			this.scale = this.computeScale( this.zoomMode );
+			this.rerender();
+		}
+	};
+
+	Viewer.prototype.showPanel = function ( name ) {
+		var tabs = this.root.querySelectorAll( '.wppdf-sidebar__tab' );
+
+		Array.prototype.forEach.call( tabs, function ( tab ) {
+			var active = tab.getAttribute( 'data-panel' ) === name;
+			tab.classList.toggle( 'is-active', active );
+			tab.setAttribute( 'aria-selected', active ? 'true' : 'false' );
+		} );
+
+		if ( this.thumbsPanel ) {
+			this.thumbsPanel.hidden = 'thumbs' !== name;
+		}
+
+		if ( this.outlinePanel ) {
+			this.outlinePanel.hidden = 'outline' !== name;
+		}
+
+		if ( 'thumbs' === name ) {
+			this.renderVisibleThumbnails();
+		}
+	};
+
+	Viewer.prototype.buildThumbnails = function () {
+		var self = this;
+
+		if ( ! this.thumbsPanel ) {
+			return;
+		}
+
+		this.thumbsPanel.innerHTML = '';
+		this.thumbs = [];
+
+		this.pages.forEach( function ( page ) {
+			var item = document.createElement( 'button' );
+			item.type = 'button';
+			item.className = 'wppdf-thumb';
+			item.setAttribute( 'data-page', page.number );
+
+			var canvas = document.createElement( 'canvas' );
+			canvas.className = 'wppdf-thumb__canvas';
+			item.appendChild( canvas );
+
+			var label = document.createElement( 'span' );
+			label.className = 'wppdf-thumb__label';
+			label.textContent = page.number;
+			item.appendChild( label );
+
+			item.addEventListener( 'click', function () {
+				self.goToPage( page.number );
+			} );
+
+			self.thumbsPanel.appendChild( item );
+			self.thumbs.push( { number: page.number, element: item, canvas: canvas, rendered: false } );
+		} );
+
+		if ( 'IntersectionObserver' in window ) {
+			this.thumbObserver = new IntersectionObserver(
+				function ( entries ) {
+					entries.forEach( function ( entry ) {
+						if ( entry.isIntersecting ) {
+							self.renderThumbnail( self.thumbs[ parseInt( entry.target.getAttribute( 'data-page' ), 10 ) - 1 ] );
+						}
+					} );
+				},
+				{ root: this.thumbsPanel, rootMargin: '200px 0px' }
+			);
+
+			this.thumbs.forEach( function ( thumb ) {
+				self.thumbObserver.observe( thumb.element );
+			} );
+		}
+	};
+
+	Viewer.prototype.renderVisibleThumbnails = function () {
+		var self = this;
+
+		if ( ! this.thumbs || ! this.thumbs.length ) {
+			return;
+		}
+
+		// The first screenful, so an opened panel is never blank.
+		this.thumbs.slice( 0, 8 ).forEach( function ( thumb ) {
+			self.renderThumbnail( thumb );
+		} );
+	};
+
+	Viewer.prototype.renderThumbnail = function ( thumb ) {
+		var self = this;
+
+		if ( ! thumb || thumb.rendered || thumb.rendering || ! this.pdf ) {
+			return;
+		}
+
+		thumb.rendering = true;
+
+		this.pdf.getPage( thumb.number ).then( function ( pdfPage ) {
+			var base = pdfPage.getViewport( { scale: 1 } );
+			var scale = 130 / base.width;
+			var viewport = pdfPage.getViewport( { scale: scale } );
+
+			thumb.canvas.width = Math.floor( viewport.width );
+			thumb.canvas.height = Math.floor( viewport.height );
+
+			return pdfPage.render( {
+				canvasContext: thumb.canvas.getContext( '2d', { alpha: false } ),
+				viewport: viewport
+			} ).promise;
+		} ).then( function () {
+			thumb.rendered = true;
+			thumb.rendering = false;
+			thumb.element.classList.add( 'is-rendered' );
+		} ).catch( function () {
+			thumb.rendering = false;
+		} );
+
+		return self;
+	};
+
+	Viewer.prototype.markCurrentThumbnail = function () {
+		if ( ! this.thumbs ) {
+			return;
+		}
+
+		var current = this.currentPage;
+
+		this.thumbs.forEach( function ( thumb ) {
+			thumb.element.classList.toggle( 'is-current', thumb.number === current );
+		} );
+	};
+
+	Viewer.prototype.loadOutline = function () {
+		var self = this;
+
+		if ( ! this.outlinePanel || ! this.pdf || ! this.pdf.getOutline ) {
+			return;
+		}
+
+		this.pdf.getOutline().then( function ( outline ) {
+			if ( ! outline || ! outline.length ) {
+				self.outlinePanel.innerHTML = '';
+				self.outlinePanel.appendChild( document.createTextNode( i18n.noOutline || '' ) );
+				return;
+			}
+
+			var tab = self.root.querySelector( '.wppdf-sidebar__tab[data-panel="outline"]' );
+
+			if ( tab ) {
+				tab.hidden = false;
+			}
+
+			self.outlinePanel.innerHTML = '';
+			self.outlinePanel.appendChild( self.buildOutlineList( outline ) );
+		} ).catch( function () {} );
+	};
+
+	/**
+	 * Turn the outline tree into nested lists.
+	 *
+	 * @param {Array} items Outline items.
+	 * @return {HTMLElement} List element.
+	 */
+	Viewer.prototype.buildOutlineList = function ( items ) {
+		var self = this;
+		var list = document.createElement( 'ul' );
+		list.className = 'wppdf-outline__list';
+
+		items.forEach( function ( item ) {
+			var entry = document.createElement( 'li' );
+			var button = document.createElement( 'button' );
+
+			button.type = 'button';
+			button.className = 'wppdf-outline__item';
+			button.textContent = item.title || '';
+
+			button.addEventListener( 'click', function () {
+				if ( item.dest ) {
+					self.goToDestination( item.dest );
+				} else if ( item.url && /^https?:/i.test( item.url ) ) {
+					window.open( item.url, '_blank', 'noopener' );
+				}
+			} );
+
+			entry.appendChild( button );
+
+			if ( item.items && item.items.length ) {
+				entry.appendChild( self.buildOutlineList( item.items ) );
+			}
+
+			list.appendChild( entry );
+		} );
+
+		return list;
+	};
+
+	// --- Printing ----------------------------------------------------------
+
+	/**
+	 * Render the requested pages into the document and print them.
+	 *
+	 * Handing the file to a hidden iframe only works where the browser has a
+	 * built in PDF plugin, which rules out iOS. Printing rendered pages works
+	 * anywhere the reader itself works.
+	 *
+	 * @param {number} from First page.
+	 * @param {number} to   Last page.
+	 */
+	Viewer.prototype.printRange = function ( from, to ) {
+		var self = this;
+
+		if ( ! this.pdf || this.printing ) {
+			return;
+		}
+
+		from = Math.min( Math.max( 1, from ), this.pages.length );
+		to = Math.min( Math.max( from, to ), this.pages.length );
+
+		this.printing = true;
+
+		var container = document.createElement( 'div' );
+		container.className = 'wppdf-print-container';
+		document.body.appendChild( container );
+		document.body.classList.add( 'wppdf-is-printing' );
+
+		var canvas = document.createElement( 'canvas' );
+		var context = canvas.getContext( '2d', { alpha: false } );
+		var number = from;
+
+		var progress = this.root.querySelector( '.wppdf-print-progress' );
+
+		/**
+		 * Clean up whatever the print run created.
+		 */
+		function cleanup() {
+			self.printing = false;
+			document.body.classList.remove( 'wppdf-is-printing' );
+
+			if ( container.parentNode ) {
+				container.parentNode.removeChild( container );
+			}
+
+			if ( progress ) {
+				progress.textContent = '';
+			}
+		}
+
+		/**
+		 * Render one page, then queue the next.
+		 *
+		 * @return {Promise} Resolved when the range is done.
+		 */
+		function step() {
+			if ( number > to ) {
+				return Promise.resolve();
+			}
+
+			if ( progress ) {
+				progress.textContent = ( i18n.preparing || '' ) + ' ' + ( number - from + 1 ) + '/' + ( to - from + 1 );
+			}
+
+			return self.pdf.getPage( number ).then( function ( pdfPage ) {
+				// 150 dpi is the usual compromise between sharpness and size.
+				var viewport = pdfPage.getViewport( { scale: 150 / 72 } );
+
+				canvas.width = Math.floor( viewport.width );
+				canvas.height = Math.floor( viewport.height );
+
+				return pdfPage.render( {
+					canvasContext: context,
+					viewport: viewport
+				} ).promise.then( function () {
+					var image = document.createElement( 'img' );
+					image.className = 'wppdf-print-page';
+					image.src = canvas.toDataURL( 'image/jpeg', 0.92 );
+					container.appendChild( image );
+
+					number++;
+
+					return step();
+				} );
+			} );
+		}
+
+		step().then( function () {
+			if ( progress ) {
+				progress.textContent = '';
+			}
+
+			// Give the images a frame to lay out before the print dialog opens.
+			window.setTimeout( function () {
+				window.print();
+
+				window.setTimeout( cleanup, 1000 );
+			}, 100 );
+		} ).catch( function () {
+			cleanup();
+		} );
+	};
+
+	// --- Sharing and deep links -------------------------------------------
+
+	/**
+	 * Open at the page named in the URL, e.g. …/report/#page=12
+	 */
+	Viewer.prototype.applyDeepLink = function () {
+		var match = /[#&?]page=(\d+)/.exec( window.location.hash + window.location.search );
+
+		if ( ! match ) {
+			return 0;
+		}
+
+		var page = parseInt( match[ 1 ], 10 );
+
+		return page > 0 ? page : 0;
+	};
+
+	Viewer.prototype.share = function () {
+		var base = window.location.href.split( '#' )[ 0 ];
+		var url = base + '#page=' + this.currentPage;
+
+		var done = function ( ok ) {
+			var note = ok ? i18n.copied : i18n.copyFailed + ' ' + url;
+
+			if ( this.searchCount ) {
+				// The count area doubles as the toolbar's message line.
+				this.searchCount.textContent = note;
+			}
+
+			this.announce( note );
+		}.bind( this );
+
+		if ( navigator.clipboard && navigator.clipboard.writeText ) {
+			navigator.clipboard.writeText( url ).then( function () {
+				done( true );
+			} ).catch( function () {
+				done( false );
+			} );
+
+			return;
+		}
+
+		done( false );
+	};
+
 	// --- Toolbar and input -------------------------------------------------
 
 	Viewer.prototype.bindToolbar = function () {
@@ -1029,6 +1573,46 @@
 		this.searchNext = root.querySelector( '.wppdf-search-next' );
 		this.fitButton = root.querySelector( '.wppdf-fit' );
 		this.fullscreenButton = root.querySelector( '.wppdf-fullscreen' );
+		this.sidebar = root.querySelector( '.wppdf-viewer__sidebar' );
+		this.sidebarToggle = root.querySelector( '.wppdf-sidebar-toggle' );
+		this.thumbsPanel = root.querySelector( '.wppdf-thumbs' );
+		this.outlinePanel = root.querySelector( '.wppdf-outline' );
+		this.printDialog = root.querySelector( '.wppdf-print-dialog' );
+
+		on( root, '.wppdf-sidebar-toggle', function () {
+			self.toggleSidebar();
+		} );
+
+		on( root, '.wppdf-share', function () {
+			self.share();
+		} );
+
+		Array.prototype.forEach.call( root.querySelectorAll( '.wppdf-sidebar__tab' ), function ( tab ) {
+			tab.addEventListener( 'click', function () {
+				self.showPanel( tab.getAttribute( 'data-panel' ) );
+			} );
+		} );
+
+		on( root, '.wppdf-print-cancel', function () {
+			self.togglePrintDialog( false );
+		} );
+
+		on( root, '.wppdf-print-start', function () {
+			var selected = root.querySelector( '.wppdf-print-dialog input[type="radio"]:checked' );
+			var mode = selected ? selected.value : 'all';
+			var from = 1;
+			var to = self.pages.length;
+
+			if ( 'current' === mode ) {
+				from = self.currentPage;
+				to = self.currentPage;
+			} else if ( 'range' === mode ) {
+				from = parseInt( root.querySelector( '.wppdf-print-from' ).value, 10 ) || 1;
+				to = parseInt( root.querySelector( '.wppdf-print-to' ).value, 10 ) || from;
+			}
+
+			self.printRange( from, to );
+		} );
 
 		on( root, '.wppdf-prev', function () {
 			self.goToPage( self.currentPage - 1 );
@@ -1055,7 +1639,7 @@
 		} );
 
 		on( root, '.wppdf-print', function () {
-			self.print();
+			self.togglePrintDialog();
 		} );
 
 		on( root, '.wppdf-search-prev', function () {
@@ -1210,33 +1794,42 @@
 		}
 	};
 
-	Viewer.prototype.print = function () {
-		var frame = document.createElement( 'iframe' );
+	/**
+	 * Show or hide the print range chooser.
+	 *
+	 * @param {boolean} force Explicit state.
+	 */
+	Viewer.prototype.togglePrintDialog = function ( force ) {
+		if ( ! this.printDialog ) {
+			return;
+		}
 
-		frame.style.position = 'fixed';
-		frame.style.right = '0';
-		frame.style.bottom = '0';
-		frame.style.width = '0';
-		frame.style.height = '0';
-		frame.style.border = '0';
-		frame.src = this.config.url;
+		var open = 'undefined' === typeof force ? this.printDialog.hidden : force;
 
-		frame.onload = function () {
-			try {
-				frame.contentWindow.focus();
-				frame.contentWindow.print();
-			} catch ( e ) {
-				window.open( frame.src, '_blank', 'noopener' );
-			}
+		this.printDialog.hidden = ! open;
 
-			window.setTimeout( function () {
-				if ( frame.parentNode ) {
-					frame.parentNode.removeChild( frame );
-				}
-			}, 60000 );
-		};
+		var button = this.root.querySelector( '.wppdf-print' );
 
-		document.body.appendChild( frame );
+		if ( button ) {
+			button.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+		}
+
+		if ( ! open ) {
+			return;
+		}
+
+		var from = this.root.querySelector( '.wppdf-print-from' );
+		var to = this.root.querySelector( '.wppdf-print-to' );
+
+		if ( from ) {
+			from.max = this.pages.length;
+			from.value = this.currentPage;
+		}
+
+		if ( to ) {
+			to.max = this.pages.length;
+			to.value = this.pages.length;
+		}
 	};
 
 	Viewer.prototype.updateToolbar = function () {

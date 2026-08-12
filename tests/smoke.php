@@ -149,7 +149,6 @@ function wp_localize_script() {}
 function wp_enqueue_script( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function wp_enqueue_style( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function locate_template( $templates ) { return ''; }
-function get_query_var( $v ) { return 0; }
 function current_user_can() { return true; }
 function wp_nonce_field() {}
 function wp_verify_nonce() { return true; }
@@ -175,6 +174,20 @@ function the_post() {}
 function the_title() { echo get_the_title( get_the_ID() ); }
 function the_content() { echo '<p>Content</p>'; }
 function clean_post_cache() {}
+function wp_generate_password( $n = 12, $s = true, $e = true ) { return str_repeat( 'a', $n ); }
+function get_temp_dir() { return sys_get_temp_dir() . '/'; }
+function is_user_logged_in() { return ! empty( $GLOBALS['stub_logged_in'] ); }
+function status_header( $c ) { $GLOBALS['stub_status'] = $c; }
+function nocache_headers() {}
+function wp_die( $m = '', $t = '', $a = array() ) { throw new RuntimeException( 'wp_die:' . ( isset( $a['response'] ) ? $a['response'] : 0 ) ); }
+function get_query_var( $v, $d = '' ) { return isset( $GLOBALS['stub_query_vars'][ $v ] ) ? $GLOBALS['stub_query_vars'][ $v ] : $d; }
+function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
+function update_attached_file( $id, $file ) { $GLOBALS['stub_posts'][ $id ]['file'] = $file; return true; }
+function wp_using_ext_object_cache() { return false; }
+function wp_cache_get( $k, $g = '' ) { return false; }
+function wp_cache_set( $k, $v, $g = '', $t = 0 ) { return true; }
+function wp_cache_delete( $k, $g = '' ) { return true; }
+$GLOBALS['stub_query_vars'] = array();
 function seems_utf8( $s ) { return (bool) preg_match( '//u', $s ); }
 function wp_check_invalid_utf8( $s, $strip = false ) { return $strip ? (string) preg_replace( '/[^\x00-\x7F]/', '', $s ) : $s; }
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
@@ -514,6 +527,49 @@ $hostile_text = WPPDF_Text::extract( $hostile_name );
 ok( 'file name with metacharacters still extracts', false !== strpos( $hostile_text, 'Bezpecny obsah' ) );
 ok( 'nothing was executed', ! file_exists( $canary ) && ! file_exists( getcwd() . '/wppdf-pwned' ) );
 @unlink( $hostile_name );
+
+
+echo "\n== Sidebar, links and print markup ==\n";
+$full = WPPDF_Viewer::render( 10 );
+ok( 'sidebar rendered', false !== strpos( $full, 'wppdf-viewer__sidebar' ) );
+ok( 'thumbnail panel rendered', false !== strpos( $full, 'wppdf-thumbs' ) );
+ok( 'outline panel rendered', false !== strpos( $full, 'wppdf-outline' ) );
+ok( 'print dialog rendered', false !== strpos( $full, 'wppdf-print-dialog' ) );
+ok( 'share button rendered', false !== strpos( $full, 'wppdf-share' ) );
+
+echo "\n== Protected documents ==\n";
+ok( 'documents are public by default', false === WPPDF_Protection::is_protected( 10 ) );
+
+$public_url = WPPDF_Documents::get_file( 10, 'cs' );
+ok( 'public document keeps its direct URL', false !== strpos( $public_url['url'], '/uploads/cs.pdf' ) );
+
+update_post_meta( 10, WPPDF_Protection::META, 1 );
+WPPDF_Documents::flush_cache();
+$protection = new WPPDF_Protection();
+add_filter( 'wppdf_file_url', array( $protection, 'filter_file_url' ) );
+$rewritten = $protection->filter_file_url( 'https://example.test/uploads/cs.pdf', 10, 'cs' );
+ok( 'protected document is served through the endpoint', false !== strpos( $rewritten, 'wppdf_file=10' ) && false !== strpos( $rewritten, 'wppdf_lang=cs' ) );
+ok( 'direct upload path is gone from the URL', false === strpos( $rewritten, '/uploads/' ) );
+
+$GLOBALS['stub_logged_in'] = false;
+ok( 'logged out visitor is refused', false === WPPDF_Protection::current_user_can_read( 10 ) );
+$GLOBALS['stub_logged_in'] = true;
+ok( 'logged in visitor is allowed', true === WPPDF_Protection::current_user_can_read( 10 ) );
+delete_post_meta( 10, WPPDF_Protection::META );
+WPPDF_Documents::flush_cache();
+
+echo "\n== Backfill ==\n";
+$backfill_pdf = make_pdf( 'Doindexovany dokument s textem' );
+$GLOBALS['stub_posts'][40] = array( 'ID' => 40, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf', 'url' => 'https://example.test/uploads/backfill.pdf', 'file' => $backfill_pdf, 'post_title' => 'backfill.pdf' );
+$GLOBALS['stub_posts'][12] = array( 'ID' => 12, 'post_type' => 'pdf_document', 'post_title' => 'Starý dokument' );
+update_post_meta( 12, '_wppdf_file_cs', 40 );
+WPPDF_Documents::flush_cache();
+
+ok( 'document starts without an index', '' === get_post_meta( 12, WPPDF_Text::text_meta_key( 'cs' ), true ) );
+WPPDF_Reindex::index_document( 12, false, false );
+$indexed_text = get_post_meta( 12, WPPDF_Text::text_meta_key( 'cs' ), true );
+ok( 'backfill stored the text', false !== strpos( (string) $indexed_text, 'Doindexovany dokument' ) );
+ok( 'backfill stored the page count', 1 === (int) get_post_meta( 12, WPPDF_Text::pages_meta_key( 'cs' ), true ) );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

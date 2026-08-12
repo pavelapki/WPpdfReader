@@ -182,13 +182,133 @@ class WPPDF_Text {
 	 * @return string Normalised text, empty when nothing usable was found.
 	 */
 	public static function extract( $path ) {
-		$text = self::extract_with_binary( $path );
+		$text = self::normalise( self::extract_with_binary( $path ) );
 
 		if ( '' === $text ) {
-			$text = self::extract_with_php( $path );
+			$text = self::normalise( self::extract_with_php( $path ) );
 		}
 
-		return self::normalise( $text );
+		// A scan has no text layer at all, so nothing above finds anything.
+		if ( '' === $text ) {
+			$text = self::normalise( self::extract_with_ocr( $path ) );
+		}
+
+		return $text;
+	}
+
+	/**
+	 * Whether this server can OCR scanned documents.
+	 *
+	 * @return bool
+	 */
+	public static function ocr_available() {
+		return '' !== self::binary( 'pdftoppm' ) && '' !== self::binary( 'tesseract' );
+	}
+
+	/**
+	 * Read a scanned document by rendering its pages and running OCR.
+	 *
+	 * Expensive by nature, so it only runs when the document has no text layer
+	 * whatsoever, is capped to a number of pages and happens on the scheduled
+	 * event rather than in a page request.
+	 *
+	 * @param string $path Absolute file path.
+	 * @return string
+	 */
+	protected static function extract_with_ocr( $path ) {
+		if ( ! WPPDF_Settings::get( 'ocr_enabled' ) || ! self::ocr_available() ) {
+			return '';
+		}
+
+		/**
+		 * Filter how many pages of a scan are read.
+		 *
+		 * @param int $pages Maximum pages.
+		 */
+		$max_pages = (int) apply_filters( 'wppdf_ocr_max_pages', max( 1, (int) WPPDF_Settings::get( 'ocr_max_pages' ) ) );
+
+		$languages = (string) WPPDF_Settings::get( 'ocr_languages' );
+		$languages = preg_replace( '/[^a-zA-Z+_]/', '', $languages );
+
+		if ( '' === $languages ) {
+			$languages = 'eng';
+		}
+
+		$directory = self::temp_directory();
+
+		if ( '' === $directory ) {
+			return '';
+		}
+
+		$prefix = trailingslashit( $directory ) . 'wppdf-ocr-' . wp_generate_password( 8, false, false );
+		$text   = '';
+
+		// One page image at a time keeps the peak disk usage to a single page.
+		for ( $page = 1; $page <= $max_pages; $page++ ) {
+			$rendered = self::run_binary(
+				array(
+					self::binary( 'pdftoppm' ),
+					'-r',
+					'200',
+					'-f',
+					(string) $page,
+					'-l',
+					(string) $page,
+					'-png',
+					'-singlefile',
+					$path,
+					$prefix,
+				)
+			);
+
+			$image = $prefix . '.png';
+
+			if ( null === $rendered || ! file_exists( $image ) ) {
+				break;
+			}
+
+			$page_text = self::run_binary(
+				array(
+					self::binary( 'tesseract' ),
+					$image,
+					'stdout',
+					'-l',
+					$languages,
+				)
+			);
+
+			wp_delete_file( $image );
+
+			if ( is_string( $page_text ) && '' !== trim( $page_text ) ) {
+				$text .= ' ' . $page_text;
+			}
+
+			if ( strlen( $text ) >= self::MAX_CHARS ) {
+				break;
+			}
+		}
+
+		if ( '' !== trim( $text ) ) {
+			/**
+			 * Fires when a document was read with OCR.
+			 *
+			 * @param string $path Absolute file path.
+			 */
+			do_action( 'wppdf_ocr_used', $path );
+		}
+
+		return $text;
+	}
+
+	/**
+	 * A writable directory for the intermediate page images.
+	 *
+	 * @return string
+	 */
+	protected static function temp_directory() {
+		$directory = function_exists( 'get_temp_dir' ) ? get_temp_dir() : sys_get_temp_dir();
+
+		return is_string( $directory ) && is_writable( $directory ) ? $directory : '';
 	}
 
 	/**

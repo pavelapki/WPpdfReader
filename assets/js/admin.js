@@ -104,6 +104,81 @@
 		$row.find( 'input' ).first().trigger( 'focus' );
 	} );
 
+	// --- Settings screen: reindexing --------------------------------------
+
+	$( document ).on( 'click', '#wppdf-reindex-start', function ( event ) {
+		event.preventDefault();
+
+		var $button = $( this );
+		var force = $( '#wppdf-reindex-force' ).is( ':checked' ) ? 1 : 0;
+		var indexed = 0;
+
+		if ( $button.prop( 'disabled' ) ) {
+			return;
+		}
+
+		$button.prop( 'disabled', true );
+		$( '.wppdf-reindex__spinner' ).addClass( 'is-active' );
+		$( '#wppdf-reindex-log' ).empty();
+
+		/**
+		 * Walk the queue one batch at a time.
+		 *
+		 * @param {number} offset Offset for forced runs.
+		 */
+		function step( offset ) {
+			$.post( ( window.wppdfAdmin && window.wppdfAdmin.ajaxUrl ) || window.ajaxurl, {
+				action: 'wppdf_reindex',
+				nonce: $button.data( 'nonce' ),
+				force: force,
+				offset: offset
+			} ).done( function ( response ) {
+				if ( ! response || ! response.success ) {
+					finish( i18n.reindexError, true );
+					return;
+				}
+
+				( response.data.processed || [] ).forEach( function ( item ) {
+					indexed++;
+					$( '#wppdf-reindex-log' ).append(
+						$( '<p />' ).text( item.title + ( item.pages ? ' — ' + item.pages + ' s.' : '' ) )
+					);
+				} );
+
+				$( '#wppdf-reindex-status' ).text(
+					( i18n.reindexed || '%1$d indexed, %2$d left.' )
+						.replace( '%1$d', indexed )
+						.replace( '%2$d', response.data.pending )
+				);
+
+				if ( response.data.done ) {
+					finish( i18n.reindexDone );
+					return;
+				}
+
+				step( response.data.offset );
+			} ).fail( function () {
+				finish( i18n.reindexError, true );
+			} );
+		}
+
+		/**
+		 * Stop and report.
+		 *
+		 * @param {string}  message Message to show.
+		 * @param {boolean} isError Whether it is a failure.
+		 */
+		function finish( message, isError ) {
+			$( '.wppdf-reindex__spinner' ).removeClass( 'is-active' );
+			$button.prop( 'disabled', false );
+			$( '#wppdf-reindex-log' ).append(
+				$( '<p />' ).addClass( isError ? 'wppdf-import__error' : '' ).text( message )
+			);
+		}
+
+		step( 0 );
+	} );
+
 	$( document ).on( 'click', '.wppdf-remove-language', function ( event ) {
 		event.preventDefault();
 

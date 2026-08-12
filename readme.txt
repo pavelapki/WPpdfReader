@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,22 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.2.0 =
+* Links inside PDFs are clickable, both external ones and jumps within the
+  document.
+* Sidebar with page thumbnails and the document's own table of contents.
+* Printing renders the pages instead of handing the file to a hidden iframe,
+  so it also works on iOS, and a page range can be chosen.
+* Open a document at a given page with #page=12, and a toolbar button copies
+  such a link.
+* Backfill for documents added before extraction existed: a button on the
+  settings screen and a WP-CLI command, wp pdf-reader reindex.
+* OCR for scanned documents when pdftoppm and tesseract are available, with a
+  page limit and configurable languages.
+* Documents can be marked as readable by logged in visitors only. Their files
+  move into a directory that denies direct access and are served through PHP,
+  with byte range support.
 
 = 1.1.0 =
 * Text of uploaded PDFs is extracted in the background and included in the site

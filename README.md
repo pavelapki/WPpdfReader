@@ -77,6 +77,12 @@ návštěvníka a jazyky se přidají do seznamu polí.
 * přibalené standardní fonty (`standard_fonts/`), takže korektně vykreslí i
   PDF, která nemají Helvetiku/Times vložené v souboru,
 * plynulé scrollování s vykreslováním stránek až ve chvíli, kdy jsou potřeba,
+* **klikatelné odkazy uvnitř PDF** — externí i skoky v rámci dokumentu,
+* **boční panel** s náhledy stránek a s obsahem dokumentu (PDF záložky),
+* **tisk** vykreslením stránek, ne přes skrytý iframe, takže funguje i na iOSu,
+  s volbou rozsahu stránek,
+* **odkaz na konkrétní stránku** — `#page=12` otevře dokument rovnou tam
+  a tlačítko v liště takový odkaz zkopíruje,
 * stránkování, zoom, fit na šířku/stránku, fullscreen, tisk, stažení,
 * textová vrstva → text v PDF jde označit a zkopírovat, prohledává ho i
   vyhledávání v prohlížeči,
@@ -96,6 +102,16 @@ zvládne většinu textových PDF. Naskenované dokumenty potřebují OCR a
 indexovat je nelze — plugin raději neuloží nic, než aby do indexu nalil
 nesmysly (kontroluje se podíl smysluplných znaků).
 
+**Naskenované dokumenty.** Sken nemá textovou vrstvu, takže z něj nic vytáhnout
+nejde. Když jsou na serveru `pdftoppm` a `tesseract`, plugin takový dokument
+projede OCR — jen tehdy, když nenašel žádný text, na naplánované úloze a
+s limitem stránek (výchozí 20). Jazyky se nastavují jako `ces+eng`.
+
+**Doindexování.** Text se vytahuje při uložení souboru, takže dokumenty přidané
+dřív index nemají. V nastavení je tlačítko, které je po dávkách projde; u velké
+knihovny je lepší `wp pdf-reader reindex` (volby `--force`, `--skip-covers`,
+`--limit`).
+
 **Hledání v otevřeném dokumentu.** Lupa v toolbaru prohledá celý dokument,
 ignoruje diakritiku (`zprava` najde `zpráva`), ukazuje počet výskytů a
 mezi nálezy se skáče tlačítky nebo Enterem (Shift+Enter zpět). `Ctrl/Cmd+F`
@@ -107,6 +123,28 @@ uvnitř prohlížeče otevře hledání v dokumentu místo v prohlížeči.
 médií a z každého vznikne dokument. Název se odvodí z názvu souboru, dá se
 zvolit jazyk, stav (koncept/publikováno) a kategorie. Zpracovává se po
 dávkách po 20 souborech, aby žádný request neběžel dlouho.
+
+## Dokumenty jen pro přihlášené
+
+U jednotlivého dokumentu se dá zaškrtnout, že ho smí otevřít jen přihlášený
+návštěvník. Neschovává se přitom jen odkaz — soubory se **přesunou** do
+`wp-content/uploads/wppdf-protected/`, kam se položí `.htaccess` se zákazem
+přímého přístupu, a servírují se přes PHP až po kontrole oprávnění. Endpoint
+umí Range requesty, takže PDF.js může zobrazit první stránku dřív, než dorazí
+celý soubor.
+
+Původní URL souboru tím přestane fungovat — to je záměr, ale počítej s tím,
+pokud jsi ho někam nalinkoval.
+
+**Na nginxu `.htaccess` nic nedělá.** Metabox na to upozorní; do konfigurace
+serveru je potřeba přidat:
+
+```nginx
+location ^~ /wp-content/uploads/wppdf-protected/ { deny all; }
+```
+
+Kdo smí číst, se dá předefinovat filtrem `wppdf_user_can_read` — třeba podle
+členství.
 
 ## Statistiky, SEO a aktualizace
 
@@ -191,6 +229,11 @@ Přepsat lze i jednotlivé části: `wp-pdf-reader/parts/card.php` a
 | `wppdf_count_hit` | zda se zobrazení započítá (rate limit, boti) |
 | `wppdf_schema_data` | data pro JSON-LD |
 | `wppdf_seo_plugin_active` | vypnutí OG tagů kvůli jinému SEO pluginu |
+| `wppdf_file_url` | URL, ze které se soubor servíruje |
+| `wppdf_is_protected` | zda dokument vyžaduje přihlášení |
+| `wppdf_user_can_read` | kdo smí chráněný dokument otevřít |
+| `wppdf_ocr_max_pages` | kolik stránek skenu projde OCR |
+| `wppdf_hit_throttle` | okno pro rate limit počítadla |
 
 Příklad — přidat pole i k běžným příspěvkům:
 

@@ -81,6 +81,10 @@ class WPPDF_Viewer {
 					'download'   => __( 'Download', 'wp-pdf-reader' ),
 					'print'      => __( 'Print', 'wp-pdf-reader' ),
 					'searching'  => __( 'Searching…', 'wp-pdf-reader' ),
+					'copied'     => __( 'Link copied', 'wp-pdf-reader' ),
+					'copyFailed' => __( 'Copy this link:', 'wp-pdf-reader' ),
+					'preparing'  => __( 'Preparing pages…', 'wp-pdf-reader' ),
+					'noOutline'  => __( 'This document has no contents.', 'wp-pdf-reader' ),
 					'noMatches'  => __( 'No matches', 'wp-pdf-reader' ),
 					/* translators: 1: current match, 2: total matches. */
 					'matches'    => __( '%1$d of %2$d', 'wp-pdf-reader' ),
@@ -240,6 +244,7 @@ class WPPDF_Viewer {
 			<?php if ( $args['toolbar'] ) : ?>
 				<div class="wppdf-viewer__toolbar">
 					<div class="wppdf-toolbar__group">
+						<button type="button" class="wppdf-btn wppdf-sidebar-toggle" aria-expanded="false" aria-label="<?php esc_attr_e( 'Contents and thumbnails', 'wp-pdf-reader' ); ?>">&#9776;</button>
 						<button type="button" class="wppdf-btn wppdf-prev" aria-label="<?php esc_attr_e( 'Previous page', 'wp-pdf-reader' ); ?>">&#8249;</button>
 						<span class="wppdf-pages">
 							<input type="number" class="wppdf-page-input" value="1" min="1" aria-label="<?php esc_attr_e( 'Page', 'wp-pdf-reader' ); ?>" />
@@ -274,8 +279,9 @@ class WPPDF_Viewer {
 								<?php endforeach; ?>
 							</select>
 						<?php endif; ?>
+						<button type="button" class="wppdf-btn wppdf-share" aria-label="<?php esc_attr_e( 'Copy a link to this page', 'wp-pdf-reader' ); ?>">&#128279;</button>
 						<?php if ( $args['print'] ) : ?>
-							<button type="button" class="wppdf-btn wppdf-print" aria-label="<?php esc_attr_e( 'Print', 'wp-pdf-reader' ); ?>">&#9113;</button>
+							<button type="button" class="wppdf-btn wppdf-print" aria-expanded="false" aria-label="<?php esc_attr_e( 'Print', 'wp-pdf-reader' ); ?>">&#9113;</button>
 						<?php endif; ?>
 						<?php if ( $args['download'] ) : ?>
 							<a class="wppdf-btn wppdf-download" href="<?php echo esc_url( $file['url'] ); ?>" download aria-label="<?php esc_attr_e( 'Download', 'wp-pdf-reader' ); ?>">&#8595;</a>
@@ -283,13 +289,46 @@ class WPPDF_Viewer {
 						<button type="button" class="wppdf-btn wppdf-fullscreen" aria-pressed="false" aria-label="<?php esc_attr_e( 'Fullscreen', 'wp-pdf-reader' ); ?>">&#9974;</button>
 					</div>
 				</div>
+
+				<?php if ( $args['print'] ) : ?>
+					<div class="wppdf-print-dialog" hidden>
+						<fieldset>
+							<legend><?php esc_html_e( 'Pages to print', 'wp-pdf-reader' ); ?></legend>
+							<label><input type="radio" name="<?php echo esc_attr( $id ); ?>-range" value="all" checked /> <?php esc_html_e( 'All', 'wp-pdf-reader' ); ?></label>
+							<label><input type="radio" name="<?php echo esc_attr( $id ); ?>-range" value="current" /> <?php esc_html_e( 'Current page', 'wp-pdf-reader' ); ?></label>
+							<label>
+								<input type="radio" name="<?php echo esc_attr( $id ); ?>-range" value="range" />
+								<?php esc_html_e( 'From', 'wp-pdf-reader' ); ?>
+								<input type="number" class="wppdf-print-from" min="1" value="1" />
+								<?php esc_html_e( 'to', 'wp-pdf-reader' ); ?>
+								<input type="number" class="wppdf-print-to" min="1" value="1" />
+							</label>
+						</fieldset>
+						<p>
+							<button type="button" class="wppdf-btn wppdf-print-start"><?php esc_html_e( 'Print', 'wp-pdf-reader' ); ?></button>
+							<button type="button" class="wppdf-btn wppdf-print-cancel"><?php esc_html_e( 'Cancel', 'wp-pdf-reader' ); ?></button>
+							<span class="wppdf-print-progress"></span>
+						</p>
+					</div>
+				<?php endif; ?>
 			<?php endif; ?>
 
-			<div class="wppdf-viewer__stage">
-				<div class="wppdf-viewer__pages" tabindex="0" role="document"></div>
-				<div class="wppdf-viewer__status" role="status">
-					<span class="wppdf-spinner" aria-hidden="true"></span>
-					<span class="wppdf-status-text"><?php esc_html_e( 'Loading document…', 'wp-pdf-reader' ); ?></span>
+			<div class="wppdf-viewer__body">
+				<aside class="wppdf-viewer__sidebar" hidden>
+					<div class="wppdf-sidebar__tabs" role="tablist">
+						<button type="button" class="wppdf-sidebar__tab is-active" role="tab" aria-selected="true" data-panel="thumbs"><?php esc_html_e( 'Pages', 'wp-pdf-reader' ); ?></button>
+						<button type="button" class="wppdf-sidebar__tab" role="tab" aria-selected="false" data-panel="outline" hidden><?php esc_html_e( 'Contents', 'wp-pdf-reader' ); ?></button>
+					</div>
+					<div class="wppdf-sidebar__panel wppdf-thumbs" role="tabpanel"></div>
+					<div class="wppdf-sidebar__panel wppdf-outline" role="tabpanel" hidden></div>
+				</aside>
+
+				<div class="wppdf-viewer__stage">
+					<div class="wppdf-viewer__pages" tabindex="0" role="document"></div>
+					<div class="wppdf-viewer__status" role="status">
+						<span class="wppdf-spinner" aria-hidden="true"></span>
+						<span class="wppdf-status-text"><?php esc_html_e( 'Loading document…', 'wp-pdf-reader' ); ?></span>
+					</div>
 				</div>
 			</div>
 
