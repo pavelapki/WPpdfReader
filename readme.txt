@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,13 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.4.0 =
+* Import from another plugin. TNC FlipBook 3D is recognised directly, taking
+  over its page count and extracted text so the PDFs need not be read again.
+  Any other post type goes through a generic path that locates PDF
+  attachments in the record's meta. Originals are never touched and a record
+  is never imported twice.
 
 = 1.3.1 =
 * Security: protecting a document now also moves the preview images WordPress

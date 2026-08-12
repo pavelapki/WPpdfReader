@@ -51,7 +51,17 @@ function get_option( $key, $default = false ) { return array_key_exists( $key, $
 function update_option( $key, $value ) { $GLOBALS['stub_options'][ $key ] = $value; return true; }
 function add_option( $key, $value ) { return update_option( $key, $value ); }
 function delete_option( $key ) { unset( $GLOBALS['stub_options'][ $key ] ); }
-function get_post_meta( $id, $key, $single = false ) { return isset( $GLOBALS['stub_meta'][ $id ][ $key ] ) ? $GLOBALS['stub_meta'][ $id ][ $key ] : ''; }
+function get_post_meta( $id, $key = '', $single = false ) {
+	// Matching WordPress: with no key, every meta value of the post, each
+	// wrapped in an array.
+	if ( '' === $key ) {
+		$all = isset( $GLOBALS['stub_meta'][ $id ] ) ? $GLOBALS['stub_meta'][ $id ] : array();
+		$out = array();
+		foreach ( $all as $k => $v ) { $out[ $k ] = array( $v ); }
+		return $out;
+	}
+	return isset( $GLOBALS['stub_meta'][ $id ][ $key ] ) ? $GLOBALS['stub_meta'][ $id ][ $key ] : '';
+}
 function update_post_meta( $id, $key, $value ) { $GLOBALS['stub_meta'][ $id ][ $key ] = $value; }
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['stub_meta'][ $id ][ $key ] ); }
 
@@ -72,7 +82,14 @@ function get_the_date( $format = '', $id = 0 ) { return '11. 8. 2026'; }
 function get_the_term_list() { return '<a href="#">Reports</a>'; }
 function post_class( $class = '', $id = null ) { echo 'class="' . ( is_array( $class ) ? implode( ' ', $class ) : $class ) . '"'; }
 function wp_reset_postdata() {}
-function is_wp_error( $t ) { return false; }
+class WP_Error {
+	protected $code;
+	protected $message;
+	public function __construct( $code = '', $message = '', $data = null ) { $this->code = $code; $this->message = $message; }
+	public function get_error_code() { return $this->code; }
+	public function get_error_message() { return $this->message; }
+}
+function is_wp_error( $t ) { return $t instanceof WP_Error; }
 function paginate_links( $args ) { return '<a class="page-numbers" href="#">2</a>'; }
 
 class WP_Query {
@@ -196,6 +213,15 @@ function _prime_post_caches( $ids, $terms = true, $meta = true ) { $GLOBALS['stu
 function update_meta_cache( $type, $ids ) { return true; }
 function wp_get_attachment_metadata( $id ) { return isset( $GLOBALS['stub_attachment_meta'][ $id ] ) ? $GLOBALS['stub_attachment_meta'][ $id ] : array(); }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
+function get_post_type_object( $t ) { return null; }
+function maybe_unserialize( $v ) { return is_string( $v ) && preg_match( '/^[aOs]:/', $v ) ? @unserialize( $v ) : $v; }
+function attachment_url_to_postid( $u ) { foreach ( $GLOBALS['stub_posts'] as $id => $p ) { if ( isset( $p['url'] ) && $p['url'] === $u ) { return $id; } } return 0; }
+function set_post_thumbnail( $post_id, $thumb ) { return true; }
+function wp_get_object_terms( $id, $tax, $args = array() ) { return array(); }
+function wp_set_object_terms( $id, $terms, $tax ) { return true; }
+function wp_send_json_success( $d ) { $GLOBALS['stub_json'] = $d; }
+function wp_send_json_error( $d, $c = 0 ) { $GLOBALS['stub_json'] = $d; }
+function check_ajax_referer( $a, $b ) { return true; }
 function wp_safe_redirect( $u, $s = 302 ) { $GLOBALS['stub_redirect'] = $u; return true; }
 $GLOBALS['stub_primed'] = array();
 function get_terms( $args = array() ) { return $GLOBALS['stub_terms']; }
@@ -669,6 +695,74 @@ echo "\n== Protected delivery ==\n";
 ok( 'a path inside uploads is accepted', true === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/wppdf-inside.pdf' ) ) );
 ok( 'a path outside uploads is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/etc/passwd' ) ) );
 ok( 'a traversal attempt is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/../etc/passwd' ) ) );
+
+
+echo "\n== Import from another plugin ==\n";
+
+// A TNC FlipBook record as that plugin actually stores it: CPT tnc_flipbook,
+// meta prefixed _tncfb3d_, the PDF as an attachment ID.
+$tnc_pdf = make_pdf( 'Katalog produktu 2025' );
+$GLOBALS['stub_posts'][70] = array( 'ID' => 70, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf', 'url' => 'https://example.test/uploads/katalog.pdf', 'file' => $tnc_pdf, 'post_title' => 'katalog.pdf' );
+$GLOBALS['stub_posts'][71] = array(
+	'ID' => 71, 'post_type' => 'tnc_flipbook', 'post_title' => 'Katalog 2025', 'post_content' => 'Popis katalogu',
+	'post_excerpt' => 'Stručně', 'post_status' => 'publish', 'post_date' => '2025-03-01 10:00:00',
+	'post_date_gmt' => '2025-03-01 09:00:00', 'post_author' => 1, 'menu_order' => 3,
+);
+update_post_meta( 71, '_tncfb3d_source_type', 'pdf' );
+update_post_meta( 71, '_tncfb3d_pdf_id', 70 );
+update_post_meta( 71, '_tncfb3d_text_page_count', 24 );
+update_post_meta( 71, '_tncfb3d_extracted_text', "Katalog   produktu\n\n2025 s cenami" );
+
+$described = WPPDF_Migrator::describe( 71, 'tnc_flipbook' );
+ok( 'adapter finds the PDF', array( 70 ) === $described['attachments'] );
+ok( 'adapter takes over the page count', 24 === $described['pages'] );
+ok( 'adapter takes over the text', false !== strpos( $described['text'], 'Katalog' ) );
+
+$migrated = WPPDF_Migrator::import( 71, array( 'language' => 'cs', 'status' => 'source' ) );
+ok( 'record imported', is_array( $migrated ) && $migrated['id'] > 0 );
+
+$new_id = $migrated['id'];
+ok( 'title carried over', 'Katalog 2025' === get_the_title( $new_id ) );
+ok( 'PDF placed in the chosen language', 70 === (int) get_post_meta( $new_id, '_wppdf_file_cs', true ) );
+ok( 'page count reused', 24 === (int) get_post_meta( $new_id, WPPDF_Text::pages_meta_key( 'cs' ), true ) );
+ok( 'text index reused, whitespace collapsed', 'Katalog produktu 2025 s cenami' === get_post_meta( $new_id, WPPDF_Text::text_meta_key( 'cs' ), true ) );
+ok( 'source recorded', 71 === (int) get_post_meta( $new_id, WPPDF_Migrator::META_SOURCE_ID, true ) );
+ok( 'source type recorded', 'tnc_flipbook' === get_post_meta( $new_id, WPPDF_Migrator::META_SOURCE_TYPE, true ) );
+
+// An image-only flipbook holds no PDF at all.
+$GLOBALS['stub_posts'][72] = array( 'ID' => 72, 'post_type' => 'tnc_flipbook', 'post_title' => 'Galerie', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 72, '_tncfb3d_source_type', 'images' );
+update_post_meta( 72, '_tncfb3d_image_ids', array( 22, 23 ) );
+
+$image_only = WPPDF_Migrator::import( 72, array( 'language' => 'cs', 'status' => 'draft' ) );
+ok( 'image only flipbook is refused, not half imported', is_wp_error( $image_only ) );
+
+// Multi PDF: the first is placed, the rest are reported rather than guessed.
+$GLOBALS['stub_posts'][73] = array( 'ID' => 73, 'post_type' => 'tnc_flipbook', 'post_title' => 'Dvojjazyčný', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 73, '_tncfb3d_pdf_ids', array( array( 'id' => 70, 'name' => 'cs' ), array( 'id' => 21, 'name' => 'en' ) ) );
+
+$multi = WPPDF_Migrator::import( 73, array( 'language' => 'cs', 'status' => 'draft' ) );
+ok( 'first PDF of a multi record is placed', 70 === (int) get_post_meta( $multi['id'], '_wppdf_file_cs', true ) );
+ok( 'the remaining PDF is reported, not guessed at', ! empty( $multi['notes'] ) );
+
+// The generic path has to cope with a plugin whose keys are unknown.
+$GLOBALS['stub_posts'][74] = array( 'ID' => 74, 'post_type' => 'some_flipbook', 'post_title' => 'Neznámý plugin', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 74, 'some_random_key', array( 'settings' => array( 'file' => 21 ) ) );
+
+$generic = WPPDF_Migrator::describe( 74, 'some_flipbook' );
+ok( 'generic path finds a PDF nested in meta', in_array( 21, $generic['attachments'], true ) );
+
+$GLOBALS['stub_posts'][75] = array( 'ID' => 75, 'post_type' => 'some_flipbook', 'post_title' => 'Externí', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 75, 'pdf_url', 'https://cdn.example.test/manual.pdf' );
+
+$external = WPPDF_Migrator::describe( 75, 'some_flipbook' );
+ok( 'a URL that is not in the library becomes an external link', 'https://cdn.example.test/manual.pdf' === $external['url'] );
+
+$GLOBALS['stub_posts'][76] = array( 'ID' => 76, 'post_type' => 'some_flipbook', 'post_title' => 'Bez PDF', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 76, 'colour', 'blue' );
+update_post_meta( 76, 'image', 22 );
+$nothing = WPPDF_Migrator::describe( 76, 'some_flipbook' );
+ok( 'a non-PDF attachment is not mistaken for one', array() === $nothing['attachments'] && '' === $nothing['url'] );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

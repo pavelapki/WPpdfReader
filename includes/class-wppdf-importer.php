@@ -118,7 +118,101 @@ class WPPDF_Importer {
 			</p>
 
 			<div id="wppdf-import-results" class="wppdf-import__results" aria-live="polite"></div>
+
+			<?php $this->render_migration(); ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * Render the "import from another plugin" panel.
+	 */
+	protected function render_migration() {
+		$sources = WPPDF_Migrator::get_sources();
+
+		if ( empty( $sources ) ) {
+			return;
+		}
+
+		?>
+		<hr />
+
+		<h2><?php esc_html_e( 'Import from another plugin', 'wp-pdf-reader' ); ?></h2>
+
+		<p class="description">
+			<?php esc_html_e( 'Copies existing records into documents: title, text, date, author, categories and featured image, plus the PDF itself. The originals are left untouched, and a record that was already imported is never imported twice.', 'wp-pdf-reader' ); ?>
+		</p>
+
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><label for="wppdf-migrate-source"><?php esc_html_e( 'Source', 'wp-pdf-reader' ); ?></label></th>
+				<td>
+					<select id="wppdf-migrate-source">
+						<?php foreach ( $sources as $source ) : ?>
+							<option value="<?php echo esc_attr( $source['type'] ); ?>">
+								<?php
+								$label = $source['adapter'] ? $source['adapter'] : $source['label'];
+
+								printf(
+									/* translators: 1: source name, 2: post type key, 3: number of records. */
+									esc_html__( '%1$s (%2$s) — %3$d records', 'wp-pdf-reader' ),
+									esc_html( $label ),
+									esc_html( $source['type'] ),
+									(int) $source['count']
+								);
+
+								if ( $source['imported'] > 0 ) {
+									printf(
+										/* translators: %d: number already imported. */
+										esc_html__( ', %d already imported', 'wp-pdf-reader' ),
+										(int) $source['imported']
+									);
+								}
+
+								if ( ! $source['active'] ) {
+									echo esc_html__( ', plugin inactive', 'wp-pdf-reader' );
+								}
+								?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="description">
+						<?php esc_html_e( 'TNC FlipBook is recognised directly, including its page count and extracted text, which saves re-reading every PDF. For any other post type the PDF is located by inspecting the record, which works as long as it points at a PDF in the media library.', 'wp-pdf-reader' ); ?>
+					</p>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="wppdf-migrate-language"><?php esc_html_e( 'Language of the files', 'wp-pdf-reader' ); ?></label></th>
+				<td>
+					<select id="wppdf-migrate-language">
+						<?php foreach ( WPPDF_Languages::get_languages() as $code => $language ) : ?>
+							<option value="<?php echo esc_attr( $code ); ?>" <?php selected( $code, WPPDF_Languages::get_default_language() ); ?>>
+								<?php echo esc_html( $language['label'] . ' (' . $code . ')' ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="wppdf-migrate-status"><?php esc_html_e( 'Create as', 'wp-pdf-reader' ); ?></label></th>
+				<td>
+					<select id="wppdf-migrate-status">
+						<option value="source"><?php esc_html_e( 'Same status as the original', 'wp-pdf-reader' ); ?></option>
+						<option value="draft"><?php esc_html_e( 'Draft', 'wp-pdf-reader' ); ?></option>
+						<option value="publish"><?php esc_html_e( 'Published', 'wp-pdf-reader' ); ?></option>
+					</select>
+				</td>
+			</tr>
+		</table>
+
+		<p>
+			<button type="button" class="button button-primary" id="wppdf-migrate-start" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>">
+				<?php esc_html_e( 'Import records', 'wp-pdf-reader' ); ?>
+			</button>
+			<span class="spinner wppdf-migrate__spinner"></span>
+		</p>
+
+		<div id="wppdf-migrate-results" class="wppdf-import__results" aria-live="polite"></div>
 		<?php
 	}
 

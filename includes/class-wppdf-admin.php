@@ -112,6 +112,8 @@ class WPPDF_Admin {
 						'failed'       => __( 'The import request failed.', 'wp-pdf-reader' ),
 						/* translators: %d: number of files. */
 						'finished'     => __( 'Finished, %d files processed.', 'wp-pdf-reader' ),
+						/* translators: 1: number imported, 2: number left unimported. */
+						'migrated'     => __( 'Done: %1$d imported, %2$d left.', 'wp-pdf-reader' ),
 					),
 				)
 			);

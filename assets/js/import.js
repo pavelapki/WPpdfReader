@@ -96,6 +96,97 @@
 		next();
 	}
 
+	// --- Import from another plugin ---------------------------------------
+
+	$( document ).on( 'click', '#wppdf-migrate-start', function ( event ) {
+		event.preventDefault();
+
+		var $button = $( this );
+		var source = $( '#wppdf-migrate-source' ).val();
+		var imported = 0;
+
+		if ( $button.prop( 'disabled' ) || ! source ) {
+			return;
+		}
+
+		$button.prop( 'disabled', true );
+		$( '.wppdf-migrate__spinner' ).addClass( 'is-active' );
+		$( '#wppdf-migrate-results' ).empty();
+
+		/**
+		 * Add one line to the migration log.
+		 *
+		 * @param {string}  message Text to show.
+		 * @param {boolean} isError Whether it is a failure.
+		 * @param {string}  href    Optional link target.
+		 */
+		function line( message, isError, href ) {
+			var $line = $( '<p />' ).addClass( isError ? 'wppdf-import__error' : '' );
+
+			if ( href ) {
+				$line.append( $( '<a />' ).attr( 'href', href ).text( message ) );
+			} else {
+				$line.text( message );
+			}
+
+			$( '#wppdf-migrate-results' ).append( $line );
+		}
+
+		/**
+		 * Walk the source one batch at a time.
+		 *
+		 * @param {boolean} first Whether this is the first batch of the run.
+		 */
+		function step( first ) {
+			$.post( config.ajaxUrl, {
+				action: 'wppdf_migrate',
+				nonce: $button.data( 'nonce' ),
+				source: source,
+				lang: $( '#wppdf-migrate-language' ).val(),
+				status: $( '#wppdf-migrate-status' ).val(),
+				reset: first ? 1 : 0
+			} ).done( function ( response ) {
+				if ( ! response || ! response.success ) {
+					finish( response && response.data && response.data.message ? response.data.message : i18n.failed, true );
+					return;
+				}
+
+				( response.data.imported || [] ).forEach( function ( item ) {
+					imported++;
+					var suffix = item.notes && item.notes.length ? ' — ' + item.notes.join( ', ' ) : '';
+					line( item.title + suffix, false, item.edit );
+				} );
+
+				( response.data.skipped || [] ).forEach( function ( item ) {
+					line( item.title + ' — ' + item.reason, true );
+				} );
+
+				if ( response.data.done ) {
+					finish( i18n.migrated.replace( '%1$d', imported ).replace( '%2$d', response.data.left ) );
+					return;
+				}
+
+				step( false );
+			} ).fail( function () {
+				finish( i18n.failed, true );
+			} );
+		}
+
+		/**
+		 * Stop and report.
+		 *
+		 * @param {string}  message Message to show.
+		 * @param {boolean} isError Whether it is a failure.
+		 */
+		function finish( message, isError ) {
+			$( '.wppdf-migrate__spinner' ).removeClass( 'is-active' );
+			$button.prop( 'disabled', false );
+			line( message, isError );
+		}
+
+		step( true );
+	} );
+
 	$( document ).on( 'click', '#wppdf-import-select', function ( event ) {
 		event.preventDefault();
 

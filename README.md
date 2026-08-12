@@ -123,6 +123,31 @@ médií a z každého vznikne dokument. Název se odvodí z názvu souboru, dá 
 zvolit jazyk, stav (koncept/publikováno) a kategorie. Zpracovává se po
 dávkách po 20 souborech, aby žádný request neběžel dlouho.
 
+## Import z jiného pluginu
+
+Na stránce **Import** je druhý panel, který zkopíruje existující záznamy do
+dokumentů — název, text, datum, autora, kategorie, náhledový obrázek a hlavně
+PDF. Originály zůstávají nedotčené, nic se nemaže. Každý import si u dokumentu
+poznamená, odkud přišel (`_wppdf_imported_from`), takže opakované spuštění
+nic nezduplikuje.
+
+**TNC FlipBook 3D** je rozpoznaný napřímo. Klíče jsem si přečetl ze zdrojáku
+pluginu, ne odhadl: typ obsahu `tnc_flipbook`, PDF v `_tncfb3d_pdf_id`
+(u vícesouborových v `_tncfb3d_pdf_ids`). Navíc se přebírá `_tncfb3d_page_count`
+a `_tncfb3d_extracted_text`, takže se nemusí znovu číst všechna PDF.
+
+**Ostatní pluginy** jedou obecnou cestou: import projde meta záznamu a najde
+v nich přílohy typu PDF — i vnořené v polích — nebo odkaz na `.pdf`. Když je
+soubor v knihovně médií, připojí se; když leží jinde, uloží se jako externí
+URL. Placenou verzi TNC FlipBook Classic jsem si stáhnout nemohl, takže její
+klíče nemám ověřené — půjde přes obecnou cestu.
+
+Co se neimportuje samo:
+
+* **Flipbooky složené z obrázků** žádné PDF nemají, nahlásí se jako přeskočené.
+* **Záznam s víc PDF** dostane do zvoleného jazyka první z nich, ostatní se
+  vypíšou do protokolu, ať si je přiřadíš k jazykům sám.
+
 ## Filtrování archivu
 
 Nad výpisem dokumentů je lišta s fulltextem, kategorií, jazykem, rokem
