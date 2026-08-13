@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,15 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.5.0 =
+* The import keeps each record's slug and remembers the full address it used
+  to answer on, captured while the other plugin is still active.
+* The import screen shows that plugin's URL prefix and takes it over on one
+  click, so the old addresses keep resolving once it is deactivated. The
+  prefix is remembered, so it can still be adopted after the plugin is gone.
+* Anything that does not line up is caught by a permanent redirect from the
+  old address to the imported document.
 
 = 1.4.1 =
 * The import now carries categories over even when the other plugin kept them

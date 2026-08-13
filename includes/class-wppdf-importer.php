@@ -149,7 +149,9 @@ class WPPDF_Importer {
 				<td>
 					<select id="wppdf-migrate-source">
 						<?php foreach ( $sources as $source ) : ?>
-							<option value="<?php echo esc_attr( $source['type'] ); ?>">
+							<option value="<?php echo esc_attr( $source['type'] ); ?>"
+								data-slug="<?php echo esc_attr( $source['slug'] ); ?>"
+								data-active="<?php echo $source['active'] ? '1' : '0'; ?>">
 								<?php
 								$label = $source['adapter'] ? $source['adapter'] : $source['label'];
 
@@ -205,6 +207,36 @@ class WPPDF_Importer {
 			</tr>
 		</table>
 
+		<?php if ( current_user_can( 'manage_options' ) ) : ?>
+			<table class="form-table" role="presentation">
+				<tr>
+					<th scope="row"><?php esc_html_e( 'Addresses', 'wp-pdf-reader' ); ?></th>
+					<td>
+						<p id="wppdf-migrate-urls">
+							<?php
+							printf(
+								/* translators: %s: current URL prefix of the documents. */
+								esc_html__( 'Documents currently live under %s.', 'wp-pdf-reader' ),
+								'<code>/' . esc_html( WPPDF_Settings::get( 'post_type_slug' ) ) . '/</code>'
+							);
+							?>
+							<span id="wppdf-migrate-oldurl"></span>
+						</p>
+						<p>
+							<button type="button" class="button" id="wppdf-adopt-slug" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>" hidden>
+								<?php esc_html_e( 'Take over this prefix', 'wp-pdf-reader' ); ?>
+							</button>
+							<span id="wppdf-adopt-result"></span>
+						</p>
+						<p class="description">
+							<?php esc_html_e( 'The slug of each record is kept during the import, so taking over the prefix makes every old address resolve to the same document. Do it after the other plugin is deactivated — while both are active they claim the same addresses and only one wins.', 'wp-pdf-reader' ); ?>
+						</p>
+						<?php $this->checkbox_note(); ?>
+					</td>
+				</tr>
+			</table>
+		<?php endif; ?>
+
 		<p>
 			<button type="button" class="button button-primary" id="wppdf-migrate-start" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>">
 				<?php esc_html_e( 'Import records', 'wp-pdf-reader' ); ?>
@@ -214,6 +246,19 @@ class WPPDF_Importer {
 
 		<div id="wppdf-migrate-results" class="wppdf-import__results" aria-live="polite"></div>
 		<?php
+	}
+
+	/**
+	 * Note about the safety net for addresses that do not line up.
+	 */
+	protected function checkbox_note() {
+		if ( WPPDF_Settings::get( 'redirect_old_urls' ) ) {
+			echo '<p class="description">' . esc_html__( 'Whatever does not line up is caught anyway: an address that would 404 and belonged to an imported record is permanently redirected to its document.', 'wp-pdf-reader' ) . '</p>';
+
+			return;
+		}
+
+		echo '<p class="wppdf-notice-warning">' . esc_html__( 'Redirecting old addresses is switched off in the settings, so anything whose address changes will 404.', 'wp-pdf-reader' ) . '</p>';
 	}
 
 	/**

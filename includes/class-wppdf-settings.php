@@ -84,6 +84,7 @@ class WPPDF_Settings {
 			'archive_per_page'    => 12,
 			'override_templates'  => 1,
 			'archive_filters'     => 1,
+			'redirect_old_urls'   => 1,
 
 			// Covers.
 			'generate_covers'     => 1,
@@ -309,7 +310,7 @@ class WPPDF_Settings {
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
 		$out['archive_per_page'] = isset( $input['archive_per_page'] ) ? min( 100, max( 1, absint( $input['archive_per_page'] ) ) ) : $defaults['archive_per_page'];
 
-		foreach ( array( 'override_templates', 'archive_filters', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
+		foreach ( array( 'override_templates', 'archive_filters', 'redirect_old_urls', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
 			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
 

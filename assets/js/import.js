@@ -98,6 +98,59 @@
 
 	// --- Import from another plugin ---------------------------------------
 
+	/**
+	 * Show the URL prefix of the selected source and offer to take it over.
+	 */
+	function refreshSourceUrls() {
+		var $option = $( '#wppdf-migrate-source option:selected' );
+		var slug = $option.data( 'slug' );
+		var active = '1' === String( $option.data( 'active' ) );
+		var $button = $( '#wppdf-adopt-slug' );
+
+		$( '#wppdf-adopt-result' ).text( '' );
+
+		if ( ! slug ) {
+			$( '#wppdf-migrate-oldurl' ).text( i18n.slugUnknown || '' );
+			$button.prop( 'hidden', true );
+			return;
+		}
+
+		$( '#wppdf-migrate-oldurl' ).html(
+			' ' + ( i18n.oldPrefix || '%s' ).replace( '%s', '<code>/' + slug + '/</code>' )
+		);
+
+		$button.data( 'slug', slug ).prop( 'hidden', false );
+		$button.text( ( i18n.adopt || 'Take over %s' ).replace( '%s', '/' + slug + '/' ) );
+
+		if ( active ) {
+			$( '#wppdf-adopt-result' ).text( i18n.stillActive || '' );
+		}
+	}
+
+	$( document ).on( 'change', '#wppdf-migrate-source', refreshSourceUrls );
+	$( refreshSourceUrls );
+
+	$( document ).on( 'click', '#wppdf-adopt-slug', function ( event ) {
+		event.preventDefault();
+
+		var $button = $( this );
+
+		$button.prop( 'disabled', true );
+
+		$.post( config.ajaxUrl, {
+			action: 'wppdf_adopt_slug',
+			nonce: $button.data( 'nonce' ),
+			slug: $button.data( 'slug' )
+		} ).done( function ( response ) {
+			var message = response && response.data && response.data.message ? response.data.message : i18n.failed;
+			$( '#wppdf-adopt-result' ).text( message );
+		} ).fail( function () {
+			$( '#wppdf-adopt-result' ).text( i18n.failed );
+		} ).always( function () {
+			$button.prop( 'disabled', false );
+		} );
+	} );
+
 	$( document ).on( 'click', '#wppdf-migrate-start', function ( event ) {
 		event.preventDefault();
 

@@ -46,10 +46,21 @@ class WPPDF_Migrator {
 	const META_SKIPPED = '_wppdf_import_skipped';
 
 	/**
+	 * Meta key holding the slug the record had in the other plugin.
+	 */
+	const META_SLUG = '_wppdf_imported_slug';
+
+	/**
+	 * Meta key holding the full path the record used to answer on.
+	 */
+	const META_PATH = '_wppdf_imported_path';
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
 		add_action( 'wp_ajax_wppdf_migrate', array( $this, 'handle_ajax' ) );
+		add_action( 'wp_ajax_wppdf_adopt_slug', array( $this, 'handle_adopt_slug' ) );
 	}
 
 	/**
@@ -123,10 +134,116 @@ class WPPDF_Migrator {
 				'adapter'  => isset( $adapters[ $type ] ) ? $adapters[ $type ]['label'] : '',
 				'imported' => self::count_imported( $type ),
 				'active'   => (bool) $object,
+				'slug'     => self::get_rewrite_slug( $type ),
 			);
 		}
 
 		return $sources;
+	}
+
+	/**
+	 * The URL prefix a source post type uses.
+	 *
+	 * Only readable while its plugin is active, so it is also remembered on
+	 * the first import for later.
+	 *
+	 * @param string $post_type Source post type.
+	 * @return string Prefix without slashes, empty when unknown.
+	 */
+	public static function get_rewrite_slug( $post_type ) {
+		$object = get_post_type_object( $post_type );
+
+		if ( $object && ! empty( $object->rewrite['slug'] ) ) {
+			$slug = sanitize_title( $object->rewrite['slug'] );
+
+			if ( '' !== $slug ) {
+				self::remember_slug( $post_type, $slug );
+
+				return $slug;
+			}
+		}
+
+		$remembered = get_option( 'wppdf_source_slugs', array() );
+
+		return isset( $remembered[ $post_type ] ) ? (string) $remembered[ $post_type ] : '';
+	}
+
+	/**
+	 * Remember a source's URL prefix for when its plugin is gone.
+	 *
+	 * @param string $post_type Source post type.
+	 * @param string $slug      URL prefix.
+	 */
+	protected static function remember_slug( $post_type, $slug ) {
+		$remembered = get_option( 'wppdf_source_slugs', array() );
+
+		if ( ! is_array( $remembered ) ) {
+			$remembered = array();
+		}
+
+		if ( isset( $remembered[ $post_type ] ) && $remembered[ $post_type ] === $slug ) {
+			return;
+		}
+
+		$remembered[ $post_type ] = $slug;
+
+		update_option( 'wppdf_source_slugs', $remembered, false );
+	}
+
+	/**
+	 * Adopt a source's URL prefix for the documents.
+	 *
+	 * @param string $slug URL prefix.
+	 * @return bool
+	 */
+	public static function adopt_slug( $slug ) {
+		$slug = sanitize_title( $slug );
+
+		if ( '' === $slug ) {
+			return false;
+		}
+
+		$settings                   = WPPDF_Settings::all();
+		$settings['post_type_slug'] = $slug;
+
+		update_option( WPPDF_Settings::OPTION, $settings );
+		update_option( 'wppdf_flush_rewrite', 1 );
+
+		WPPDF_Settings::flush_cache();
+
+		return true;
+	}
+
+	/**
+	 * Take over a source's URL prefix from the import screen.
+	 */
+	public function handle_adopt_slug() {
+		check_ajax_referer( self::NONCE, 'nonce' );
+
+		// This rewrites a plugin setting, so it needs more than edit_posts.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to change the settings.', 'wp-pdf-reader' ) ), 403 );
+		}
+
+		$slug = isset( $_POST['slug'] ) ? sanitize_title( wp_unslash( $_POST['slug'] ) ) : '';
+
+		if ( '' === $slug ) {
+			wp_send_json_error( array( 'message' => __( 'That is not a usable URL prefix.', 'wp-pdf-reader' ) ), 400 );
+		}
+
+		if ( ! self::adopt_slug( $slug ) ) {
+			wp_send_json_error( array( 'message' => __( 'The URL prefix could not be changed.', 'wp-pdf-reader' ) ), 500 );
+		}
+
+		wp_send_json_success(
+			array(
+				'message' => sprintf(
+					/* translators: %s: URL prefix. */
+					__( 'Documents now live under /%s/. Deactivate the other plugin so it stops claiming the same addresses.', 'wp-pdf-reader' ),
+					$slug
+				),
+			)
+		);
 	}
 
 	/**
@@ -425,6 +542,8 @@ class WPPDF_Migrator {
 				'post_type'     => WPPDF_Post_Type::get_key(),
 				'post_status'   => $status,
 				'post_title'    => $source->post_title,
+				// Keeping the slug is what lets the old address survive.
+				'post_name'     => $source->post_name,
 				'post_content'  => $source->post_content,
 				'post_excerpt'  => $source->post_excerpt,
 				'post_date'     => $source->post_date,
@@ -460,6 +579,18 @@ class WPPDF_Migrator {
 
 		update_post_meta( $post_id, self::META_SOURCE_ID, (int) $source_id );
 		update_post_meta( $post_id, self::META_SOURCE_TYPE, $source->post_type );
+
+		if ( '' !== $source->post_name ) {
+			update_post_meta( $post_id, self::META_SLUG, $source->post_name );
+		}
+
+		// Captured while the other plugin is still registered, because once it
+		// is switched off its permalink can no longer be built.
+		$old_path = self::get_source_path( $source_id );
+
+		if ( '' !== $old_path ) {
+			update_post_meta( $post_id, self::META_PATH, $old_path );
+		}
 
 		self::copy_terms( $source_id, $post_id );
 
@@ -509,6 +640,28 @@ class WPPDF_Migrator {
 			'edit'  => get_edit_post_link( $post_id, 'raw' ),
 			'notes' => $notes,
 		);
+	}
+
+	/**
+	 * The path a source record answers on, while its plugin is still active.
+	 *
+	 * @param int $source_id Source record ID.
+	 * @return string Path with leading and trailing slash, empty when unknown.
+	 */
+	public static function get_source_path( $source_id ) {
+		$permalink = get_permalink( $source_id );
+
+		if ( ! $permalink ) {
+			return '';
+		}
+
+		$path = wp_parse_url( $permalink, PHP_URL_PATH );
+
+		if ( ! $path || '/' === $path ) {
+			return '';
+		}
+
+		return user_trailingslashit( $path );
 	}
 
 	/**

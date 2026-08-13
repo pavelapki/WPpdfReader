@@ -150,6 +150,33 @@ se. Druhý běh je použije znovu, nezaloží dvojníky. Když je taxonomie tako
 kterou dokumenty stejně používají (běžná `category`), termy se prostě převezmou
 i s jejich ID.
 
+### Zachování adres
+
+Migrace je navržená tak, aby se po vypnutí TNC nerozbily odkazy.
+
+**Slug každého záznamu se kopíruje.** Dokument dostane stejný `post_name`, jaký
+měl flipbook, takže poslední část adresy sedí. Zároveň se u dokumentu uloží
+celá původní cesta (`/flipbook/vyrocni-zprava-2024/`) — sbírá se ve chvíli, kdy
+je TNC ještě aktivní, protože potom už jeho permalink nikdo nesestaví.
+
+**URL prefix jde převzít.** Na stránce Import se ukáže, pod jakým prefixem
+záznamy odpovídají, a tlačítkem ho přepneš na svůj typ obsahu. Pořadí je
+důležité:
+
+1. naimportuj záznamy (TNC ještě běží, ať se dá přečíst prefix i permalinky),
+2. **vypni TNC**,
+3. teprve pak převezmi prefix.
+
+Když jsou oba pluginy aktivní naráz, hlásí se o stejné adresy a vyhraje jen
+jeden. Tlačítko na to upozorní, pokud je zdrojový plugin ještě aktivní.
+Prefix se navíc pamatuje v databázi, takže se dá převzít i potom, co je TNC
+pryč a WordPress už jeho typ obsahu nezná.
+
+**Záchranná síť.** Co se přesto nesejde — třeba když nechceš prefix měnit —
+odchytí přesměrování: adresa, která by skončila 404 a patřila naimportovanému
+záznamu, se trvale (301) přesměruje na jeho dokument. Hledá se nejdřív podle
+celé staré cesty, teprve pak podle slugu. Vypíná se v nastavení.
+
 Co se neimportuje samo:
 
 * **Flipbooky složené z obrázků** žádné PDF nemají, nahlásí se jako přeskočené.
