@@ -160,8 +160,8 @@ msgid "Contents and thumbnails"
 msgstr "Obsah a náhledy stránek"
 
 #: includes/class-wppdf-importer.php:143
-msgid "Copies existing records into documents: title, text, date, author, categories and featured image, plus the PDF itself. The originals are left untouched, and a record that was already imported is never imported twice."
-msgstr "Zkopíruje existující záznamy do dokumentů: název, text, datum, autora, kategorie, náhledový obrázek a samotné PDF. Originály zůstanou beze změny a už naimportovaný záznam se nenaimportuje podruhé."
+msgid "Copies existing records into documents: title, text, date, author, featured image, the PDF itself and the categories — including categories from a taxonomy of the other plugin, which are matched to yours by name or created. The originals are left untouched, and a record that was already imported is never imported twice."
+msgstr "Zkopíruje existující záznamy do dokumentů: název, text, datum, autora, náhledový obrázek, samotné PDF a kategorie — včetně kategorií z vlastní taxonomie druhého pluginu, které se spárují s tvými podle názvu, případně se založí. Originály zůstanou beze změny a už naimportovaný záznam se nenaimportuje podruhé."
 
 #: includes/class-wppdf-viewer.php:282
 msgid "Copy a link to this page"
@@ -915,7 +915,7 @@ msgstr "Neznámý dokument."
 msgid "Unknown language."
 msgstr "Neznámý jazyk."
 
-#: includes/class-wppdf-migrator.php:565
+#: includes/class-wppdf-migrator.php:732
 msgid "Unknown source."
 msgstr "Neznámý zdroj."
 
@@ -959,7 +959,7 @@ msgstr "Jazyk návštěvníka (s náhradou)"
 msgid "Year"
 msgstr "Rok"
 
-#: includes/class-wppdf-importer.php:226 includes/class-wppdf-migrator.php:559
+#: includes/class-wppdf-importer.php:226 includes/class-wppdf-migrator.php:726
 msgid "You are not allowed to create documents."
 msgstr "Nemáte oprávnění vytvářet dokumenty."
 

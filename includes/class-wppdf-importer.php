@@ -140,7 +140,7 @@ class WPPDF_Importer {
 		<h2><?php esc_html_e( 'Import from another plugin', 'wp-pdf-reader' ); ?></h2>
 
 		<p class="description">
-			<?php esc_html_e( 'Copies existing records into documents: title, text, date, author, categories and featured image, plus the PDF itself. The originals are left untouched, and a record that was already imported is never imported twice.', 'wp-pdf-reader' ); ?>
+			<?php esc_html_e( 'Copies existing records into documents: title, text, date, author, featured image, the PDF itself and the categories — including categories from a taxonomy of the other plugin, which are matched to yours by name or created. The originals are left untouched, and a record that was already imported is never imported twice.', 'wp-pdf-reader' ); ?>
 		</p>
 
 		<table class="form-table" role="presentation">

@@ -218,7 +218,28 @@ function maybe_unserialize( $v ) { return is_string( $v ) && preg_match( '/^[aOs
 function attachment_url_to_postid( $u ) { foreach ( $GLOBALS['stub_posts'] as $id => $p ) { if ( isset( $p['url'] ) && $p['url'] === $u ) { return $id; } } return 0; }
 function set_post_thumbnail( $post_id, $thumb ) { return true; }
 function wp_get_object_terms( $id, $tax, $args = array() ) { return array(); }
-function wp_set_object_terms( $id, $terms, $tax ) { return true; }
+function wp_set_object_terms( $id, $terms, $tax, $append = false ) {
+	if ( ! $append || ! isset( $GLOBALS['stub_object_terms'][ $id ][ $tax ] ) ) { $GLOBALS['stub_object_terms'][ $id ][ $tax ] = array(); }
+	foreach ( (array) $terms as $t ) { $GLOBALS['stub_object_terms'][ $id ][ $tax ][] = (int) $t; }
+	return true;
+}
+function is_object_in_taxonomy( $post_type, $tax ) { return in_array( $tax, array( 'category', 'post_tag' ), true ); }
+function wp_list_pluck( $list, $field ) { $out = array(); foreach ( (array) $list as $item ) { $out[] = is_object( $item ) ? $item->$field : $item[ $field ]; } return $out; }
+function is_taxonomy_hierarchical( $tax ) { return 'category' === $tax; }
+function get_term_by( $field, $value, $tax ) {
+	foreach ( $GLOBALS['stub_terms_db'] as $id => $term ) {
+		if ( $term['taxonomy'] === $tax && $term[ $field ] === $value ) { return (object) array_merge( array( 'term_id' => $id ), $term ); }
+	}
+	return false;
+}
+function wp_insert_term( $name, $tax, $args = array() ) {
+	$id = 900 + count( $GLOBALS['stub_terms_db'] );
+	$GLOBALS['stub_terms_db'][ $id ] = array( 'name' => $name, 'slug' => isset( $args['slug'] ) ? $args['slug'] : sanitize_title( $name ), 'taxonomy' => $tax, 'parent' => isset( $args['parent'] ) ? $args['parent'] : 0 );
+	return array( 'term_id' => $id );
+}
+$GLOBALS['stub_terms_db'] = array();
+$GLOBALS['stub_object_terms'] = array();
+$GLOBALS['stub_term_rows'] = array();
 function wp_send_json_success( $d ) { $GLOBALS['stub_json'] = $d; }
 function wp_send_json_error( $d, $c = 0 ) { $GLOBALS['stub_json'] = $d; }
 function check_ajax_referer( $a, $b ) { return true; }
@@ -310,6 +331,11 @@ class Stub_WPDB {
 	public function query( $q ) { return 1; }
 	public function get_col( $q ) { return array( 10, 11 ); }
 	public function get_var( $q ) { return 2; }
+	public function get_results( $q ) { return isset( $GLOBALS['stub_term_rows'] ) ? $GLOBALS['stub_term_rows'] : array(); }
+	public function get_row( $q ) { return isset( $GLOBALS['stub_term_parent'] ) ? $GLOBALS['stub_term_parent'] : null; }
+	public $term_relationships = 'wp_term_relationships';
+	public $term_taxonomy = 'wp_term_taxonomy';
+	public $terms = 'wp_terms';
 	public function prepare( $q, ...$a ) {
 		if ( 1 === count( $a ) && is_array( $a[0] ) ) { $a = $a[0]; }
 		foreach ( $a as $value ) {
@@ -763,6 +789,49 @@ update_post_meta( 76, 'colour', 'blue' );
 update_post_meta( 76, 'image', 22 );
 $nothing = WPPDF_Migrator::describe( 76, 'some_flipbook' );
 ok( 'a non-PDF attachment is not mistaken for one', array() === $nothing['attachments'] && '' === $nothing['url'] );
+
+
+echo "\n== Categories survive the migration ==\n";
+
+// TNC Classic keeps its categories in its own taxonomy. With the plugin
+// switched off that taxonomy is no longer registered, but the rows remain.
+$GLOBALS['stub_term_rows'] = array(
+	(object) array( 'term_id' => 501, 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
+	(object) array( 'term_id' => 502, 'name' => 'Katalogy', 'slug' => 'katalogy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
+);
+
+$grouped = WPPDF_Migrator::get_source_terms( 71 );
+ok( 'terms are read even from an unregistered taxonomy', isset( $grouped['tnc_category'] ) && 2 === count( $grouped['tnc_category'] ) );
+
+$GLOBALS['stub_terms_db'] = array();
+$GLOBALS['stub_object_terms'] = array();
+$GLOBALS['stub_posts'][80] = array( 'ID' => 80, 'post_type' => 'tnc_flipbook', 'post_title' => 'S kategoriemi', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 80, '_tncfb3d_pdf_id', 70 );
+
+$with_terms = WPPDF_Migrator::import( 80, array( 'language' => 'cs', 'status' => 'draft' ) );
+$assigned = isset( $GLOBALS['stub_object_terms'][ $with_terms['id'] ]['category'] ) ? $GLOBALS['stub_object_terms'][ $with_terms['id'] ]['category'] : array();
+ok( 'foreign categories land in our category taxonomy', 2 === count( $assigned ) );
+ok( 'the terms were created with their original names', 'Výroční zprávy' === $GLOBALS['stub_terms_db'][ $assigned[0] ]['name'] );
+ok( 'and their original slugs', 'vyrocni-zpravy' === $GLOBALS['stub_terms_db'][ $assigned[0] ]['slug'] );
+
+// A second record with the same categories must reuse them, not duplicate.
+$created_before = count( $GLOBALS['stub_terms_db'] );
+$GLOBALS['stub_posts'][81] = array( 'ID' => 81, 'post_type' => 'tnc_flipbook', 'post_title' => 'Další', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 81, '_tncfb3d_pdf_id', 70 );
+WPPDF_Migrator::import( 81, array( 'language' => 'cs', 'status' => 'draft' ) );
+ok( 'a second record reuses the same terms', $created_before === count( $GLOBALS['stub_terms_db'] ) );
+
+// A taxonomy documents already use is copied straight across.
+$GLOBALS['stub_term_rows'] = array(
+	(object) array( 'term_id' => 601, 'name' => 'Zprávy', 'slug' => 'zpravy', 'taxonomy' => 'category', 'parent' => 0, 'description' => '' ),
+);
+$GLOBALS['stub_object_terms'] = array();
+$GLOBALS['stub_posts'][82] = array( 'ID' => 82, 'post_type' => 'tnc_flipbook', 'post_title' => 'Nativní kategorie', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-01-01 00:00:00', 'post_date_gmt' => '2025-01-01 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 82, '_tncfb3d_pdf_id', 70 );
+$native = WPPDF_Migrator::import( 82, array( 'language' => 'cs', 'status' => 'draft' ) );
+ok( 'a native category keeps its own term ID', array( 601 ) === $GLOBALS['stub_object_terms'][ $native['id'] ]['category'] );
+
+$GLOBALS['stub_term_rows'] = array();
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

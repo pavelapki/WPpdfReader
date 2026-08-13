@@ -159,7 +159,7 @@ msgid "Contents and thumbnails"
 msgstr ""
 
 #: includes/class-wppdf-importer.php:143
-msgid "Copies existing records into documents: title, text, date, author, categories and featured image, plus the PDF itself. The originals are left untouched, and a record that was already imported is never imported twice."
+msgid "Copies existing records into documents: title, text, date, author, featured image, the PDF itself and the categories — including categories from a taxonomy of the other plugin, which are matched to yours by name or created. The originals are left untouched, and a record that was already imported is never imported twice."
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:282
@@ -914,7 +914,7 @@ msgstr ""
 msgid "Unknown language."
 msgstr ""
 
-#: includes/class-wppdf-migrator.php:565
+#: includes/class-wppdf-migrator.php:732
 msgid "Unknown source."
 msgstr ""
 
@@ -958,7 +958,7 @@ msgstr ""
 msgid "Year"
 msgstr ""
 
-#: includes/class-wppdf-importer.php:226 includes/class-wppdf-migrator.php:559
+#: includes/class-wppdf-importer.php:226 includes/class-wppdf-migrator.php:726
 msgid "You are not allowed to create documents."
 msgstr ""
 

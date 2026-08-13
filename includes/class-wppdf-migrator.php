@@ -518,17 +518,184 @@ class WPPDF_Migrator {
 	 * @param int $post_id   New document ID.
 	 */
 	protected static function copy_terms( $source_id, $post_id ) {
-		if ( ! WPPDF_Settings::get( 'shared_taxonomies' ) ) {
-			return;
-		}
+		$target = self::get_target_taxonomy();
 
-		foreach ( array( 'category', 'post_tag' ) as $taxonomy ) {
-			$terms = wp_get_object_terms( $source_id, $taxonomy, array( 'fields' => 'ids' ) );
+		foreach ( self::get_source_terms( $source_id ) as $taxonomy => $terms ) {
+			// A taxonomy our documents already use needs no translation.
+			if ( is_object_in_taxonomy( get_post_type( $post_id ), $taxonomy ) ) {
+				wp_set_object_terms( $post_id, wp_list_pluck( $terms, 'term_id' ), $taxonomy, true );
+				continue;
+			}
 
-			if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
-				wp_set_object_terms( $post_id, $terms, $taxonomy );
+			if ( '' === $target ) {
+				continue;
+			}
+
+			$mapped = array();
+
+			foreach ( $terms as $term ) {
+				$id = self::map_term( $term, $target, $source_id );
+
+				if ( $id ) {
+					$mapped[] = $id;
+				}
+			}
+
+			if ( ! empty( $mapped ) ) {
+				wp_set_object_terms( $post_id, $mapped, $target, true );
 			}
 		}
+	}
+
+	/**
+	 * The taxonomy foreign categories are mapped into.
+	 *
+	 * @return string Taxonomy name, empty when documents have none.
+	 */
+	public static function get_target_taxonomy() {
+		$target = '';
+
+		if ( WPPDF_Settings::get( 'shared_taxonomies' ) ) {
+			$target = 'category';
+		} elseif ( WPPDF_Settings::get( 'own_taxonomy' ) ) {
+			$target = WPPDF_Post_Type::OWN_TAXONOMY;
+		}
+
+		/**
+		 * Filter the taxonomy imported categories are mapped into.
+		 *
+		 * @param string $target Taxonomy name.
+		 */
+		return (string) apply_filters( 'wppdf_import_target_taxonomy', $target );
+	}
+
+	/**
+	 * Every term a source record carries, whatever taxonomy it lives in.
+	 *
+	 * Read straight from the tables rather than through wp_get_object_terms,
+	 * because the usual reason to migrate is that the other plugin has been
+	 * switched off — and then its taxonomy is no longer registered, even
+	 * though the rows are still there.
+	 *
+	 * @param int $source_id Source record ID.
+	 * @return array Map of taxonomy => list of term rows.
+	 */
+	public static function get_source_terms( $source_id ) {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT t.term_id, t.name, t.slug, tt.taxonomy, tt.parent, tt.description
+				FROM {$wpdb->term_relationships} AS tr
+				INNER JOIN {$wpdb->term_taxonomy} AS tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+				INNER JOIN {$wpdb->terms} AS t ON t.term_id = tt.term_id
+				WHERE tr.object_id = %d
+				ORDER BY tt.parent ASC, t.name ASC",
+				$source_id
+			)
+		);
+
+		$grouped = array();
+
+		foreach ( (array) $rows as $row ) {
+			$taxonomy = (string) $row->taxonomy;
+
+			// Formats and similar internal taxonomies are not categories.
+			if ( in_array( $taxonomy, array( 'post_format', 'link_category', 'nav_menu' ), true ) ) {
+				continue;
+			}
+
+			$grouped[ $taxonomy ][] = array(
+				'term_id'     => (int) $row->term_id,
+				'name'        => (string) $row->name,
+				'slug'        => (string) $row->slug,
+				'parent'      => (int) $row->parent,
+				'description' => (string) $row->description,
+			);
+		}
+
+		return $grouped;
+	}
+
+	/**
+	 * Find or create the counterpart of a foreign term.
+	 *
+	 * Matching is by slug first and name second, so running the import twice
+	 * reuses the same terms instead of making near duplicates.
+	 *
+	 * @param array  $term      Source term row.
+	 * @param string $target    Target taxonomy.
+	 * @param int    $source_id Source record ID, for resolving parents.
+	 * @return int Term ID, 0 on failure.
+	 */
+	protected static function map_term( array $term, $target, $source_id ) {
+		$existing = get_term_by( 'slug', $term['slug'], $target );
+
+		if ( ! $existing ) {
+			$existing = get_term_by( 'name', $term['name'], $target );
+		}
+
+		if ( $existing && ! is_wp_error( $existing ) ) {
+			return (int) $existing->term_id;
+		}
+
+		$args = array( 'slug' => $term['slug'] );
+
+		if ( $term['parent'] > 0 && is_taxonomy_hierarchical( $target ) ) {
+			$parent = self::find_parent( $term['parent'], $target );
+
+			if ( $parent ) {
+				$args['parent'] = $parent;
+			}
+		}
+
+		$created = wp_insert_term( $term['name'], $target, $args );
+
+		if ( is_wp_error( $created ) ) {
+			// A slug clash across taxonomies is the usual cause; retry without.
+			$created = wp_insert_term( $term['name'], $target );
+		}
+
+		return is_wp_error( $created ) ? 0 : (int) $created['term_id'];
+	}
+
+	/**
+	 * Resolve a foreign parent term to its counterpart, creating it if needed.
+	 *
+	 * @param int    $parent_id Parent term ID in the source taxonomy.
+	 * @param string $target    Target taxonomy.
+	 * @return int Term ID, 0 when it could not be resolved.
+	 */
+	protected static function find_parent( $parent_id, $target ) {
+		global $wpdb;
+
+		$row = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT t.term_id, t.name, t.slug, tt.parent
+				FROM {$wpdb->terms} AS t
+				INNER JOIN {$wpdb->term_taxonomy} AS tt ON tt.term_id = t.term_id
+				WHERE t.term_id = %d
+				LIMIT 1",
+				$parent_id
+			)
+		);
+
+		if ( ! $row ) {
+			return 0;
+		}
+
+		return self::map_term(
+			array(
+				'term_id'     => (int) $row->term_id,
+				'name'        => (string) $row->name,
+				'slug'        => (string) $row->slug,
+				// One level of nesting is resolved; deeper chains flatten.
+				'parent'      => 0,
+				'description' => '',
+			),
+			$target,
+			0
+		);
 	}
 
 	/**

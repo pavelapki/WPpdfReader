@@ -142,6 +142,14 @@ soubor v knihovně médií, připojí se; když leží jinde, uloží se jako ex
 URL. Placenou verzi TNC FlipBook Classic jsem si stáhnout nemohl, takže její
 klíče nemám ověřené — půjde přes obecnou cestu.
 
+**Kategorie přežijí i z cizí taxonomie.** TNC Classic si kategorie drží ve
+vlastní taxonomii, kterou po vypnutí pluginu WordPress už nezná — řádky ale
+v databázi zůstávají, takže je import čte přímo z tabulek. Termy se pak spárují
+s tvými kategoriemi podle slugu, jinak podle názvu, a když neexistují, založí
+se. Druhý běh je použije znovu, nezaloží dvojníky. Když je taxonomie taková,
+kterou dokumenty stejně používají (běžná `category`), termy se prostě převezmou
+i s jejich ID.
+
 Co se neimportuje samo:
 
 * **Flipbooky složené z obrázků** žádné PDF nemají, nahlásí se jako přeskočené.
