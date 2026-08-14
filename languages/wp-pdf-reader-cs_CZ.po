@@ -1,7 +1,7 @@
 # Czech translation of WP PDF Reader.
 msgid ""
 msgstr ""
-"Project-Id-Version: WP PDF Reader 1.10.0\n"
+"Project-Id-Version: WP PDF Reader 1.10.1\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"

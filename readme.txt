@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,15 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.10.1 =
+* A WPML or Polylang translation with no PDF of its own now falls back on its
+  own, without anything being filled in by hand. Translations are created
+  empty and the files stay on the original, whose language need not be in the
+  fallback chain at all — with "site language, otherwise English" an Italian
+  visitor resolves through it → en, and the Czech original holding the English
+  PDF was never consulted, because siblings were only searched in the chain's
+  own languages. Every translation is searched now, those in the chain first.
 
 = 1.10.0 =
 * Each language can now carry its own title, next to its PDF and its address

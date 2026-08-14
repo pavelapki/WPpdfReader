@@ -59,7 +59,16 @@ Pořadí hledání souboru při zobrazení:
 4. výchozí jazyk,
 5. volitelně jakýkoli jazyk, ve kterém soubor existuje,
 6. pokud je dokument přeložený přes WPML/Polylang, prohledají se ještě
-   jeho sourozenecké překlady.
+   **všechny** jeho sourozenecké překlady.
+
+Bod 6 stojí za vysvětlení, protože je to nejčastější reálný scénář. Překlad se
+ve WPML typicky založí prázdný a PDF zůstanou na originálu — a jazyk originálu
+nemusí v fallback řetězci vůbec být. S nastavením „jazyk webu, jinak
+angličtina" má italský návštěvník pořadí `[it, en]`; český originál, který drží
+anglické PDF, do toho pořadí nespadá. Proto se sourozenci prohledávají všichni,
+ne jen ti v jazycích řetězce: nejdřív ti z řetězce (aby vědomá volba vyhrála),
+pak zbytek — čímž se dosáhne na originál. Prázdný italský překlad tak dostane
+anglické PDF sám od sebe, bez čehokoli vyplňování.
 
 Když se použije jiný než požadovaný jazyk, může se návštěvníkovi zobrazit
 nenápadná poznámka („Tento dokument není ve vašem jazyce, zobrazujeme anglickou

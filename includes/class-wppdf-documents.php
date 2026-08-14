@@ -335,13 +335,15 @@ class WPPDF_Documents {
 		}
 
 		// 2) WPML/Polylang siblings, when the document itself is translated.
+		//
+		// Every translation is searched, not only those whose language happens
+		// to be in the fallback chain. A translation is typically created empty
+		// and the files stay on the original, whose language need not be in the
+		// chain at all: with "site language, otherwise English" an Italian
+		// visitor resolves through [it, en], and the Czech original holding the
+		// English PDF was never consulted.
 		if ( null === $result && WPPDF_Settings::get( 'sync_with_wpml' ) ) {
-			foreach ( $order as $code ) {
-				$sibling = self::get_translated_post_id( $post_id, $code );
-				if ( ! $sibling || $sibling === $post_id ) {
-					continue;
-				}
-
+			foreach ( self::get_sibling_ids( $post_id, $order ) as $sibling ) {
 				foreach ( $order as $sibling_code ) {
 					$raw = self::get_raw_file( $sibling, $sibling_code );
 					if ( $raw ) {
@@ -406,9 +408,76 @@ class WPPDF_Documents {
 	}
 
 	/**
-	 * Translated post ID through WPML or Polylang.
+	 * Every translation of a document, the useful ones first.
 	 *
-	 * @param int    $post_id Post ID.
+	 * Languages from the fallback chain lead, so a deliberate choice still
+	 * wins; the remaining translations follow, which is how the original — the
+	 * one that actually holds the files — is reached even when its language is
+	 * not in the chain.
+	 *
+	 * @param int      $post_id Document ID.
+	 * @param string[] $order   Fallback order to prioritise by.
+	 * @return int[] Sibling post IDs, never including the document itself.
+	 */
+	protected static function get_sibling_ids( $post_id, array $order ) {
+		$post_id  = (int) $post_id;
+		$siblings = array();
+
+		foreach ( $order as $code ) {
+			$sibling = self::get_translated_post_id( $post_id, $code );
+
+			if ( $sibling && $sibling !== $post_id ) {
+				$siblings[] = $sibling;
+			}
+		}
+
+		foreach ( self::get_all_translation_ids( $post_id ) as $sibling ) {
+			if ( $sibling && $sibling !== $post_id ) {
+				$siblings[] = $sibling;
+			}
+		}
+
+		return array_values( array_unique( $siblings ) );
+	}
+
+	/**
+	 * Translation IDs of a post, whatever language they are in.
+	 *
+	 * @param int $post_id Document ID.
+	 * @return int[]
+	 */
+	protected static function get_all_translation_ids( $post_id ) {
+		$ids = array();
+
+		if ( function_exists( 'pll_get_post_translations' ) ) {
+			$ids = array_map( 'absint', (array) pll_get_post_translations( $post_id ) );
+		}
+
+		if ( has_filter( 'wpml_element_trid' ) ) {
+			$type = 'post_' . get_post_type( $post_id );
+
+			// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filters, consumed rather than introduced.
+			$trid = apply_filters( 'wpml_element_trid', null, $post_id, $type );
+
+			if ( $trid ) {
+				$translations = apply_filters( 'wpml_get_element_translations', null, $trid, $type );
+
+				foreach ( (array) $translations as $translation ) {
+					if ( is_object( $translation ) && ! empty( $translation->element_id ) ) {
+						$ids[] = (int) $translation->element_id;
+					}
+				}
+			}
+			// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+		}
+
+		return array_values( array_filter( array_unique( $ids ) ) );
+	}
+
+	/**
+	 * The translation of a post in one language.
+	 *
+	 * @param int    $post_id Document ID.
 	 * @param string $code    Language code.
 	 * @return int
 	 */

@@ -1313,6 +1313,75 @@ WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
 
 
+echo "\n== A WPML translation with no PDF falls back ==\n";
+
+// Reported live. A translation is created empty and the files stay on the
+// original, whose language need not be in the fallback chain: with "site
+// language, otherwise English" an Italian visitor resolves through [it, en],
+// and the Czech original holding the English PDF was never looked at, because
+// siblings were only searched in the chain's own languages.
+$wpml_settings = WPPDF_Settings::all();
+// Italian is in the list, as it is on a site where WPML sync adds it.
+$wpml_settings['languages']        = array(
+	array( 'code' => 'cs', 'label' => 'Čeština' ),
+	array( 'code' => 'en', 'label' => 'English' ),
+	array( 'code' => 'it', 'label' => 'Italiano' ),
+);
+$wpml_settings['default_language'] = 'en';
+$wpml_settings['fallback_chain']   = array( 'en' );
+$wpml_settings['fallback_any']     = 0;
+$wpml_settings['sync_with_wpml']   = 1;
+update_option( WPPDF_Settings::OPTION, $wpml_settings );
+WPPDF_Settings::flush_cache();
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+
+// 300 = Czech original, holds both PDFs. 301 = Italian translation, empty.
+$GLOBALS['stub_posts'][300] = array( 'ID' => 300, 'post_type' => 'pdf_document', 'post_title' => 'Smlouva', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][301] = array( 'ID' => 301, 'post_type' => 'pdf_document', 'post_title' => 'Accordo', 'post_status' => 'publish' );
+update_post_meta( 300, '_wppdf_file_cs', 20 );
+update_post_meta( 300, '_wppdf_file_en', 21 );
+
+// WPML answers "which translation is in language X" and "all translations of
+// this one". The Italian post has no translation registered for en or cs by
+// language lookup — only the trid listing knows about the original, which is
+// exactly the situation that failed.
+$GLOBALS['stub_actions']['wpml_element_trid'] = array( 'stub' );
+$GLOBALS['stub_filters']['wpml_element_trid'] = 77;
+$GLOBALS['stub_filters']['wpml_get_element_translations'] = array(
+	(object) array( 'element_id' => 300 ),
+	(object) array( 'element_id' => 301 ),
+);
+
+$GLOBALS['stub_locale'] = 'it_IT';
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+
+$italian = WPPDF_Documents::get_file( 301 );
+ok( 'the empty Italian translation resolves to a file at all', null !== $italian );
+ok( 'and it is the English PDF from the original', $italian && 'en' === $italian['lang'] );
+ok( 'taken from the post that actually holds it', $italian && 300 === $italian['post_id'] );
+ok( 'and it is reported as a fallback', $italian && true === $italian['is_fallback'] );
+
+// The original itself is unaffected: it still answers from its own fields.
+WPPDF_Documents::flush_cache();
+$GLOBALS['stub_locale'] = 'cs_CZ';
+WPPDF_Languages::flush_cache();
+$czech = WPPDF_Documents::get_file( 300 );
+ok( 'the original still answers from its own fields', $czech && 300 === $czech['post_id'] );
+
+unset(
+	$GLOBALS['stub_actions']['wpml_element_trid'],
+	$GLOBALS['stub_filters']['wpml_element_trid'],
+	$GLOBALS['stub_filters']['wpml_get_element_translations'],
+	$GLOBALS['stub_locale'],
+	$GLOBALS['stub_posts'][300],
+	$GLOBALS['stub_posts'][301]
+);
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+
+
 echo "\n== Titles follow the language ==\n";
 
 // Reported live: a document served the English PDF on the Italian site but
