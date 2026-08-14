@@ -30,12 +30,30 @@ $GLOBALS['stub_posts']   = array();
 $GLOBALS['stub_actions'] = array();
 $GLOBALS['stub_enqueued'] = array();
 $GLOBALS['stub_filters']  = array();
+$GLOBALS['stub_filter_callbacks'] = array();
 
 // --- Hooks ---------------------------------------------------------------.
 function add_action( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
 function add_filter( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
 function has_filter( $tag, $cb = false ) { return isset( $GLOBALS['stub_actions'][ $tag ] ); }
-function apply_filters( $tag, $value ) { return array_key_exists( $tag, $GLOBALS['stub_filters'] ) ? $GLOBALS['stub_filters'][ $tag ] : $value; }
+function apply_filters( $tag, $value ) {
+	if ( array_key_exists( $tag, $GLOBALS['stub_filters'] ) ) {
+		return $GLOBALS['stub_filters'][ $tag ];
+	}
+
+	// Tests that need a hook to really fire register the callback themselves.
+	if ( ! empty( $GLOBALS['stub_filter_callbacks'][ $tag ] ) ) {
+		$args = array_slice( func_get_args(), 1 );
+
+		foreach ( $GLOBALS['stub_filter_callbacks'][ $tag ] as $callback ) {
+			$args[0] = call_user_func_array( $callback, $args );
+		}
+
+		return $args[0];
+	}
+
+	return $value;
+}
 function do_action( $tag ) {}
 function register_activation_hook( $file, $cb ) {}
 function register_deactivation_hook( $file, $cb ) {}
@@ -93,8 +111,14 @@ function get_permalink( $id = 0 ) {
 	return 'https://example.test/pdf/doc-' . $id . '/';
 }
 $GLOBALS['stub_permalink_prefix'] = array( 'tnc_flipbook' => 'flipbook', 'pdf_document' => 'pdf' );
-function has_post_thumbnail( $id = 0 ) { return false; }
-function get_post_thumbnail_id( $id = 0 ) { return 0; }
+// Mirrors WordPress: get_post_thumbnail_id() applies the filter, and
+// has_post_thumbnail() is built on it — which is how a careless cover filter
+// would recurse.
+function get_post_thumbnail_id( $id = 0 ) {
+	$stored = (int) get_post_meta( $id, '_thumbnail_id', true );
+	return (int) apply_filters( 'post_thumbnail_id', $stored, $id );
+}
+function has_post_thumbnail( $id = 0 ) { return (bool) get_post_thumbnail_id( $id ); }
 function wp_get_attachment_image() { return '<img src="cover.jpg" alt="" />'; }
 function get_the_excerpt( $id = 0 ) { return 'Excerpt text.'; }
 function get_the_date( $format = '', $id = 0 ) { return '11. 8. 2026'; }
@@ -1282,6 +1306,43 @@ $acf_settings['acf_category_field'] = '';
 update_option( WPPDF_Settings::OPTION, $acf_settings );
 WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
+
+
+echo "\n== Covers stand in for the featured image ==\n";
+
+// Covers live in per-language meta, so a document came out imageless in any
+// loop that shows one — a category archive, a page builder's post grid —
+// while the posts beside it had pictures.
+$documents = new WPPDF_Documents();
+$GLOBALS['stub_filter_callbacks']['post_thumbnail_id'] = array( array( $documents, 'filter_thumbnail_id' ) );
+
+$GLOBALS['stub_posts'][180] = array( 'ID' => 180, 'post_type' => 'pdf_document', 'post_title' => 'S obálkou', 'post_status' => 'publish' );
+update_post_meta( 180, '_wppdf_file_cs', 20 );
+update_post_meta( 180, WPPDF_Languages::cover_meta_key( 'cs' ), 22 );
+
+ok( 'a generated cover is offered as the featured image', 22 === get_post_thumbnail_id( 180 ) );
+ok( 'so a loop that asks sees one', true === has_post_thumbnail( 180 ) );
+
+// get_cover_id() used to call has_post_thumbnail(), which now answers with the
+// cover — reaching this line at all means it no longer recurses.
+ok( 'and the plugin\'s own lookup still resolves without recursing', 22 === WPPDF_Documents::get_cover_id( 180 ) );
+
+// A picture the editor chose must win over one rendered from page one.
+update_post_meta( 180, '_thumbnail_id', 21 );
+ok( 'a real featured image wins', 21 === get_post_thumbnail_id( 180 ) );
+ok( 'and the plugin agrees', 21 === WPPDF_Documents::get_cover_id( 180 ) );
+delete_post_meta( 180, '_thumbnail_id' );
+
+$GLOBALS['stub_posts'][181] = array( 'ID' => 181, 'post_type' => 'post', 'post_title' => 'Obyčejný příspěvek', 'post_status' => 'publish' );
+update_post_meta( 181, WPPDF_Languages::cover_meta_key( 'cs' ), 22 );
+ok( 'a post of another type is left alone', 0 === get_post_thumbnail_id( 181 ) );
+
+$GLOBALS['stub_filters']['wppdf_cover_as_thumbnail'] = false;
+ok( 'and the whole thing can be switched off', 0 === get_post_thumbnail_id( 180 ) );
+unset( $GLOBALS['stub_filters']['wppdf_cover_as_thumbnail'] );
+
+$GLOBALS['stub_filter_callbacks'] = array();
+unset( $GLOBALS['stub_posts'][180], $GLOBALS['stub_posts'][181] );
 
 
 echo "\n== The full page reader actually renders ==\n";

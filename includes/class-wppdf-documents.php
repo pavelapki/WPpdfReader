@@ -22,6 +22,52 @@ class WPPDF_Documents {
 	 */
 	public function hooks() {
 		add_filter( 'the_posts', array( $this, 'prime_from_query' ), 10, 2 );
+		add_filter( 'post_thumbnail_id', array( $this, 'filter_thumbnail_id' ), 10, 2 );
+	}
+
+	/**
+	 * Offer the generated cover as a document's featured image.
+	 *
+	 * Covers live in per-language meta, so has_post_thumbnail() said no and a
+	 * document came out imageless in any loop that shows one — a category
+	 * archive, a related-posts block, a page builder's post grid — while the
+	 * posts beside it had pictures. This makes a document behave like a post
+	 * everywhere rather than only in this plugin's own templates.
+	 *
+	 * A real featured image always wins; this only fills in when there is none.
+	 *
+	 * @param int         $thumbnail_id Thumbnail ID found so far.
+	 * @param int|WP_Post $post         Post the thumbnail belongs to.
+	 * @return int
+	 */
+	public function filter_thumbnail_id( $thumbnail_id, $post ) {
+		if ( $thumbnail_id ) {
+			return $thumbnail_id;
+		}
+
+		$post_id = is_object( $post ) && isset( $post->ID ) ? (int) $post->ID : (int) $post;
+
+		if ( ! $post_id ) {
+			return $thumbnail_id;
+		}
+
+		if ( ! in_array( get_post_type( $post_id ), WPPDF_Post_Type::get_supported_post_types(), true ) ) {
+			return $thumbnail_id;
+		}
+
+		/**
+		 * Filter whether a generated cover stands in for the featured image.
+		 *
+		 * @param bool $use     Whether to use the cover.
+		 * @param int  $post_id Document ID.
+		 */
+		if ( ! apply_filters( 'wppdf_cover_as_thumbnail', true, $post_id ) ) {
+			return $thumbnail_id;
+		}
+
+		$cover = self::get_generated_cover_id( $post_id );
+
+		return $cover ? $cover : $thumbnail_id;
 	}
 
 	/**
@@ -327,10 +373,26 @@ class WPPDF_Documents {
 	 * @return int
 	 */
 	public static function get_cover_id( $post_id, $code = '' ) {
-		if ( has_post_thumbnail( $post_id ) ) {
-			return (int) get_post_thumbnail_id( $post_id );
+		// Reads the meta directly rather than through has_post_thumbnail(),
+		// which now answers with the generated cover and would come straight
+		// back here.
+		$featured = (int) get_post_meta( $post_id, '_thumbnail_id', true );
+
+		if ( $featured && get_post( $featured ) ) {
+			return $featured;
 		}
 
+		return self::get_generated_cover_id( $post_id, $code );
+	}
+
+	/**
+	 * The cover rendered from the PDF, ignoring any featured image.
+	 *
+	 * @param int    $post_id Post ID.
+	 * @param string $code    Language code, defaults to the resolved one.
+	 * @return int
+	 */
+	public static function get_generated_cover_id( $post_id, $code = '' ) {
 		if ( '' === $code ) {
 			$file = self::get_file( $post_id );
 			$code = $file ? $file['lang'] : WPPDF_Languages::get_default_language();

@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.8.1
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,15 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.9.0 =
+* A document now behaves like a post in any loop that shows a featured image.
+  Covers rendered from the first page live in per-language meta, so
+  has_post_thumbnail() said no and documents came out imageless next to posts
+  that had pictures — in category archives, related-post blocks and page
+  builder grids alike. The cover now answers as the featured image, and a
+  picture the editor chose still wins over it. Switch it off with the
+  wppdf_cover_as_thumbnail filter.
 
 = 1.8.1 =
 * Fixed the full page reader showing an empty page: the toolbar drew, the
