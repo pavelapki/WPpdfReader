@@ -1,0 +1,127 @@
+name: Release
+
+# Builds the installable zip, tags the commit and publishes a release.
+#
+# The version is never typed in: it is read from the plugin header, so the tag,
+# the release and the zip can never disagree with what WordPress reports. Run
+# it from the Actions tab after bumping the version, or push a v* tag.
+on:
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: 'Mark the release as a pre-release'
+        type: boolean
+        default: false
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the version from the plugin header
+        id: version
+        run: |
+          set -e
+          version="$(sed -n 's/^[[:space:]]*\*[[:space:]]*Version:[[:space:]]*\(.*\)$/\1/p' wp-pdf-reader.php | head -1 | tr -d '[:space:]')"
+
+          if [ -z "$version" ]; then
+            echo "No version found in the plugin header." >&2
+            exit 1
+          fi
+
+          # The constant must agree, or the updater compares against the wrong
+          # number and either never updates or updates in a loop.
+          constant="$(sed -n "s/^define( 'WPPDF_VERSION', '\(.*\)' );$/\1/p" wp-pdf-reader.php | head -1)"
+
+          if [ "$version" != "$constant" ]; then
+            echo "Header says $version but WPPDF_VERSION says $constant." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse to release a version that already exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists. Bump the version first." >&2
+            exit 1
+          fi
+
+      - name: Build the plugin zip
+        run: |
+          set -e
+          mkdir -p build/wp-pdf-reader
+          # Ships what a site needs and nothing else: no test harness, no
+          # developer scripts, no CI config, no composer manifest.
+          git archive HEAD | tar -x -C build/wp-pdf-reader
+          rm -rf build/wp-pdf-reader/.github \
+                 build/wp-pdf-reader/tests \
+                 build/wp-pdf-reader/tools \
+                 build/wp-pdf-reader/phpcs.xml.dist \
+                 build/wp-pdf-reader/composer.json \
+                 build/wp-pdf-reader/composer.lock \
+                 build/wp-pdf-reader/.editorconfig \
+                 build/wp-pdf-reader/.gitignore
+
+          # The bundled reader is the whole point of the zip, so its absence
+          # must stop the release rather than ship a plugin that cannot render.
+          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.min.mjs
+          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.worker.min.mjs
+          test -f build/wp-pdf-reader/languages/wp-pdf-reader-cs_CZ.mo
+
+          cd build
+          zip -qr "../wp-pdf-reader-${{ steps.version.outputs.version }}.zip" wp-pdf-reader
+          cd ..
+          unzip -l "wp-pdf-reader-${{ steps.version.outputs.version }}.zip" | tail -3
+
+      - name: Take the release notes from the changelog
+        id: notes
+        run: |
+          set -e
+          # The section for this version, up to the next one.
+          awk -v v="= ${{ steps.version.outputs.version }} =" '
+            $0 == v { found = 1; next }
+            found && /^= [0-9]/ { exit }
+            found { print }
+          ' readme.txt > notes.md
+
+          if [ ! -s notes.md ]; then
+            echo "Release ${{ steps.version.outputs.version }}." > notes.md
+          fi
+
+          cat notes.md
+
+      - name: Tag the commit
+        if: github.ref_type != 'tag'
+        run: |
+          set -e
+          # An annotated tag needs an author, and the runner has none by default.
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.version.outputs.tag }}" -m "WP PDF Reader ${{ steps.version.outputs.version }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "WP PDF Reader ${{ steps.version.outputs.version }}" \
+            --notes-file notes.md \
+            ${{ inputs.prerelease && '--prerelease' || '' }} \
+            "wp-pdf-reader-${{ steps.version.outputs.version }}.zip"
