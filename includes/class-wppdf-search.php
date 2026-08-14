@@ -86,11 +86,13 @@ class WPPDF_Search {
 
 		$prefix = $wpdb->esc_like( WPPDF_Text::META_TEXT ) . '%';
 
+		// phpcs:disable WordPress.DB.PreparedSQL.NotPrepared -- only the table names and the class's own alias constant are concatenated; the one value goes through a placeholder.
 		$join .= $wpdb->prepare(
 			' LEFT JOIN ' . $wpdb->postmeta . ' AS ' . self::ALIAS .
 			' ON ( ' . $wpdb->posts . '.ID = ' . self::ALIAS . '.post_id AND ' . self::ALIAS . '.meta_key LIKE %s ) ',
 			$prefix
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.NotPrepared
 
 		return $join;
 	}

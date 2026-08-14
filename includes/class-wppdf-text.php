@@ -44,7 +44,7 @@ class WPPDF_Text {
 	/**
 	 * Files larger than this are not parsed in PHP.
 	 *
-	 * pdftotext streams the file and has no such limit; this only bounds the
+	 * Pdftotext streams the file and has no such limit; this only bounds the
 	 * in-process fallback, which has to hold the document in memory.
 	 */
 	const MAX_BYTES = 20971520; // 20 MB.
@@ -132,7 +132,7 @@ class WPPDF_Text {
 		// The file may have been swapped again between scheduling and running.
 		$current = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
 
-		if ( ! $current || $current !== absint( $attachment_id ) ) {
+		if ( ! $current || absint( $attachment_id ) !== $current ) {
 			return;
 		}
 
@@ -308,6 +308,7 @@ class WPPDF_Text {
 	protected static function temp_directory() {
 		$directory = function_exists( 'get_temp_dir' ) ? get_temp_dir() : sys_get_temp_dir();
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_is_writable -- WP_Filesystem may need credentials and this runs unattended on cron; the directory is only handed to a command line tool.
 		return is_string( $directory ) && is_writable( $directory ) ? $directory : '';
 	}
 
@@ -386,6 +387,7 @@ class WPPDF_Text {
 			foreach ( self::search_paths() as $directory ) {
 				$candidate = rtrim( $directory, '/' ) . '/' . $name;
 
+				// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- open_basedir makes these emit warnings for paths outside it; a false answer is the wanted result.
 				if ( @is_file( $candidate ) && @is_executable( $candidate ) ) {
 					$path = $candidate;
 					break;
@@ -474,17 +476,22 @@ class WPPDF_Text {
 			2 => array( 'pipe', 'w' ),
 		);
 
+		// The array form never goes through a shell, so no argument can be
+		// interpreted as one. The @ covers hosts that disable proc_open outright.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.PHP.DiscouragedPHPFunctions.system_calls_proc_open -- pdftotext and tesseract have no PHP equivalent; the result is checked below and every caller has a pure PHP fallback.
 		$process = @proc_open( array_values( array_map( 'strval', $command ) ), $descriptors, $pipes );
 
 		if ( ! is_resource( $process ) ) {
 			return null;
 		}
 
+		// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- these are process pipes, not files; WP_Filesystem has nothing for them.
 		fclose( $pipes[0] );
 
 		$output = stream_get_contents( $pipes[1] );
 		fclose( $pipes[1] );
 		fclose( $pipes[2] );
+		// phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fclose
 
 		$status = proc_close( $process );
 
@@ -553,15 +560,16 @@ class WPPDF_Text {
 			return '';
 		}
 
-		$text   = '';
-		$chunks = 0;
-		$offset = 0;
-		$length = strlen( $raw );
+		$text     = '';
+		$captured = 0;
+		$chunks   = 0;
+		$offset   = 0;
+		$length   = strlen( $raw );
 
 		// Walked one stream at a time on purpose: capturing every stream of a
 		// large document at once would hold a second copy of the file in
 		// memory, on top of the file itself.
-		while ( $offset < $length && $chunks < 5000 && strlen( $text ) < self::MAX_CHARS ) {
+		while ( $offset < $length && $chunks < 5000 && $captured < self::MAX_CHARS ) {
 			$start = strpos( $raw, 'stream', $offset );
 
 			if ( false === $start ) {
@@ -572,10 +580,10 @@ class WPPDF_Text {
 
 			// Skip the end of line that follows the keyword.
 			if ( "\r" === substr( $raw, $from, 1 ) ) {
-				$from++;
+				++$from;
 			}
 			if ( "\n" === substr( $raw, $from, 1 ) ) {
-				$from++;
+				++$from;
 			}
 
 			$end = strpos( $raw, 'endstream', $from );
@@ -585,7 +593,7 @@ class WPPDF_Text {
 			}
 
 			$offset = $end + 9;
-			$chunks++;
+			++$chunks;
 
 			$stream = substr( $raw, $from, $end - $from );
 
@@ -593,9 +601,13 @@ class WPPDF_Text {
 				continue;
 			}
 
+			// A stream may be raw, zlib wrapped or deflate; both calls warn on the
+			// wrong guess and return false, which is exactly what is tested for.
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- see above.
 			$content = @gzuncompress( $stream );
 
 			if ( false === $content ) {
+				// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- see above.
 				$content = @gzinflate( substr( $stream, 2 ) );
 			}
 
@@ -611,7 +623,9 @@ class WPPDF_Text {
 				continue;
 			}
 
-			$text .= self::text_from_content_stream( $content );
+			$piece     = self::text_from_content_stream( $content );
+			$text     .= $piece;
+			$captured += strlen( $piece );
 		}
 
 		return $text;
@@ -656,10 +670,10 @@ class WPPDF_Text {
 	/**
 	 * Resolve the escape sequences of a PDF literal string.
 	 *
-	 * @param string $string Raw string without its parentheses.
+	 * @param string $literal Raw string without its parentheses.
 	 * @return string
 	 */
-	protected static function decode_pdf_string( $string ) {
+	protected static function decode_pdf_string( $literal ) {
 		$replacements = array(
 			'\\n'  => "\n",
 			'\\r'  => "\r",
@@ -671,14 +685,14 @@ class WPPDF_Text {
 			'\\\\' => '\\',
 		);
 
-		$string = strtr( $string, $replacements );
+		$literal = strtr( $literal, $replacements );
 
 		return preg_replace_callback(
 			'/\\\\([0-7]{1,3})/',
 			static function ( $matches ) {
 				return chr( octdec( $matches[1] ) );
 			},
-			$string
+			$literal
 		);
 	}
 
@@ -695,9 +709,9 @@ class WPPDF_Text {
 
 		$text = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', ' ', $text );
 
-		if ( ! seems_utf8( $text ) ) {
-			$text = wp_check_invalid_utf8( $text, true );
-		}
+		// Validates and strips in one go, and unlike seems_utf8() it is not
+		// deprecated.
+		$text = wp_check_invalid_utf8( $text, true );
 
 		$text = preg_replace( '/\s+/u', ' ', (string) $text );
 		$text = trim( (string) $text );

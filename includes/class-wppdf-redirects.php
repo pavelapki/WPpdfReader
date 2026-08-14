@@ -48,6 +48,12 @@ class WPPDF_Redirects {
 			return;
 		}
 
+		// A 404 is a cheap page to serve and bots find plenty of them, so sites
+		// that never imported anything must not pay for a lookup at all.
+		if ( ! self::has_imported_documents() ) {
+			return;
+		}
+
 		$post_id = self::find_document( $path );
 
 		if ( ! $post_id ) {
@@ -91,11 +97,48 @@ class WPPDF_Redirects {
 	}
 
 	/**
+	 * Whether this site has any imported record to redirect to.
+	 *
+	 * @return bool
+	 */
+	protected static function has_imported_documents() {
+		$flag = wp_cache_get( 'has_imported', 'wppdf' );
+
+		if ( false !== $flag ) {
+			return (bool) $flag;
+		}
+
+		$flag = get_transient( 'wppdf_has_imported' );
+
+		if ( false === $flag ) {
+			global $wpdb;
+
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- result is cached in the transient right below.
+			$exists = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT 1 FROM {$wpdb->postmeta} WHERE meta_key IN ( %s, %s ) LIMIT 1",
+					WPPDF_Migrator::META_PATH,
+					WPPDF_Migrator::META_SLUG
+				)
+			);
+
+			$flag = $exists ? '1' : '0';
+
+			set_transient( 'wppdf_has_imported', $flag, DAY_IN_SECONDS );
+		}
+
+		wp_cache_set( 'has_imported', $flag, 'wppdf' );
+
+		return '1' === (string) $flag;
+	}
+
+	/**
 	 * Find the document an old path belongs to.
 	 *
 	 * The full old path is matched first, so a record that shared its slug
 	 * with something else still lands on the right document; only then is the
-	 * bare slug tried.
+	 * bare slug tried. All three candidates go in one query, ranked in SQL,
+	 * because a 404 should not cost three round trips.
 	 *
 	 * @param string $path Request path.
 	 * @return int Document ID, 0 when there is no match.
@@ -106,52 +149,45 @@ class WPPDF_Redirects {
 		$post_types   = WPPDF_Post_Type::get_supported_post_types();
 		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 
-		$sql = "SELECT p.ID FROM {$wpdb->posts} AS p
+		$segments = array_values( array_filter( explode( '/', $path ) ) );
+		$slug     = (string) end( $segments );
+
+		$sql = "SELECT p.ID,
+				CASE
+					WHEN m.meta_key = %s AND m.meta_value = %s THEN 1
+					WHEN m.meta_key = %s AND m.meta_value = %s THEN 2
+					ELSE 3
+				END AS match_rank
+			FROM {$wpdb->posts} AS p
 			INNER JOIN {$wpdb->postmeta} AS m ON m.post_id = p.ID
 			WHERE p.post_status = 'publish'
 			AND p.post_type IN ( {$placeholders} )
-			AND m.meta_key = %s AND m.meta_value = %s
+			AND (
+				( m.meta_key = %s AND m.meta_value IN ( %s, %s ) )
+				OR ( m.meta_key = %s AND m.meta_value = %s )
+			)
+			ORDER BY match_rank ASC
 			LIMIT 1";
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
-		$found = $wpdb->get_var(
-			$wpdb->prepare(
-				$sql,
-				array_merge( $post_types, array( WPPDF_Migrator::META_PATH, $path ) )
+		$params = array_merge(
+			array(
+				WPPDF_Migrator::META_PATH,
+				$path,
+				WPPDF_Migrator::META_PATH,
+				untrailingslashit( $path ),
+			),
+			$post_types,
+			array(
+				WPPDF_Migrator::META_PATH,
+				$path,
+				untrailingslashit( $path ),
+				WPPDF_Migrator::META_SLUG,
+				$slug,
 			)
 		);
 
-		if ( $found ) {
-			return (int) $found;
-		}
-
-		// Without a trailing slash, for sites that do not use one.
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
-		$found = $wpdb->get_var(
-			$wpdb->prepare(
-				$sql,
-				array_merge( $post_types, array( WPPDF_Migrator::META_PATH, untrailingslashit( $path ) ) )
-			)
-		);
-
-		if ( $found ) {
-			return (int) $found;
-		}
-
-		$segments = array_values( array_filter( explode( '/', $path ) ) );
-		$slug     = end( $segments );
-
-		if ( ! $slug ) {
-			return 0;
-		}
-
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
-		$found = $wpdb->get_var(
-			$wpdb->prepare(
-				$sql,
-				array_merge( $post_types, array( WPPDF_Migrator::META_SLUG, $slug ) )
-			)
-		);
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- placeholders are built above and passed to prepare; a 404 path is not worth its own cache entry.
+		$found = $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
 
 		return $found ? (int) $found : 0;
 	}

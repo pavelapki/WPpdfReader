@@ -215,14 +215,27 @@ class WPPDF_Meta {
 		$protected     = ! empty( $_POST['wppdf_protected'] );
 		$was_protected = WPPDF_Protection::is_protected( $post_id );
 
-		$files = isset( $_POST['wppdf_file'] ) && is_array( $_POST['wppdf_file'] ) ? wp_unslash( $_POST['wppdf_file'] ) : array();
-		$urls  = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] ) ? wp_unslash( $_POST['wppdf_url'] ) : array();
+		// Both arrive as one value per language, so they are reduced to what
+		// they are allowed to be here rather than element by element below.
+		$files = isset( $_POST['wppdf_file'] ) && is_array( $_POST['wppdf_file'] )
+			? array_map( 'absint', wp_unslash( $_POST['wppdf_file'] ) )
+			: array();
+		$urls  = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] )
+			? array_map( 'esc_url_raw', wp_unslash( $_POST['wppdf_url'] ) )
+			: array();
 
 		foreach ( WPPDF_Languages::get_codes() as $code ) {
 			$file_key = WPPDF_Languages::file_meta_key( $code );
 			$url_key  = WPPDF_Documents::url_meta_key( $code );
 
-			$attachment_id = isset( $files[ $code ] ) ? absint( $files[ $code ] ) : 0;
+			$attachment_id = isset( $files[ $code ] ) ? $files[ $code ] : 0;
+
+			// The field holds whatever ID was posted, so a file the editor
+			// cannot read must not be republished through a document.
+			if ( $attachment_id && ! current_user_can( 'read_post', $attachment_id ) ) {
+				$attachment_id = 0;
+			}
+
 			if ( $attachment_id && ! WPPDF_Documents::is_valid_attachment( $attachment_id ) ) {
 				$attachment_id = 0;
 			}
@@ -235,7 +248,7 @@ class WPPDF_Meta {
 				delete_post_meta( $post_id, $file_key );
 			}
 
-			$url = isset( $urls[ $code ] ) ? esc_url_raw( trim( (string) $urls[ $code ] ) ) : '';
+			$url = isset( $urls[ $code ] ) ? trim( (string) $urls[ $code ] ) : '';
 			if ( '' !== $url ) {
 				update_post_meta( $post_id, $url_key, $url );
 			} else {

@@ -72,6 +72,15 @@ class WPPDF_Updater {
 			return '';
 		}
 
+		// Dots are legal in GitHub names, so the pattern above lets ".." through
+		// and the API path would climb out of /repos/. Neither half may be dots
+		// alone.
+		foreach ( explode( '/', $repository ) as $segment ) {
+			if ( '' === trim( $segment, '.' ) ) {
+				return '';
+			}
+		}
+
 		return $repository;
 	}
 

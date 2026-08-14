@@ -7,6 +7,22 @@
 
 defined( 'ABSPATH' ) || exit;
 
+if ( ! function_exists( 'wppdf_sanitize_language_code' ) ) {
+	/**
+	 * Reduce a language code to the letters, digits and dashes it may contain.
+	 *
+	 * Every request that names a language goes through this, so it lives here
+	 * as a plain function: static analysis can recognise a sanitizer by name,
+	 * which it cannot do for a class method.
+	 *
+	 * @param mixed $code Raw value.
+	 * @return string Sanitized code, empty when there is nothing usable left.
+	 */
+	function wppdf_sanitize_language_code( $code ) {
+		return WPPDF_Settings::sanitize_language_code( $code );
+	}
+}
+
 if ( ! function_exists( 'wppdf_get_file' ) ) {
 	/**
 	 * Resolve the PDF to show for a document, applying the fallback chain.

@@ -196,7 +196,19 @@ function wp_localize_script() {}
 function wp_enqueue_script( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function wp_enqueue_style( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function locate_template( $templates ) { return ''; }
-function current_user_can() { return true; }
+function current_user_can( $cap = '', $object_id = 0 ) {
+	// Tests that care about a capability list the ones the current user is
+	// missing; everything else stays permitted so the rest keeps working.
+	if ( isset( $GLOBALS['stub_denied_caps'] ) && in_array( $cap, (array) $GLOBALS['stub_denied_caps'], true ) ) {
+		return false;
+	}
+
+	if ( 'read_post' === $cap && isset( $GLOBALS['stub_unreadable_posts'] ) && in_array( (int) $object_id, (array) $GLOBALS['stub_unreadable_posts'], true ) ) {
+		return false;
+	}
+
+	return true;
+}
 function wp_nonce_field() {}
 function wp_verify_nonce() { return true; }
 function wp_is_post_revision() { return false; }
@@ -287,7 +299,14 @@ function wp_cache_set( $k, $v, $g = '', $t = 0 ) { return true; }
 function wp_cache_delete( $k, $g = '' ) { return true; }
 $GLOBALS['stub_query_vars'] = array();
 function seems_utf8( $s ) { return (bool) preg_match( '//u', $s ); }
-function wp_check_invalid_utf8( $s, $strip = false ) { return $strip ? (string) preg_replace( '/[^\x00-\x7F]/', '', $s ) : $s; }
+function wp_check_invalid_utf8( $s, $strip = false ) {
+	// As WordPress does: valid UTF-8 comes back untouched, only broken input
+	// is stripped.
+	if ( 1 === @preg_match( '/^./us', (string) $s ) ) {
+		return (string) $s;
+	}
+	return $strip && function_exists( 'iconv' ) ? (string) @iconv( 'utf-8', 'utf-8//IGNORE', (string) $s ) : '';
+}
 function wp_strip_all_tags( $s ) { return strip_tags( (string) $s ); }
 function get_transient( $k ) { return isset( $GLOBALS['stub_transients'][ $k ] ) ? $GLOBALS['stub_transients'][ $k ] : false; }
 function set_transient( $k, $v, $t = 0 ) { $GLOBALS['stub_transients'][ $k ] = $v; return true; }
@@ -365,22 +384,29 @@ class Stub_WPDB {
 	public function query( $q ) { return 1; }
 	public function get_col( $q ) { return array( 10, 11 ); }
 	public function get_var( $q ) {
-		// The redirect lookup asks for a post by one of the import meta keys;
-		// answer it from the stub meta so the test means something.
-		foreach ( array( '_wppdf_imported_path', '_wppdf_imported_slug' ) as $key ) {
-			if ( false === strpos( $q, $key ) ) {
-				continue;
-			}
+		// "Did anything get imported at all", the guard in front of the lookup.
+		if ( false !== strpos( $q, 'SELECT 1 FROM' ) ) {
+			return 1;
+		}
 
-			if ( ! preg_match_all( "/'([^']*)'/", $q, $m ) ) {
-				continue;
-			}
+		// The redirect lookup asks for a post by the import meta keys in one
+		// ranked query: the old path and its unslashed form first, the bare
+		// slug last. The stub answers in that same order so the test still
+		// checks which candidate wins.
+		if ( false !== strpos( $q, '_wppdf_imported_path' ) || false !== strpos( $q, '_wppdf_imported_slug' ) ) {
+			preg_match_all( "/'([^']*)'/", $q, $m );
 
-			$wanted = end( $m[1] );
+			foreach ( array( '_wppdf_imported_path', '_wppdf_imported_slug' ) as $key ) {
+				if ( false === strpos( $q, $key ) ) {
+					continue;
+				}
 
-			foreach ( $GLOBALS['stub_meta'] as $post_id => $meta ) {
-				if ( isset( $meta[ $key ] ) && (string) $meta[ $key ] === (string) $wanted ) {
-					return $post_id;
+				foreach ( $m[1] as $wanted ) {
+					foreach ( $GLOBALS['stub_meta'] as $post_id => $meta ) {
+						if ( isset( $meta[ $key ] ) && (string) $meta[ $key ] === (string) $wanted ) {
+							return $post_id;
+						}
+					}
 				}
 			}
 
@@ -617,6 +643,23 @@ ok( 'nonsense tag rejected', ! isset( $bad['version'] ) );
 $hijack = call_protected( 'WPPDF_Updater', 'parse', array( array( 'tag_name' => '9.9.9', 'zipball_url' => 'https://attacker.example/evil.zip' ), 'o/r' ) );
 ok( 'package on a foreign host rejected', ! isset( $hijack['version'] ) );
 
+// Dots are legal in GitHub names, so the repository pattern alone would let
+// "../.." build an API path that climbs out of /repos/.
+$repo_settings = WPPDF_Settings::all();
+
+foreach ( array( '../..', '.', 'owner/..', '../repo' ) as $bad_repo ) {
+	$repo_settings['github_repository'] = $bad_repo;
+	update_option( WPPDF_Settings::OPTION, $repo_settings );
+	WPPDF_Settings::flush_cache();
+
+	ok( 'traversal repository refused: ' . $bad_repo, '' === WPPDF_Updater::get_repository() );
+}
+
+$repo_settings['github_repository'] = 'pavelapki/WPpdfReader';
+update_option( WPPDF_Settings::OPTION, $repo_settings );
+WPPDF_Settings::flush_cache();
+ok( 'a normal repository is still accepted', 'pavelapki/WPpdfReader' === WPPDF_Updater::get_repository() );
+
 echo "\n== Importer ==\n";
 $GLOBALS['stub_posts'][30] = array( 'ID' => 30, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf', 'post_title' => 'vyrocni_zprava-2025', 'file' => '/tmp/x.pdf' );
 ok( 'title cleaned from the file name', 'Vyrocni zprava 2025' === WPPDF_Importer::title_from_attachment( 30 ) );
@@ -728,6 +771,9 @@ ok( 'other arguments survive', 12 === $filter_args['posts_per_page'] );
 // A term the filter does not know about must not reach the query.
 $_GET[ WPPDF_Filters::VAR_LANGUAGE ] = 'zz';
 $_GET[ WPPDF_Filters::VAR_SORT ]     = '; DROP TABLE';
+// The values are read once per request, so the test says when the request
+// changed.
+WPPDF_Filters::flush_cache();
 $hostile = WPPDF_Filters::get_current();
 ok( 'unknown language dropped', '' === $hostile['language'] );
 ok( 'unknown sort dropped', '' === $hostile['sort'] );
@@ -751,6 +797,7 @@ ok( 'form offers the category', false !== strpos( $filter_form, 'vyrocni-zpravy'
 ok( 'form offers the languages', false !== strpos( $filter_form, 'wppdf-filter-language' ) );
 
 $_GET = array();
+WPPDF_Filters::flush_cache();
 ok( 'no filters means nothing is active', false === WPPDF_Filters::is_filtered() );
 ok( 'no filters leaves the query untouched', array() === WPPDF_Filters::apply_to_args( array() ) );
 
@@ -775,8 +822,42 @@ ok( 'other post types are skipped', array() === $GLOBALS['stub_primed'] );
 echo "\n== Reindex counting ==\n";
 ok( 'counting returns a number, not a list of IDs', is_int( WPPDF_Reindex::count_documents( false ) ) );
 
+echo "\n== Who may attach which file ==\n";
+// The file field carries an attachment ID from the browser, so an editor
+// naming a file they cannot read must not get it republished.
+$GLOBALS['stub_posts'][61] = array( 'ID' => 61, 'post_type' => 'pdf_document', 'post_title' => 'Práva' );
+$_POST = array(
+	'wppdf_nonce' => 'x',
+	'wppdf_file'  => array( 'cs' => 20 ),
+);
+
+$GLOBALS['stub_unreadable_posts'] = array( 20 );
+( new WPPDF_Meta() )->save( 61, (object) array( 'ID' => 61, 'post_type' => 'pdf_document' ) );
+ok( 'a file the editor cannot read is refused', '' === (string) get_post_meta( 61, '_wppdf_file_cs', true ) );
+
+$GLOBALS['stub_unreadable_posts'] = array();
+( new WPPDF_Meta() )->save( 61, (object) array( 'ID' => 61, 'post_type' => 'pdf_document' ) );
+ok( 'a file the editor may read is stored', 20 === (int) get_post_meta( 61, '_wppdf_file_cs', true ) );
+
+$_POST = array();
+
+// The import screen reads the media library, so it takes the capability that
+// grants the library and not just the one that creates posts.
+$GLOBALS['stub_denied_caps'] = array( 'upload_files' );
+ok( 'without upload_files the import is refused', false === call_protected( 'WPPDF_Importer', 'user_can_import' ) );
+
+$GLOBALS['stub_denied_caps'] = array( 'edit_posts' );
+ok( 'without edit_posts the import is refused', false === call_protected( 'WPPDF_Importer', 'user_can_import' ) );
+
+$GLOBALS['stub_denied_caps'] = array();
+ok( 'with both the import is allowed', true === call_protected( 'WPPDF_Importer', 'user_can_import' ) );
+
 echo "\n== Protected delivery ==\n";
-ok( 'a path inside uploads is accepted', true === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/wppdf-inside.pdf' ) ) );
+// realpath() needs the file to exist, so the test creates its own.
+$inside = sys_get_temp_dir() . '/wppdf-inside.pdf';
+file_put_contents( $inside, '%PDF-1.4' );
+ok( 'a path inside uploads is accepted', true === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( $inside ) ) );
+@unlink( $inside );
 ok( 'a path outside uploads is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/etc/passwd' ) ) );
 ok( 'a traversal attempt is refused', false === call_protected( 'WPPDF_Protection', 'is_inside_uploads', array( '/tmp/../etc/passwd' ) ) );
 

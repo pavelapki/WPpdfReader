@@ -7,6 +7,13 @@
 	<exclude-pattern>/vendor/*</exclude-pattern>
 	<exclude-pattern>/node_modules/*</exclude-pattern>
 	<exclude-pattern>/assets/vendor/*</exclude-pattern>
+	<!-- The smoke harness declares WordPress's own functions, constants and
+	     globals on purpose; prefixing them would stop it working. -->
+	<exclude-pattern>/tests/*</exclude-pattern>
+	<!-- Developer scripts run from the command line and never inside
+	     WordPress, so the output escaping and prefixing rules do not apply.
+	     They are still syntax checked by the lint job. -->
+	<exclude-pattern>/tools/*</exclude-pattern>
 
 	<arg name="extensions" value="php"/>
 	<arg name="colors"/>
@@ -19,14 +26,51 @@
 
 	<rule ref="WordPress.WP.I18n">
 		<properties>
-			<property name="text_domain" type="array" value="wp-pdf-reader"/>
+			<property name="text_domain" type="array">
+				<element value="wp-pdf-reader"/>
+			</property>
 		</properties>
 	</rule>
 
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
-			<property name="prefixes" type="array" value="wppdf,WPPDF,wp_pdf_reader"/>
+			<property name="prefixes" type="array">
+				<element value="wppdf"/>
+				<element value="WPPDF"/>
+				<element value="wp_pdf_reader"/>
+			</property>
 		</properties>
+	</rule>
+
+	<!-- The plugin sanitizes with its own helpers; without this the sniff
+	     reports every use of them as unsanitized input. -->
+	<rule ref="WordPress.Security.ValidatedSanitizedInput">
+		<properties>
+			<property name="customSanitizingFunctions" type="array">
+				<element value="wppdf_sanitize_language_code"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Templates escape their own output and hand back finished markup, so
+	     escaping their return value again would double-encode it. -->
+	<rule ref="WordPress.Security.EscapeOutput">
+		<properties>
+			<property name="customEscapingFunctions" type="array">
+				<element value="WPPDF_Templates::get_part"/>
+				<element value="get_part"/>
+				<element value="WPPDF_Filters::render"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Templates are included inside a method, so the variables handed to
+	     them are local, not globals. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<exclude-pattern>/templates/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.GlobalVariablesOverride">
+		<exclude-pattern>/templates/*</exclude-pattern>
 	</rule>
 
 	<rule ref="PHPCompatibilityWP"/>

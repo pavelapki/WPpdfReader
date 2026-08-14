@@ -71,12 +71,12 @@ class WPPDF_Migrator {
 	public static function get_adapters() {
 		$adapters = array(
 			'tnc_flipbook' => array(
-				'label'      => 'TNC FlipBook 3D',
-				'file'       => array( '_tncfb3d_pdf_id' ),
-				'file_list'  => array( '_tncfb3d_pdf_ids' ),
-				'pages'      => '_tncfb3d_text_page_count',
-				'text'       => '_tncfb3d_extracted_text',
-				'note'       => __( 'Image based flipbooks hold no PDF and are reported as skipped.', 'wp-pdf-reader' ),
+				'label'     => 'TNC FlipBook 3D',
+				'file'      => array( '_tncfb3d_pdf_id' ),
+				'file_list' => array( '_tncfb3d_pdf_ids' ),
+				'pages'     => '_tncfb3d_text_page_count',
+				'text'      => '_tncfb3d_extracted_text',
+				'note'      => __( 'Image based flipbooks hold no PDF and are reported as skipped.', 'wp-pdf-reader' ),
 			),
 		);
 
@@ -107,7 +107,7 @@ class WPPDF_Migrator {
 
 		$placeholders = implode( ',', array_fill( 0, count( $excluded ), '%s' ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $placeholders is a list of %s built from a count and filled by prepare(); an admin screen listing what can be migrated must not show stale counts.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT post_type, COUNT(*) AS total
@@ -119,8 +119,10 @@ class WPPDF_Migrator {
 				$excluded
 			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$adapters = self::get_adapters();
+		$imported = self::count_imported_by_type();
 		$sources  = array();
 
 		foreach ( (array) $rows as $row ) {
@@ -132,13 +134,44 @@ class WPPDF_Migrator {
 				'label'    => $object && ! empty( $object->labels->name ) ? $object->labels->name : $type,
 				'count'    => (int) $row->total,
 				'adapter'  => isset( $adapters[ $type ] ) ? $adapters[ $type ]['label'] : '',
-				'imported' => self::count_imported( $type ),
+				'imported' => isset( $imported[ $type ] ) ? $imported[ $type ] : 0,
 				'active'   => (bool) $object,
 				'slug'     => self::get_rewrite_slug( $type ),
 			);
 		}
 
 		return $sources;
+	}
+
+	/**
+	 * Imported counts for every source at once.
+	 *
+	 * One grouped query instead of one per source type, which on a site with
+	 * many post types was the slowest part of opening the migration screen.
+	 *
+	 * @return array Map of post type => count.
+	 */
+	public static function count_imported_by_type() {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- admin screen only, and the numbers must be current.
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT meta_value AS post_type, COUNT(*) AS total
+				FROM {$wpdb->postmeta}
+				WHERE meta_key = %s
+				GROUP BY meta_value",
+				self::META_SOURCE_TYPE
+			)
+		);
+
+		$counts = array();
+
+		foreach ( (array) $rows as $row ) {
+			$counts[ (string) $row->post_type ] = (int) $row->total;
+		}
+
+		return $counts;
 	}
 
 	/**
@@ -255,6 +288,7 @@ class WPPDF_Migrator {
 	public static function count_imported( $post_type ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- counting meta rows has no API, and a stale count would misreport migration progress.
 		return (int) $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s",
@@ -317,7 +351,7 @@ class WPPDF_Migrator {
 		$params = array( $post_type, self::META_SOURCE_ID, self::META_SKIPPED );
 
 		if ( $count_only ) {
-			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a NOT EXISTS over meta is not expressible in WP_Query, and the remaining count changes with every batch.
 			return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
 		}
 
@@ -328,7 +362,7 @@ class WPPDF_Migrator {
 			$params[] = (int) $limit;
 		}
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a NOT EXISTS over meta is not expressible in WP_Query, and each batch must see what the last one wrote.
 		$ids = $wpdb->get_col( $wpdb->prepare( $sql, $params ) );
 
 		return array_map( 'absint', (array) $ids );
@@ -342,6 +376,7 @@ class WPPDF_Migrator {
 	public static function clear_skipped( $post_type ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- one joined DELETE instead of walking every flagged record through delete_post_meta().
 		$wpdb->query(
 			$wpdb->prepare(
 				"DELETE m FROM {$wpdb->postmeta} AS m
@@ -592,6 +627,10 @@ class WPPDF_Migrator {
 			update_post_meta( $post_id, self::META_PATH, $old_path );
 		}
 
+		// The 404 handler skips its lookup entirely until this is set.
+		delete_transient( 'wppdf_has_imported' );
+		wp_cache_delete( 'has_imported', 'wppdf' );
+
 		self::copy_terms( $source_id, $post_id );
 
 		$thumbnail = get_post_thumbnail_id( $source_id );
@@ -687,7 +726,7 @@ class WPPDF_Migrator {
 			$mapped = array();
 
 			foreach ( $terms as $term ) {
-				$id = self::map_term( $term, $target, $source_id );
+				$id = self::map_term( $term, $target );
 
 				if ( $id ) {
 					$mapped[] = $id;
@@ -736,6 +775,7 @@ class WPPDF_Migrator {
 	public static function get_source_terms( $source_id ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the source taxonomy is usually unregistered by now, so the term APIs return nothing and the relationships have to be read directly.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
 				"SELECT t.term_id, t.name, t.slug, tt.taxonomy, tt.parent, tt.description
@@ -776,12 +816,11 @@ class WPPDF_Migrator {
 	 * Matching is by slug first and name second, so running the import twice
 	 * reuses the same terms instead of making near duplicates.
 	 *
-	 * @param array  $term      Source term row.
-	 * @param string $target    Target taxonomy.
-	 * @param int    $source_id Source record ID, for resolving parents.
+	 * @param array  $term   Source term row.
+	 * @param string $target Target taxonomy.
 	 * @return int Term ID, 0 on failure.
 	 */
-	protected static function map_term( array $term, $target, $source_id ) {
+	protected static function map_term( array $term, $target ) {
 		$existing = get_term_by( 'slug', $term['slug'], $target );
 
 		if ( ! $existing ) {
@@ -822,6 +861,7 @@ class WPPDF_Migrator {
 	protected static function find_parent( $parent_id, $target ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- same reason: get_term() needs a registered taxonomy, and the source one is gone.
 		$row = $wpdb->get_row(
 			$wpdb->prepare(
 				"SELECT t.term_id, t.name, t.slug, tt.parent
@@ -846,8 +886,7 @@ class WPPDF_Migrator {
 				'parent'      => 0,
 				'description' => '',
 			),
-			$target,
-			0
+			$target
 		);
 	}
 
@@ -875,8 +914,12 @@ class WPPDF_Migrator {
 	public function handle_ajax() {
 		check_ajax_referer( self::NONCE, 'nonce' );
 
-		if ( ! current_user_can( 'edit_posts' ) ) {
-			wp_send_json_error( array( 'message' => __( 'You are not allowed to create documents.', 'wp-pdf-reader' ) ), 403 );
+		// Migration copies whatever a source post type holds, drafts and
+		// private records included, into documents that may be published. That
+		// is more than an editor's own content, so it takes the same capability
+		// as the screen it is driven from rather than edit_posts.
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to migrate documents.', 'wp-pdf-reader' ) ), 403 );
 		}
 
 		$post_type = isset( $_POST['source'] ) ? sanitize_key( wp_unslash( $_POST['source'] ) ) : '';
@@ -885,7 +928,7 @@ class WPPDF_Migrator {
 			wp_send_json_error( array( 'message' => __( 'Unknown source.', 'wp-pdf-reader' ) ), 400 );
 		}
 
-		$code = isset( $_POST['lang'] ) ? WPPDF_Settings::sanitize_language_code( wp_unslash( $_POST['lang'] ) ) : '';
+		$code = isset( $_POST['lang'] ) ? wppdf_sanitize_language_code( wp_unslash( $_POST['lang'] ) ) : '';
 
 		if ( '' === $code || ! in_array( $code, WPPDF_Languages::get_codes(), true ) ) {
 			$code = WPPDF_Languages::get_default_language();
@@ -901,12 +944,18 @@ class WPPDF_Migrator {
 			self::clear_skipped( $post_type );
 		}
 
-		$ids       = self::get_pending_ids( $post_type, self::BATCH );
-		$imported  = array();
-		$skipped   = array();
+		$ids      = self::get_pending_ids( $post_type, self::BATCH );
+		$imported = array();
+		$skipped  = array();
 
 		foreach ( $ids as $source_id ) {
-			$result = self::import( $source_id, array( 'language' => $code, 'status' => $status ) );
+			$result = self::import(
+				$source_id,
+				array(
+					'language' => $code,
+					'status'   => $status,
+				)
+			);
 
 			if ( is_wp_error( $result ) ) {
 				// Remember the miss so the batch does not hand it back forever.

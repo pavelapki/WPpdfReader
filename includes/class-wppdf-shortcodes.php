@@ -154,12 +154,14 @@ class WPPDF_Shortcodes {
 				}
 
 				if ( count( $tax_query ) > 1 ) {
+					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- listing the documents of a category is what the shortcode is for.
 					$query_args['tax_query'] = $tax_query;
 				}
 			}
 		}
 
 		if ( '' !== $atts['taxonomy'] && '' !== $atts['terms'] ) {
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- an explicit taxonomy filter asked for by the shortcode's own attributes.
 			$query_args['tax_query'] = array(
 				array(
 					'taxonomy' => sanitize_key( $atts['taxonomy'] ),

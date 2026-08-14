@@ -302,6 +302,7 @@ class WPPDF_Documents {
 		$post_type = get_post_type( $post_id );
 
 		if ( has_filter( 'wpml_object_id' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filter, consumed rather than introduced.
 			$translated = apply_filters( 'wpml_object_id', $post_id, $post_type, false, $code );
 			if ( $translated ) {
 				return (int) $translated;
@@ -437,7 +438,7 @@ class WPPDF_Documents {
 		$post_types   = WPPDF_Post_Type::get_supported_post_types();
 		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $placeholders is a list of %s built from a count and filled by prepare(); the result is stored in a transient right below.
 		$years = $wpdb->get_col(
 			$wpdb->prepare(
 				"SELECT DISTINCT YEAR( post_date ) AS y FROM {$wpdb->posts}
@@ -446,6 +447,7 @@ class WPPDF_Documents {
 				$post_types
 			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$years = array_values( array_filter( array_map( 'absint', (array) $years ) ) );
 

@@ -39,21 +39,21 @@ class WPPDF_Settings {
 	public static function defaults() {
 		return array(
 			// Post type.
-			'post_type_key'       => 'pdf_document',
-			'post_type_slug'      => 'pdf',
-			'label_singular'      => 'PDF',
-			'label_plural'        => 'PDF documents',
-			'menu_icon'           => 'dashicons-media-document',
-			'menu_position'       => 20,
-			'has_archive'         => 1,
-			'shared_taxonomies'   => 1,
-			'own_taxonomy'        => 0,
-			'show_in_blog'        => 0,
-			'supports_excerpt'    => 1,
-			'supports_thumbnail'  => 1,
+			'post_type_key'        => 'pdf_document',
+			'post_type_slug'       => 'pdf',
+			'label_singular'       => 'PDF',
+			'label_plural'         => 'PDF documents',
+			'menu_icon'            => 'dashicons-media-document',
+			'menu_position'        => 20,
+			'has_archive'          => 1,
+			'shared_taxonomies'    => 1,
+			'own_taxonomy'         => 0,
+			'show_in_blog'         => 0,
+			'supports_excerpt'     => 1,
+			'supports_thumbnail'   => 1,
 
 			// Languages.
-			'languages'           => array(
+			'languages'            => array(
 				array(
 					'code'  => 'cs',
 					'label' => 'Čeština',
@@ -63,46 +63,46 @@ class WPPDF_Settings {
 					'label' => 'English',
 				),
 			),
-			'default_language'    => 'cs',
-			'fallback_chain'      => array( 'cs', 'en' ),
-			'fallback_any'        => 1,
-			'sync_with_wpml'      => 1,
+			'default_language'     => 'cs',
+			'fallback_chain'       => array( 'cs', 'en' ),
+			'fallback_any'         => 1,
+			'sync_with_wpml'       => 1,
 			'show_fallback_notice' => 1,
 
 			// Viewer.
-			'viewer_height'       => 800,
-			'viewer_zoom'         => 'auto',
-			'show_toolbar'        => 1,
-			'allow_download'      => 1,
-			'allow_print'         => 1,
-			'lazy_load'           => 1,
-			'append_to_content'   => 1,
+			'viewer_height'        => 800,
+			'viewer_zoom'          => 'auto',
+			'show_toolbar'         => 1,
+			'allow_download'       => 1,
+			'allow_print'          => 1,
+			'lazy_load'            => 1,
+			'append_to_content'    => 1,
 
 			// Archive / grid.
-			'archive_layout'      => 'grid',
-			'archive_columns'     => 3,
-			'archive_per_page'    => 12,
-			'override_templates'  => 1,
-			'archive_filters'     => 1,
-			'redirect_old_urls'   => 1,
-			'acf_category_field'  => '',
+			'archive_layout'       => 'grid',
+			'archive_columns'      => 3,
+			'archive_per_page'     => 12,
+			'override_templates'   => 1,
+			'archive_filters'      => 1,
+			'redirect_old_urls'    => 1,
+			'acf_category_field'   => '',
 
 			// Covers.
-			'generate_covers'     => 1,
+			'generate_covers'      => 1,
 
 			// Text extraction and search.
-			'extract_text'        => 1,
-			'search_pdf_text'     => 1,
-			'ocr_enabled'         => 1,
-			'ocr_max_pages'       => 20,
-			'ocr_languages'       => 'ces+eng',
+			'extract_text'         => 1,
+			'search_pdf_text'      => 1,
+			'ocr_enabled'          => 1,
+			'ocr_max_pages'        => 20,
+			'ocr_languages'        => 'ces+eng',
 
 			// Statistics, SEO and updates.
-			'count_views'         => 1,
-			'seo_metadata'        => 1,
-			'language_switcher'   => 1,
-			'github_updates'      => 1,
-			'github_repository'   => 'pavelapki/WPpdfReader',
+			'count_views'          => 1,
+			'seo_metadata'         => 1,
+			'language_switcher'    => 1,
+			'github_updates'       => 1,
+			'github_repository'    => 'pavelapki/WPpdfReader',
 		);
 	}
 
@@ -136,15 +136,15 @@ class WPPDF_Settings {
 	/**
 	 * Get a single setting.
 	 *
-	 * @param string $key     Setting key.
-	 * @param mixed  $default Fallback when the key is unknown.
+	 * @param string $key      Setting key.
+	 * @param mixed  $fallback Value when the key is unknown.
 	 * @return mixed
 	 */
-	public static function get( $key, $default = null ) {
+	public static function get( $key, $fallback = null ) {
 		$all = self::all();
 
 		if ( ! array_key_exists( $key, $all ) ) {
-			return $default;
+			return $fallback;
 		}
 
 		return $all[ $key ];
@@ -165,6 +165,12 @@ class WPPDF_Settings {
 	 */
 	public static function flush_cache() {
 		self::$cache = null;
+
+		// The post type key and the taxonomy list are derived from these
+		// settings and memoised, so they go stale together with them.
+		if ( class_exists( 'WPPDF_Post_Type' ) ) {
+			WPPDF_Post_Type::flush_cache();
+		}
 	}
 
 	/**
@@ -266,8 +272,8 @@ class WPPDF_Settings {
 		$out['languages'] = array_values( $languages );
 		$codes            = array_keys( $languages );
 
-		$default_language         = isset( $input['default_language'] ) ? self::sanitize_language_code( $input['default_language'] ) : '';
-		$out['default_language']  = in_array( $default_language, $codes, true ) ? $default_language : $codes[0];
+		$default_language        = isset( $input['default_language'] ) ? self::sanitize_language_code( $input['default_language'] ) : '';
+		$out['default_language'] = in_array( $default_language, $codes, true ) ? $default_language : $codes[0];
 
 		// Fallback chain: ordered, deduplicated, only known codes.
 		$chain = array();
@@ -305,7 +311,7 @@ class WPPDF_Settings {
 		}
 
 		// --- Archive ---------------------------------------------------.
-		$layout               = isset( $input['archive_layout'] ) ? sanitize_key( $input['archive_layout'] ) : 'grid';
+		$layout                = isset( $input['archive_layout'] ) ? sanitize_key( $input['archive_layout'] ) : 'grid';
 		$out['archive_layout'] = in_array( $layout, array( 'grid', 'list' ), true ) ? $layout : 'grid';
 
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
@@ -319,7 +325,7 @@ class WPPDF_Settings {
 
 		$out['ocr_max_pages'] = isset( $input['ocr_max_pages'] ) ? min( 500, max( 1, absint( $input['ocr_max_pages'] ) ) ) : $defaults['ocr_max_pages'];
 
-		$ocr_languages = isset( $input['ocr_languages'] ) ? preg_replace( '/[^a-zA-Z+_]/', '', (string) $input['ocr_languages'] ) : '';
+		$ocr_languages        = isset( $input['ocr_languages'] ) ? preg_replace( '/[^a-zA-Z+_]/', '', (string) $input['ocr_languages'] ) : '';
 		$out['ocr_languages'] = '' !== $ocr_languages ? $ocr_languages : $defaults['ocr_languages'];
 
 		// --- Updates ---------------------------------------------------.

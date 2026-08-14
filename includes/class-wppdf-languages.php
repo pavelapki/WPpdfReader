@@ -129,6 +129,7 @@ class WPPDF_Languages {
 		$found = array();
 
 		if ( defined( 'ICL_SITEPRESS_VERSION' ) || has_filter( 'wpml_active_languages' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filter, consumed rather than introduced.
 			$active = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 0 ) );
 			if ( is_array( $active ) ) {
 				foreach ( $active as $code => $language ) {
@@ -176,6 +177,7 @@ class WPPDF_Languages {
 			}
 
 			if ( '' === $code && has_filter( 'wpml_current_language' ) ) {
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filter, consumed rather than introduced.
 				$code = WPPDF_Settings::sanitize_language_code( apply_filters( 'wpml_current_language', null ) );
 			}
 

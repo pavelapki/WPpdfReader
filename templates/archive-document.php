@@ -43,7 +43,7 @@ get_header();
 		}
 	}
 
-	echo WPPDF_Templates::get_part( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output.
+	$wppdf_loop = WPPDF_Templates::get_part(
 		'parts/archive-loop.php',
 		array(
 			'query'      => $GLOBALS['wp_query'],
@@ -54,6 +54,9 @@ get_header();
 			'pagination' => true,
 		)
 	);
+
+	// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- finished markup, escaped field by field inside the template.
+	echo $wppdf_loop;
 	?>
 </div>
 <?php

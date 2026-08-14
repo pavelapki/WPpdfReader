@@ -28,7 +28,19 @@ $wppdf_terms = get_the_term_list( $post_id, 'category', '', ', ' );
 <article id="wppdf-card-<?php echo (int) $post_id; ?>" <?php post_class( 'wppdf-card wppdf-card--' . esc_attr( $layout ), $post_id ); ?>>
 	<a class="wppdf-card__thumb" href="<?php echo esc_url( get_permalink( $post_id ) ); ?>">
 		<?php if ( $wppdf_cover ) : ?>
-			<?php echo wp_kses_post( wp_get_attachment_image( $wppdf_cover, 'medium', false, array( 'class' => 'wppdf-card__image', 'loading' => 'lazy' ) ) ); ?>
+			<?php
+			echo wp_kses_post(
+				wp_get_attachment_image(
+					$wppdf_cover,
+					'medium',
+					false,
+					array(
+						'class'   => 'wppdf-card__image',
+						'loading' => 'lazy',
+					)
+				)
+			);
+			?>
 		<?php else : ?>
 			<span class="wppdf-card__placeholder" aria-hidden="true">PDF</span>
 		<?php endif; ?>

@@ -43,17 +43,31 @@ class WPPDF_Importer {
 			'edit.php?post_type=' . WPPDF_Post_Type::get_key(),
 			__( 'Import PDFs', 'wp-pdf-reader' ),
 			__( 'Import', 'wp-pdf-reader' ),
-			'edit_posts',
+			'upload_files',
 			self::PAGE,
 			array( $this, 'render' )
 		);
 	}
 
 	/**
+	 * Whether the current user may turn media into documents.
+	 *
+	 * The screen picks files out of the media library, so it takes the
+	 * capability that grants the library itself on top of the one that creates
+	 * posts. A contributor has edit_posts but no business reading other
+	 * people's uploads.
+	 *
+	 * @return bool
+	 */
+	protected static function user_can_import() {
+		return current_user_can( 'edit_posts' ) && current_user_can( 'upload_files' );
+	}
+
+	/**
 	 * Render the import screen.
 	 */
 	public function render() {
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! self::user_can_import() ) {
 			return;
 		}
 
@@ -96,12 +110,12 @@ class WPPDF_Importer {
 							<?php
 							wp_dropdown_categories(
 								array(
-									'id'               => 'wppdf-import-category',
-									'name'             => 'wppdf_import_category',
-									'show_option_none' => __( 'No category', 'wp-pdf-reader' ),
+									'id'                => 'wppdf-import-category',
+									'name'              => 'wppdf_import_category',
+									'show_option_none'  => __( 'No category', 'wp-pdf-reader' ),
 									'option_none_value' => 0,
-									'hide_empty'       => false,
-									'orderby'          => 'name',
+									'hide_empty'        => false,
+									'orderby'           => 'name',
 								)
 							);
 							?>
@@ -267,7 +281,7 @@ class WPPDF_Importer {
 	public function handle_ajax() {
 		check_ajax_referer( self::NONCE, 'nonce' );
 
-		if ( ! current_user_can( 'edit_posts' ) ) {
+		if ( ! self::user_can_import() ) {
 			wp_send_json_error( array( 'message' => __( 'You are not allowed to create documents.', 'wp-pdf-reader' ) ), 403 );
 		}
 
@@ -278,7 +292,7 @@ class WPPDF_Importer {
 			wp_send_json_error( array( 'message' => __( 'No files were selected.', 'wp-pdf-reader' ) ), 400 );
 		}
 
-		$code = isset( $_POST['lang'] ) ? WPPDF_Settings::sanitize_language_code( wp_unslash( $_POST['lang'] ) ) : '';
+		$code = isset( $_POST['lang'] ) ? wppdf_sanitize_language_code( wp_unslash( $_POST['lang'] ) ) : '';
 
 		if ( '' === $code || ! in_array( $code, WPPDF_Languages::get_codes(), true ) ) {
 			$code = WPPDF_Languages::get_default_language();
@@ -296,6 +310,17 @@ class WPPDF_Importer {
 		$skipped = array();
 
 		foreach ( $ids as $attachment_id ) {
+			// The IDs arrive from the browser, so an unlisted attachment could
+			// be named directly. Publishing a document for a file the user
+			// cannot read would hand it to everybody.
+			if ( ! current_user_can( 'read_post', $attachment_id ) ) {
+				$skipped[] = array(
+					'id'     => $attachment_id,
+					'reason' => __( 'You are not allowed to use this file.', 'wp-pdf-reader' ),
+				);
+				continue;
+			}
+
 			if ( ! WPPDF_Documents::is_valid_attachment( $attachment_id ) ) {
 				$skipped[] = array(
 					'id'     => $attachment_id,

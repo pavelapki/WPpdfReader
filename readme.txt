@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,24 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.6.1 =
+* Review pass: the plugin now passes WordPress Coding Standards with no errors,
+  and every remaining warning carries the reason it is deliberate. The standards
+  job in CI was passing without checking anything, which is fixed and asserted.
+* Security: migrating from another plugin now takes the same capability as the
+  screen it runs from, because it copies drafts and private records. The bulk
+  import and the file field refuse an attachment the editor may not read, and
+  the GitHub repository setting no longer accepts a path that climbs out of the
+  API's /repos/ prefix.
+* Performance: a 404 on a site that never imported anything costs no query at
+  all, and one that did costs one instead of three. The filter values and the
+  taxonomy list are read once per request, and the migration screen counts
+  every source in one query instead of one per post type.
+* Fixed a multisite uninstall that left WordPress's own $blog_id global
+  pointing at the last site visited.
+* Translations can be regenerated: tools/make-translations.php rebuilds the
+  .pot, .po, .mo and the editor's JSON catalogue.
 
 = 1.6.0 =
 * A page can list just the documents that belong to it. The categories come

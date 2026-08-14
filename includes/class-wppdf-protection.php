@@ -39,7 +39,7 @@ class WPPDF_Protection {
 		add_filter( 'query_vars', array( $this, 'register_query_var' ) );
 		add_action( 'template_redirect', array( $this, 'maybe_serve' ), 0 );
 		add_filter( 'wppdf_file_url', array( $this, 'filter_file_url' ), 10, 3 );
-		add_filter( 'wppdf_resolved_file', array( $this, 'filter_resolved_file' ), 10, 2 );
+		add_filter( 'wppdf_resolved_file', array( $this, 'filter_resolved_file' ) );
 	}
 
 	/**
@@ -131,11 +131,10 @@ class WPPDF_Protection {
 	/**
 	 * Point protected documents at the delivery endpoint.
 	 *
-	 * @param array|null $result  Resolved file.
-	 * @param int        $post_id Document ID.
+	 * @param array|null $result Resolved file.
 	 * @return array|null
 	 */
-	public function filter_resolved_file( $result, $post_id ) {
+	public function filter_resolved_file( $result ) {
 		if ( ! is_array( $result ) || empty( $result['post_id'] ) ) {
 			return $result;
 		}
@@ -227,7 +226,8 @@ class WPPDF_Protection {
 	/**
 	 * Stop with a status code.
 	 *
-	 * @param int $status HTTP status.
+	 * @param int $status  HTTP status.
+	 * @param int $post_id Document the request was for, 0 when unknown.
 	 */
 	protected static function deny( $status, $post_id = 0 ) {
 		status_header( $status );
@@ -251,7 +251,7 @@ class WPPDF_Protection {
 		wp_die(
 			esc_html__( 'This document is not available.', 'wp-pdf-reader' ),
 			esc_html__( 'Not available', 'wp-pdf-reader' ),
-			array( 'response' => $status )
+			array( 'response' => (int) $status )
 		);
 	}
 
@@ -308,8 +308,8 @@ class WPPDF_Protection {
 		}
 
 		// Sending a large file to a slow client must not trip the time limit.
-		if ( function_exists( 'set_time_limit' ) && ! ini_get( 'safe_mode' ) ) {
-			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, Generic.PHP.NoSilencedErrors -- disabled on some hosts.
+		if ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- disabled on some hosts.
 		}
 
 		$handle = fopen( $path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- streaming a local file.
@@ -402,11 +402,11 @@ class WPPDF_Protection {
 	/**
 	 * Move a document's files in or out of the protected directory.
 	 *
-	 * @param int  $post_id   Document ID.
-	 * @param bool $protected Target state.
+	 * @param int  $post_id Document ID.
+	 * @param bool $protect Target state.
 	 * @return int Number of files moved.
 	 */
-	public static function apply( $post_id, $protected ) {
+	public static function apply( $post_id, $protect ) {
 		$moved = 0;
 
 		foreach ( WPPDF_Languages::get_codes() as $code ) {
@@ -416,8 +416,8 @@ class WPPDF_Protection {
 				continue;
 			}
 
-			if ( self::move_attachment( $attachment_id, $protected ) ) {
-				$moved++;
+			if ( self::move_attachment( $attachment_id, $protect ) ) {
+				++$moved;
 			}
 		}
 
@@ -428,10 +428,10 @@ class WPPDF_Protection {
 	 * Move one attachment between the normal and the protected directory.
 	 *
 	 * @param int  $attachment_id Attachment ID.
-	 * @param bool $protected     Whether the file should be protected.
+	 * @param bool $protect       Whether the file should be protected.
 	 * @return bool Whether the file was moved.
 	 */
-	protected static function move_attachment( $attachment_id, $protected ) {
+	protected static function move_attachment( $attachment_id, $protect ) {
 		$path = get_attached_file( $attachment_id );
 
 		if ( ! $path || ! file_exists( $path ) ) {
@@ -444,14 +444,14 @@ class WPPDF_Protection {
 			return false;
 		}
 
-		$basedir     = trailingslashit( $uploads['basedir'] );
+		$basedir      = trailingslashit( $uploads['basedir'] );
 		$is_protected = false !== strpos( $path, $basedir . self::DIRECTORY . '/' );
 
-		if ( $protected === $is_protected ) {
+		if ( $protect === $is_protected ) {
 			return false;
 		}
 
-		if ( $protected ) {
+		if ( $protect ) {
 			$directory = self::get_directory();
 
 			if ( '' === $directory ) {
@@ -469,7 +469,8 @@ class WPPDF_Protection {
 			$target = trailingslashit( $target_dir ) . wp_unique_filename( $target_dir, basename( $path ) );
 		}
 
-		if ( ! @rename( $path, $target ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- failure is handled.
+		// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- WP_Filesystem may ask for credentials, and this runs while saving a post; failure is handled.
+		if ( ! @rename( $path, $target ) ) {
 			return false;
 		}
 
@@ -513,7 +514,8 @@ class WPPDF_Protection {
 				continue;
 			}
 
-			@rename( $old, $new ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- a preview that cannot move is deleted below.
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- as above; a preview that cannot move is deleted below.
+			@rename( $old, $new );
 
 			if ( file_exists( $old ) && ! file_exists( $new ) ) {
 				// Better to lose a thumbnail than to leave a readable page

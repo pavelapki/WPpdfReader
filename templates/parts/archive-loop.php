@@ -38,7 +38,7 @@ if ( ! $query->have_posts() ) {
 	while ( $query->have_posts() ) :
 		$query->the_post();
 
-		echo WPPDF_Templates::get_part( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output.
+		$wppdf_card = WPPDF_Templates::get_part(
 			'parts/card.php',
 			array(
 				'post_id'   => get_the_ID(),
@@ -48,6 +48,9 @@ if ( ! $query->have_posts() ) {
 				'layout'    => $layout,
 			)
 		);
+
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- finished markup, escaped field by field inside the template.
+		echo $wppdf_card;
 	endwhile;
 	?>
 </div>

@@ -60,6 +60,7 @@ class WPPDF_Viewer {
 				'libSrc'              => $vendor . 'pdf.min.mjs',
 				'workerSrc'           => $vendor . 'pdf.worker.min.mjs',
 				'standardFontDataUrl' => $vendor . 'standard_fonts/',
+
 				/*
 				 * Only for CJK documents: copy the cmaps directory of pdfjs-dist
 				 * next to the build and it is picked up automatically.
@@ -190,7 +191,7 @@ class WPPDF_Viewer {
 		}
 
 		self::enqueue();
-		self::$instances++;
+		++self::$instances;
 
 		$id      = 'wppdf-viewer-' . $post_id . '-' . self::$instances;
 		$height  = min( 4000, max( 200, (int) $args['height'] ) );

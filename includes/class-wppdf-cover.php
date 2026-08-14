@@ -68,7 +68,7 @@ class WPPDF_Cover {
 
 		$current = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
 
-		if ( ! $current || $current !== absint( $attachment_id ) ) {
+		if ( ! $current || absint( $attachment_id ) !== $current ) {
 			return;
 		}
 

@@ -180,6 +180,7 @@ class WPPDF_Stats {
 	protected static function increment( $post_id, $meta_key ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- an atomic increment; read-modify-write through update_post_meta() loses counts under concurrent views.
 		$updated = $wpdb->query(
 			$wpdb->prepare(
 				"UPDATE {$wpdb->postmeta} SET meta_value = meta_value + 1 WHERE post_id = %d AND meta_key = %s",

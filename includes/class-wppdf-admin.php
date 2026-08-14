@@ -139,7 +139,7 @@ class WPPDF_Admin {
 				'wppdfAdmin',
 				array(
 					'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-					'i18n' => array(
+					'i18n'    => array(
 						/* translators: 1: number of documents indexed, 2: number still pending. */
 						'reindexed'    => __( '%1$d indexed, %2$d left.', 'wp-pdf-reader' ),
 						'reindexDone'  => __( 'Everything is indexed.', 'wp-pdf-reader' ),

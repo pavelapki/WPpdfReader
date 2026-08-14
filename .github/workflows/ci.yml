@@ -54,13 +54,25 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
+      # phpcodesniffer-composer-installer normally does this, but it is skipped
+      # whenever composer plugins are disabled — and PHPCS then reports success
+      # having checked nothing, which is how this job passed while broken. So
+      # the paths are set explicitly and the result is asserted.
+      - name: Register the coding standards
+        run: |
+          set -e
+          vendor/bin/phpcs --config-set installed_paths "vendor/wp-coding-standards/wpcs,vendor/phpcompatibility/php-compatibility,vendor/phpcompatibility/phpcompatibility-paragonie,vendor/phpcompatibility/phpcompatibility-wp,vendor/phpcsstandards/phpcsextra,vendor/phpcsstandards/phpcsutils"
+          vendor/bin/phpcs -i
+          vendor/bin/phpcs -i | grep -q WordPress
+
+      # Errors fail the build; warnings are reported and annotated but do not,
+      # because the ones left are deliberate and carry a reason in the code.
       - name: Run PHPCS
-        run: vendor/bin/phpcs --report-full --report-checkstyle=./phpcs-report.xml
-        continue-on-error: true
+        run: vendor/bin/phpcs --report-full --report-checkstyle=./phpcs-report.xml --runtime-set ignore_warnings_on_exit 1
 
       - name: Annotate the diff
+        if: always()
         run: cs2pr ./phpcs-report.xml
-        continue-on-error: true
 
   javascript:
     name: JavaScript

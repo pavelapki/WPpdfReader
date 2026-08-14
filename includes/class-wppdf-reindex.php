@@ -90,7 +90,7 @@ class WPPDF_Reindex {
 		}
 
 		if ( $count_only ) {
-			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a LIKE over meta keys plus a NOT EXISTS is not expressible in WP_Query, and the pending count changes with every batch.
 			return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
 		}
 
@@ -102,7 +102,7 @@ class WPPDF_Reindex {
 			$params[] = (int) $offset;
 		}
 
-		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- placeholders are built above and passed to prepare.
+		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- same query as above, and each batch must see what the last one indexed.
 		$ids = $wpdb->get_col( $wpdb->prepare( $sql, $params ) );
 
 		return array_map( 'absint', (array) $ids );
@@ -237,7 +237,7 @@ class WPPDF_Reindex {
 			$done = self::index_document( $post_id, $force, $covers );
 
 			if ( $done ) {
-				$indexed++;
+				++$indexed;
 			}
 
 			$progress->tick();

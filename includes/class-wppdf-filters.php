@@ -38,6 +38,13 @@ class WPPDF_Filters {
 	const VAR_SORT = 'wppdf_sort';
 
 	/**
+	 * Memoised request values.
+	 *
+	 * @var array|null
+	 */
+	protected static $current = null;
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -63,10 +70,16 @@ class WPPDF_Filters {
 	 * @return array
 	 */
 	public static function get_current() {
+		// Read once per request: the archive query, the form and every link
+		// builder ask for this, and $_GET does not change in between.
+		if ( null !== self::$current ) {
+			return self::$current;
+		}
+
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only front end filter.
 		$search   = isset( $_GET[ self::VAR_SEARCH ] ) ? sanitize_text_field( wp_unslash( $_GET[ self::VAR_SEARCH ] ) ) : '';
 		$category = isset( $_GET[ self::VAR_CATEGORY ] ) ? sanitize_title( wp_unslash( $_GET[ self::VAR_CATEGORY ] ) ) : '';
-		$language = isset( $_GET[ self::VAR_LANGUAGE ] ) ? WPPDF_Settings::sanitize_language_code( wp_unslash( $_GET[ self::VAR_LANGUAGE ] ) ) : '';
+		$language = isset( $_GET[ self::VAR_LANGUAGE ] ) ? wppdf_sanitize_language_code( wp_unslash( $_GET[ self::VAR_LANGUAGE ] ) ) : '';
 		$year     = isset( $_GET[ self::VAR_YEAR ] ) ? absint( wp_unslash( $_GET[ self::VAR_YEAR ] ) ) : 0;
 		$sort     = isset( $_GET[ self::VAR_SORT ] ) ? sanitize_key( wp_unslash( $_GET[ self::VAR_SORT ] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
@@ -79,13 +92,22 @@ class WPPDF_Filters {
 			$sort = '';
 		}
 
-		return array(
+		self::$current = array(
 			'search'   => $search,
 			'category' => $category,
 			'language' => $language,
 			'year'     => $year,
 			'sort'     => $sort,
 		);
+
+		return self::$current;
+	}
+
+	/**
+	 * Drop the memoised request values.
+	 */
+	public static function flush_cache() {
+		self::$current = null;
 	}
 
 	/**
@@ -162,6 +184,7 @@ class WPPDF_Filters {
 				'terms'    => array( $current['category'] ),
 			);
 
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- filtering by category is the point of the filter; the taxonomy tables are indexed for it.
 			$args['tax_query'] = $tax_query;
 		}
 
@@ -170,6 +193,7 @@ class WPPDF_Filters {
 
 			$meta_query[] = WPPDF_Documents::language_meta_query( $current['language'] );
 
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- which languages a document has is only recorded in meta, so there is no taxonomy to filter on instead.
 			$args['meta_query'] = $meta_query;
 		}
 

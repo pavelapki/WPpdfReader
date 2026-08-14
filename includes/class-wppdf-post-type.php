@@ -25,6 +25,13 @@ class WPPDF_Post_Type {
 	protected static $supported = null;
 
 	/**
+	 * Memoised list of document taxonomies.
+	 *
+	 * @var string[]|null
+	 */
+	protected static $taxonomies = null;
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -73,7 +80,8 @@ class WPPDF_Post_Type {
 	 * Clear the memoised post type list.
 	 */
 	public static function flush_cache() {
-		self::$supported = null;
+		self::$supported  = null;
+		self::$taxonomies = null;
 	}
 
 	/**
@@ -82,6 +90,12 @@ class WPPDF_Post_Type {
 	 * @return string[]
 	 */
 	public static function get_document_taxonomies() {
+		// Every grid builds one tax_query branch per taxonomy, so this is asked
+		// repeatedly on a page that lists documents in more than one place.
+		if ( null !== self::$taxonomies ) {
+			return self::$taxonomies;
+		}
+
 		$taxonomies = array();
 
 		if ( WPPDF_Settings::get( 'shared_taxonomies' ) ) {
@@ -98,7 +112,9 @@ class WPPDF_Post_Type {
 		 *
 		 * @param string[] $taxonomies Taxonomy names.
 		 */
-		return array_values( array_unique( (array) apply_filters( 'wppdf_document_taxonomies', $taxonomies ) ) );
+		self::$taxonomies = array_values( array_unique( (array) apply_filters( 'wppdf_document_taxonomies', $taxonomies ) ) );
+
+		return self::$taxonomies;
 	}
 
 	/**
@@ -131,22 +147,22 @@ class WPPDF_Post_Type {
 		}
 
 		$args = array(
-			'labels'             => self::build_labels( $singular, $plural ),
-			'public'             => true,
-			'show_ui'            => true,
-			'show_in_rest'       => true,
-			'show_in_nav_menus'  => true,
-			'menu_position'      => (int) WPPDF_Settings::get( 'menu_position' ),
-			'menu_icon'          => WPPDF_Settings::get( 'menu_icon' ),
-			'capability_type'    => 'post',
-			'hierarchical'       => false,
-			'has_archive'        => WPPDF_Settings::get( 'has_archive' ) ? $slug : false,
-			'rewrite'            => array(
+			'labels'            => self::build_labels( $singular, $plural ),
+			'public'            => true,
+			'show_ui'           => true,
+			'show_in_rest'      => true,
+			'show_in_nav_menus' => true,
+			'menu_position'     => (int) WPPDF_Settings::get( 'menu_position' ),
+			'menu_icon'         => WPPDF_Settings::get( 'menu_icon' ),
+			'capability_type'   => 'post',
+			'hierarchical'      => false,
+			'has_archive'       => WPPDF_Settings::get( 'has_archive' ) ? $slug : false,
+			'rewrite'           => array(
 				'slug'       => $slug,
 				'with_front' => false,
 			),
-			'supports'           => $supports,
-			'taxonomies'         => $taxonomies,
+			'supports'          => $supports,
+			'taxonomies'        => $taxonomies,
 		);
 
 		/**
@@ -303,6 +319,7 @@ class WPPDF_Post_Type {
 			return 0;
 		}
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- renaming the post type in one statement; wp_update_post() per row would be thousands of queries. The caches are cleaned right below.
 		$updated = $wpdb->update(
 			$wpdb->posts,
 			array( 'post_type' => $new_key ),
@@ -326,6 +343,7 @@ class WPPDF_Post_Type {
 	protected static function clean_cache_for_post_type( $post_type ) {
 		global $wpdb;
 
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- this is the cache flush itself, so reading through the cache would defeat it.
 		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = %s", $post_type ) );
 
 		foreach ( (array) $ids as $id ) {
