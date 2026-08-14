@@ -66,6 +66,10 @@ class WPPDF_Updater {
 			return '';
 		}
 
+		if ( self::handled_elsewhere() ) {
+			return '';
+		}
+
 		$repository = trim( (string) WPPDF_Settings::get( 'github_repository' ) );
 
 		if ( ! preg_match( '#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $repository ) ) {
@@ -82,6 +86,41 @@ class WPPDF_Updater {
 		}
 
 		return $repository;
+	}
+
+	/**
+	 * Whether a site-wide GitHub updater already manages this plugin.
+	 *
+	 * The plugin header carries `GitHub Plugin URI`, the convention Git Updater
+	 * and the smaller site-wide updaters read. On a site running one of those,
+	 * two updaters would answer for the same plugin: both would write to the
+	 * update transient and both would hook `upgrader_source_selection`, so the
+	 * offered version and the directory the archive lands in would depend on
+	 * filter order. The site-wide tool wins — it is the one the operator chose,
+	 * it holds the token for private repositories, and it updates everything
+	 * else on the site the same way.
+	 *
+	 * @return bool
+	 */
+	public static function handled_elsewhere() {
+		// Git Updater, and the header-compatible updaters that follow it.
+		$known = array( 'GHWPU_Updater', 'Fragen\\GitUpdater\\Bootstrap', 'WP_GitHub_Updater' );
+
+		foreach ( $known as $class ) {
+			if ( class_exists( $class ) ) {
+				return true;
+			}
+		}
+
+		/**
+		 * Filter whether another updater handles this plugin.
+		 *
+		 * Return true to silence the built-in updater — useful for a site-wide
+		 * updater this plugin does not know by name.
+		 *
+		 * @param bool $handled Whether another updater is in charge.
+		 */
+		return (bool) apply_filters( 'wppdf_updates_handled_elsewhere', false );
 	}
 
 	/**

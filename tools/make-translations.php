@@ -13,6 +13,14 @@
  * @package WP_PDF_Reader
  */
 
+// This writes into languages/, so it must never be reachable over HTTP. A
+// site-wide GitHub updater installs the repository archive, which carries
+// this directory along into the live plugin.
+if ( 'cli' !== PHP_SAPI ) {
+	header( 'HTTP/1.1 403 Forbidden' );
+	exit( 1 );
+}
+
 $root      = dirname( __DIR__ );
 $domain    = 'wp-pdf-reader';
 $languages = $root . '/languages';

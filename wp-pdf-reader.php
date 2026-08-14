@@ -3,7 +3,7 @@
  * Plugin Name:       WP PDF Reader
  * Plugin URI:        https://github.com/pavelapki/WPpdfReader
  * Description:       Post-like library of PDF documents with a bundled PDF.js reader, full text search inside PDFs, shared categories and per-language files with a configurable fallback chain (cs → en by default).
- * Version:           1.6.2
+ * Version:           1.6.3
  * Requires at least: 5.8
  * Requires PHP:      7.4
  * Author:            Pavel Apki
@@ -11,13 +11,15 @@
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       wp-pdf-reader
  * Domain Path:       /languages
+ * GitHub Plugin URI: pavelapki/WPpdfReader
+ * Primary Branch:    main
  *
  * @package WP_PDF_Reader
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WPPDF_VERSION', '1.6.2' );
+define( 'WPPDF_VERSION', '1.6.3' );
 define( 'WPPDF_FILE', __FILE__ );
 define( 'WPPDF_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WPPDF_URL', plugin_dir_url( __FILE__ ) );

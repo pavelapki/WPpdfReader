@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.6.2
+Stable tag: 1.6.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,18 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.6.3 =
+* The plugin is now discovered by site-wide GitHub updaters: the main file
+  carries the GitHub Plugin URI header that Git Updater and compatible tools
+  read, so updates appear under Dashboard → Updates with everything else.
+* When such an updater is present, the plugin's own updater steps aside
+  instead of competing with it for the update transient. A site-wide updater
+  this plugin does not know by name can say so with the
+  wppdf_updates_handled_elsewhere filter.
+* Site-wide updaters install the repository archive rather than the release
+  zip, so the test harness and the translation script can land in a live
+  plugin directory. Both now refuse to run outside the command line.
 
 = 1.6.2 =
 * Fixed the reader failing to start on a lot of hosting. The bundled PDF.js

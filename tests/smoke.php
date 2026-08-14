@@ -11,6 +11,15 @@
  * @package WP_PDF_Reader
  */
 
+// Site-wide GitHub updaters install the repository archive rather than the
+// release zip, so this file can end up inside a live plugin directory. It
+// defines ABSPATH and stubs core functions, which is exactly what must never
+// happen in response to a web request.
+if ( 'cli' !== PHP_SAPI ) {
+	header( 'HTTP/1.1 403 Forbidden' );
+	exit( 1 );
+}
+
 define( 'ABSPATH', '/tmp/fake-wp/' );
 define( 'MB_IN_BYTES', 1048576 );
 
@@ -19,12 +28,13 @@ $GLOBALS['stub_meta']    = array();
 $GLOBALS['stub_posts']   = array();
 $GLOBALS['stub_actions'] = array();
 $GLOBALS['stub_enqueued'] = array();
+$GLOBALS['stub_filters']  = array();
 
 // --- Hooks ---------------------------------------------------------------.
 function add_action( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
 function add_filter( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
 function has_filter( $tag, $cb = false ) { return isset( $GLOBALS['stub_actions'][ $tag ] ); }
-function apply_filters( $tag, $value ) { return $value; }
+function apply_filters( $tag, $value ) { return array_key_exists( $tag, $GLOBALS['stub_filters'] ) ? $GLOBALS['stub_filters'][ $tag ] : $value; }
 function do_action( $tag ) {}
 function register_activation_hook( $file, $cb ) {}
 function register_deactivation_hook( $file, $cb ) {}
@@ -659,6 +669,24 @@ $repo_settings['github_repository'] = 'pavelapki/WPpdfReader';
 update_option( WPPDF_Settings::OPTION, $repo_settings );
 WPPDF_Settings::flush_cache();
 ok( 'a normal repository is still accepted', 'pavelapki/WPpdfReader' === WPPDF_Updater::get_repository() );
+
+// A site-wide updater reads the GitHub Plugin URI header and manages the
+// plugin itself. Both updaters answering would mean the offered version and
+// the unpack directory depend on filter order, so the built-in one stands
+// down. It reports through get_repository(), which every other path goes
+// through, so silencing it there silences all of them.
+ok( 'nothing else present, so the built-in updater stays on', false === WPPDF_Updater::handled_elsewhere() );
+
+$GLOBALS['stub_filters']['wppdf_updates_handled_elsewhere'] = true;
+ok( 'the filter hands updates over', true === WPPDF_Updater::handled_elsewhere() );
+ok( 'handing over silences the built-in updater', '' === WPPDF_Updater::get_repository() );
+unset( $GLOBALS['stub_filters']['wppdf_updates_handled_elsewhere'] );
+ok( 'and it comes back when the filter is gone', 'pavelapki/WPpdfReader' === WPPDF_Updater::get_repository() );
+
+// The header a site-wide updater discovers the plugin by must actually be in
+// the main file, and must name the repository the releases are published to.
+$header = file_get_contents( __DIR__ . '/../wp-pdf-reader.php' );
+ok( 'the main file carries the GitHub Plugin URI header', (bool) preg_match( '/^ \* GitHub Plugin URI: pavelapki\/WPpdfReader$/m', $header ) );
 
 echo "\n== Importer ==\n";
 $GLOBALS['stub_posts'][30] = array( 'ID' => 30, 'post_type' => 'attachment', 'post_mime_type' => 'application/pdf', 'post_title' => 'vyrocni_zprava-2025', 'file' => '/tmp/x.pdf' );

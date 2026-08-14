@@ -296,7 +296,14 @@ Kdo smí číst, se dá předefinovat filtrem `wppdf_user_can_read` — třeba p
 * **Aktualizace z GitHub releasů** — plugin si sám nabídne novou verzi
   v přehledu pluginů. Odpověď API se cachuje na 6 hodin (neúspěch na 2), takže
   administrace na GitHub nikdy nečeká. Balíček se přijme jen z HTTPS a jen
-  z domén GitHubu.
+  z domén GitHubu. Hlavní soubor navíc nese hlavičku
+  `GitHub Plugin URI: pavelapki/WPpdfReader`, takže plugin vidí i celoplošné
+  updatery (Git Updater a kompatibilní). Když je některý z nich na webu
+  přítomný, **vestavěný updater se sám vypne** — jinak by o stejný plugin
+  soupeřily dva zápisy do update transientu i dva filtry
+  `upgrader_source_selection` a výsledek by závisel na pořadí filtrů.
+  Updater, který plugin nezná jménem, se přihlásí filtrem
+  `wppdf_updates_handled_elsewhere`.
 
 ## Použití
 
