@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.7.1
+Stable tag: 1.8.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,21 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.8.0 =
+* Each language can now carry its own address. The metabox has a slug field
+  next to every PDF, so the same document answers on /pdf/vyrocni-zprava-2025/
+  and /pdf/annual-report-2025/. An empty field keeps the post's own slug, so
+  nothing changes until one is filled in.
+* The address matching the site language is the canonical one — the same rule
+  that picks the PDF. The other language addresses still resolve rather than
+  404, and WordPress redirects them to the canonical one, so a document never
+  has two live addresses at once.
+* Slugs are kept unique against every document's post_name and against the
+  other documents' language slugs, with the -2 suffix WordPress uses. Two
+  documents on one address would otherwise be decided by row order.
+* The lookup only runs when WordPress found nothing itself, so an ordinary
+  request costs no extra query.
 
 = 1.7.1 =
 * The language settings now explain the one thing that decides whether the

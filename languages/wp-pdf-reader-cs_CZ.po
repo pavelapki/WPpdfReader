@@ -1,7 +1,7 @@
 # Czech translation of WP PDF Reader.
 msgid ""
 msgstr ""
-"Project-Id-Version: WP PDF Reader 1.7.1\n"
+"Project-Id-Version: WP PDF Reader 1.8.0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -404,7 +404,7 @@ msgstr "Řetězec náhradních jazyků"
 msgid "Fallback chain: en — or leave it empty, the default language is appended anyway."
 msgstr "Fallback řetězec: en — nebo nechte prázdné, výchozí jazyk se stejně připojí."
 
-#: includes/class-wppdf-meta.php:174
+#: includes/class-wppdf-meta.php:184
 msgid "Fallback order: %s"
 msgstr "Pořadí náhrad: %s"
 
@@ -721,7 +721,7 @@ msgstr "Na samostatné stránce přes celé okno"
 msgid "One PDF field per language is shown on every document. Codes such as cs, en or en-gb."
 msgstr "U každého dokumentu se zobrazí jedno pole pro PDF na jazyk. Kódy jako cs, en nebo en-gb."
 
-#: includes/class-wppdf-meta.php:162
+#: includes/class-wppdf-meta.php:172
 msgid "Only logged in visitors may open this document"
 msgstr "Tento dokument mohou otevřít jen přihlášení návštěvníci"
 
@@ -1080,7 +1080,7 @@ msgstr "Dokument se nepodařilo načíst."
 msgid "The downloaded package could not be prepared for installation."
 msgstr "Stažený balíček se nepodařilo připravit k instalaci."
 
-#: includes/class-wppdf-meta.php:165
+#: includes/class-wppdf-meta.php:175
 msgid "The files are moved into a directory that denies direct access and are served through PHP after a permission check, so the old file URL stops working."
 msgstr "Soubory se přesunou do složky se zákazem přímého přístupu a servírují se přes PHP po kontrole oprávnění, takže původní URL souboru přestane fungovat."
 
@@ -1128,7 +1128,7 @@ msgstr "Jejich URL prefix nelze zjistit, protože plugin už není aktivní a d�
 msgid "This document has no contents."
 msgstr "Tento dokument nemá obsah."
 
-#: includes/class-wppdf-meta.php:180
+#: includes/class-wppdf-meta.php:190
 msgid "This document has no file yet, so the reader will not be rendered."
 msgstr "Tento dokument zatím nemá žádný soubor, prohlížeč se proto nezobrazí."
 
@@ -1152,7 +1152,7 @@ msgstr "Dělá dvě věci najednou: uzavírá fallback řetězec a je tím, kam 
 msgid "This one matters. With it on, ACF files the page itself into those categories, and the page then turns up in category archives among the documents."
 msgstr "Tohle je důležité. Když to necháte zapnuté, ACF zařadí do těch kategorií samotnou stránku a ta se pak objeví v archivech kategorií mezi dokumenty."
 
-#: includes/class-wppdf-meta.php:168
+#: includes/class-wppdf-meta.php:178
 msgid "This server is not Apache or LiteSpeed, so the deny file has no effect. Add a rule to the server config that blocks /wp-content/uploads/wppdf-protected/."
 msgstr "Tento server není Apache ani LiteSpeed, soubor se zákazem přístupu tu proto nemá účinek. Přidejte do konfigurace serveru pravidlo, které zablokuje /wp-content/uploads/wppdf-protected/."
 
@@ -1190,8 +1190,8 @@ msgid "Updates from GitHub"
 msgstr "Aktualizace z GitHubu"
 
 #: includes/class-wppdf-meta.php:59
-msgid "Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain."
-msgstr "Nahrajte jedno PDF pro každý jazyk. U prázdných jazyků se použije první dostupný jazyk z řetězce náhrad."
+msgid "Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain. Each language can also carry its own address; the one matching the site language is used, the others redirect to it."
+msgstr "Nahrajte jedno PDF na jazyk. Prázdné jazyky se vyřeší fallbackem na první dostupný jazyk v řetězci. Každý jazyk může mít i vlastní adresu; použije se ta podle jazyka webu, ostatní na ni přesměrují."
 
 #: includes/class-wppdf-post-type.php:249
 msgid "Use as cover image"
@@ -1264,6 +1264,10 @@ msgstr "Přiblížit"
 #: includes/class-wppdf-viewer.php:262
 msgid "Zoom out"
 msgstr "Oddálit"
+
+#: includes/class-wppdf-meta.php:159
+msgid "address in this language:"
+msgstr "adresa v tomto jazyce:"
 
 #: includes/class-wppdf-admin.php:111
 msgid "created"

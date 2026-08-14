@@ -61,17 +61,20 @@
 	font-style: italic;
 }
 
-.wppdf-file-row__url {
+.wppdf-file-row__url,
+.wppdf-file-row__slug {
 	margin-top: 8px;
 }
 
-.wppdf-file-row__url label {
+.wppdf-file-row__url label,
+.wppdf-file-row__slug label {
 	display: block;
 	color: #646970;
 	font-size: 12px;
 }
 
-.wppdf-file-row__url input {
+.wppdf-file-row__url input,
+.wppdf-file-row__slug input {
 	display: block;
 	margin-top: 3px;
 	max-width: 100%;

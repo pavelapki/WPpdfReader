@@ -65,6 +65,34 @@ Když se použije jiný než požadovaný jazyk, může se návštěvníkovi zob
 nenápadná poznámka („Tento dokument není ve vašem jazyce, zobrazujeme anglickou
 verzi.“) — jde vypnout v nastavení.
 
+#### Vlastní adresa pro každý jazyk
+
+V metaboxu je u každého jazyka vedle PDF i pole **adresa v tomto jazyce**.
+Dokument je pořád jeden příspěvek s jedním `post_name`, ale poslední část URL
+se dá per jazyk přepsat:
+
+```
+cs: /dokumenty/vyrocni-zprava-2025/
+en: /dokumenty/annual-report-2025/
+```
+
+Prázdné pole znamená „použij `post_name`", takže se nic nemění, dokud si to
+nevyplníš.
+
+**Kanonická je vždycky ta podle jazyka webu** — stejné pravidlo, jaké vybírá
+PDF. Ostatní jazykové adresy na dokument taky dosáhnou (aby odkazy nepadaly na
+404), ale WordPress je vlastním `redirect_canonical` přesměruje na tu
+kanonickou. Dokument tedy nikdy nemá dvě živé adresy zároveň — což je zároveň
+to, co nechceš mít kvůli duplicitnímu obsahu.
+
+Adresy se hlídají na unikátnost proti `post_name` všech dokumentů i proti
+jazykovým slugům ostatních dokumentů. Kolize dostane příponu `-2`, stejně jako
+to dělá WordPress u `post_name` — dvě stejné adresy by jinak znamenaly, že o
+vítězi rozhoduje pořadí řádků v databázi.
+
+Vyhledávání běží jen tehdy, když WordPress sám nic nenajde, takže běžný
+požadavek nestojí ani dotaz navíc.
+
 #### Recept: jazyk webu, jinak angličtina
 
 Nejčastější požadavek — český web ukáže české PDF, anglický anglické a web

@@ -56,7 +56,7 @@ class WPPDF_Meta {
 
 		echo '<div class="wppdf-files">';
 
-		echo '<p class="wppdf-files__intro">' . esc_html__( 'Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain.', 'wp-pdf-reader' ) . '</p>';
+		echo '<p class="wppdf-files__intro">' . esc_html__( 'Upload one PDF per language. Languages left empty fall back to the first available language in the fallback chain. Each language can also carry its own address; the one matching the site language is used, the others redirect to it.', 'wp-pdf-reader' ) . '</p>';
 
 		foreach ( $languages as $code => $language ) {
 			$file_key  = WPPDF_Languages::file_meta_key( $code );
@@ -153,6 +153,16 @@ class WPPDF_Meta {
 			);
 			echo '</div>';
 
+			echo '<div class="wppdf-file-row__slug">';
+			printf(
+				'<label>%1$s <input type="text" class="regular-text" name="wppdf_slug[%2$s]" value="%3$s" placeholder="%4$s" /></label>',
+				esc_html__( 'address in this language:', 'wp-pdf-reader' ),
+				esc_attr( $code ),
+				esc_attr( (string) WPPDF_Permalinks::get_slug( $post->ID, $code ) ),
+				esc_attr( $post->post_name )
+			);
+			echo '</div>';
+
 			echo '</div>';
 		}
 
@@ -223,6 +233,9 @@ class WPPDF_Meta {
 		$urls  = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] )
 			? array_map( 'esc_url_raw', wp_unslash( $_POST['wppdf_url'] ) )
 			: array();
+		$slugs = isset( $_POST['wppdf_slug'] ) && is_array( $_POST['wppdf_slug'] )
+			? array_map( 'sanitize_title', wp_unslash( $_POST['wppdf_slug'] ) )
+			: array();
 
 		foreach ( WPPDF_Languages::get_codes() as $code ) {
 			$file_key = WPPDF_Languages::file_meta_key( $code );
@@ -254,6 +267,10 @@ class WPPDF_Meta {
 			} else {
 				delete_post_meta( $post_id, $url_key );
 			}
+
+			// Sanitizing, uniqueness and removal all live in one place, because
+			// a duplicate address decides which document answers on it.
+			WPPDF_Permalinks::set_slug( $post_id, $code, isset( $slugs[ $code ] ) ? $slugs[ $code ] : '' );
 
 			if ( $attachment_id !== $previous ) {
 				delete_post_meta( $post_id, WPPDF_Languages::cover_meta_key( $code ) );

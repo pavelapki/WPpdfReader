@@ -21,6 +21,7 @@ if ( 'cli' !== PHP_SAPI ) {
 }
 
 define( 'ABSPATH', '/tmp/fake-wp/' );
+define( 'OBJECT', 'OBJECT' );
 define( 'MB_IN_BYTES', 1048576 );
 
 $GLOBALS['stub_options'] = array();
@@ -207,6 +208,14 @@ function wp_enqueue_script( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function wp_enqueue_style( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function locate_template( $templates ) { return ''; }
 function wp_get_referer() { return isset( $GLOBALS['stub_referer'] ) ? $GLOBALS['stub_referer'] : false; }
+function get_page_by_path( $path, $output = OBJECT, $post_type = 'page' ) {
+	foreach ( $GLOBALS['stub_posts'] as $post ) {
+		if ( isset( $post['post_name'] ) && $post['post_name'] === $path && $post['post_type'] === $post_type ) {
+			return (object) $post;
+		}
+	}
+	return null;
+}
 function current_user_can( $cap = '', $object_id = 0 ) {
 	// Tests that care about a capability list the ones the current user is
 	// missing; everything else stays permitted so the rest keeps working.
@@ -407,6 +416,51 @@ class Stub_WPDB {
 		// "Did anything get imported at all", the guard in front of the lookup.
 		if ( false !== strpos( $q, 'SELECT 1 FROM' ) ) {
 			return 1;
+		}
+
+		// Per-language slugs: "does another document already answer on this
+		// address", and "which document does this address belong to". The
+		// meta_key arrives through esc_like(), so the underscores are escaped.
+		$plain = str_replace( '\\', '', $q );
+
+		if ( false !== strpos( $plain, '_wppdf_slug_' ) ) {
+			preg_match_all( "/'([^']*)'/", $plain, $m );
+			$slug = isset( $m[1][1] ) ? $m[1][1] : '';
+			preg_match( '/post_id != (\d+)/', $plain, $x );
+			$exclude = isset( $x[1] ) ? (int) $x[1] : 0;
+
+			foreach ( $GLOBALS['stub_meta'] as $pid => $meta ) {
+				if ( (int) $pid === $exclude ) {
+					continue;
+				}
+
+				foreach ( $meta as $key => $value ) {
+					if ( 0 === strpos( $key, '_wppdf_slug_' ) && (string) $value === $slug ) {
+						return $pid;
+					}
+				}
+			}
+
+			return null;
+		}
+
+		if ( false !== strpos( $q, 'post_name =' ) ) {
+			preg_match( "/post_name = '([^']*)'/", $q, $m );
+			preg_match( '/ID != (\d+)/', $q, $x );
+			$wanted  = isset( $m[1] ) ? $m[1] : '';
+			$exclude = isset( $x[1] ) ? (int) $x[1] : 0;
+
+			foreach ( $GLOBALS['stub_posts'] as $pid => $post ) {
+				if ( (int) $pid === $exclude ) {
+					continue;
+				}
+
+				if ( isset( $post['post_name'] ) && $post['post_name'] === $wanted && false !== strpos( $q, "'" . $post['post_type'] . "'" ) ) {
+					return $pid;
+				}
+			}
+
+			return null;
 		}
 
 		// The redirect lookup asks for a post by the import meta keys in one
@@ -1223,6 +1277,79 @@ $acf_settings['acf_category_field'] = '';
 update_option( WPPDF_Settings::OPTION, $acf_settings );
 WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
+
+
+echo "\n== Per-language slugs ==\n";
+
+$GLOBALS['stub_posts'][170] = array( 'ID' => 170, 'post_type' => 'pdf_document', 'post_title' => 'Výroční zpráva 2025', 'post_name' => 'vyrocni-zprava-2025', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][171] = array( 'ID' => 171, 'post_type' => 'pdf_document', 'post_title' => 'Jiný dokument', 'post_name' => 'jiny-dokument', 'post_status' => 'publish' );
+
+ok( 'a slug is stored per language', 'annual-report-2025' === WPPDF_Permalinks::set_slug( 170, 'en', 'Annual Report 2025' ) );
+ok( 'and read back', 'annual-report-2025' === WPPDF_Permalinks::get_slug( 170, 'en' ) );
+ok( 'a language without one reports nothing', '' === WPPDF_Permalinks::get_slug( 170, 'cs' ) );
+
+// Two documents on one address would make which of them answers depend on
+// row order, so the second is suffixed the way WordPress suffixes post_name.
+ok( 'a taken address gets a suffix', 'annual-report-2025-2' === WPPDF_Permalinks::set_slug( 171, 'en', 'annual-report-2025' ) );
+ok( 'a post_name of another document is taken too', 'jiny-dokument-2' === WPPDF_Permalinks::set_slug( 170, 'cs', 'jiny-dokument' ) );
+ok( 'keeping your own slug does not suffix it', 'annual-report-2025' === WPPDF_Permalinks::set_slug( 170, 'en', 'annual-report-2025' ) );
+
+ok( 'emptying the field removes the slug', '' === WPPDF_Permalinks::set_slug( 170, 'cs', '' ) );
+ok( 'and it is gone', '' === WPPDF_Permalinks::get_slug( 170, 'cs' ) );
+
+// The permalink follows the site language, which is the same rule that picks
+// the PDF.
+$GLOBALS['stub_locale'] = 'en_US';
+WPPDF_Languages::flush_cache();
+$permalinks = new WPPDF_Permalinks();
+$doc170     = get_post( 170 );
+
+ok(
+	'the permalink uses the language slug',
+	'https://example.test/pdf/annual-report-2025/' === $permalinks->filter_permalink( 'https://example.test/pdf/vyrocni-zprava-2025/', $doc170 )
+);
+
+$GLOBALS['stub_locale'] = 'cs_CZ';
+WPPDF_Languages::flush_cache();
+ok(
+	'a language with no slug keeps the address it always had',
+	'https://example.test/pdf/vyrocni-zprava-2025/' === $permalinks->filter_permalink( 'https://example.test/pdf/vyrocni-zprava-2025/', $doc170 )
+);
+
+$GLOBALS['stub_locale'] = 'en_US';
+WPPDF_Languages::flush_cache();
+ok(
+	'the editor placeholder is left alone',
+	'https://example.test/pdf/%postname%/' === $permalinks->filter_permalink( 'https://example.test/pdf/%postname%/', $doc170, true )
+);
+
+// Plain permalinks end in ?p=123 rather than the name; a structure the filter
+// does not recognise must be returned untouched rather than mangled.
+ok(
+	'an unexpected permalink structure is not rewritten',
+	'https://example.test/?p=170' === $permalinks->filter_permalink( 'https://example.test/?p=170', $doc170 )
+);
+
+// Every language resolves, not just the current one, so a link to the English
+// address does not 404 on a Czech site — redirect_canonical sends it on.
+$resolved = $permalinks->resolve_request( array( 'name' => 'annual-report-2025', 'post_type' => 'pdf_document' ) );
+ok( 'a language slug finds its document', isset( $resolved['p'] ) && 170 === $resolved['p'] );
+ok( 'and the name is dropped so it cannot 404', ! isset( $resolved['name'] ) );
+
+$untouched = $permalinks->resolve_request( array( 'name' => 'vyrocni-zprava-2025', 'post_type' => 'pdf_document' ) );
+ok( 'a real post name is left to WordPress', ! isset( $untouched['p'] ) && isset( $untouched['name'] ) );
+
+$unknown = $permalinks->resolve_request( array( 'name' => 'nic-takoveho', 'post_type' => 'pdf_document' ) );
+ok( 'an unknown address still 404s', ! isset( $unknown['p'] ) );
+
+$other = $permalinks->resolve_request( array( 'name' => 'annual-report-2025', 'post_type' => 'post' ) );
+ok( 'another post type is not touched', ! isset( $other['p'] ) );
+
+$noname = $permalinks->resolve_request( array( 'post_type' => 'pdf_document' ) );
+ok( 'a request without a name is not touched', ! isset( $noname['p'] ) );
+
+unset( $GLOBALS['stub_locale'] );
+WPPDF_Languages::flush_cache();
 
 
 echo "\n== Full page reader ==\n";
