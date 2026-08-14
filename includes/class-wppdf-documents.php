@@ -23,6 +23,74 @@ class WPPDF_Documents {
 	public function hooks() {
 		add_filter( 'the_posts', array( $this, 'prime_from_query' ), 10, 2 );
 		add_filter( 'post_thumbnail_id', array( $this, 'filter_thumbnail_id' ), 10, 2 );
+		add_filter( 'the_title', array( $this, 'filter_title' ), 10, 2 );
+		add_filter( 'single_post_title', array( $this, 'filter_single_title' ), 10, 2 );
+	}
+
+	/**
+	 * The title stored for a language, walking the same fallback chain.
+	 *
+	 * Using the file's chain rather than a chain of its own keeps the heading
+	 * and the document underneath it in the same language: a listing that
+	 * serves the English PDF because there is no Italian one would otherwise
+	 * head it with the Czech title, which is what it did.
+	 *
+	 * @param int    $post_id   Document ID.
+	 * @param string $requested Language code, defaults to the current one.
+	 * @return string Empty when no language has a title of its own.
+	 */
+	public static function get_language_title( $post_id, $requested = '' ) {
+		$post_id = absint( $post_id );
+
+		if ( ! $post_id ) {
+			return '';
+		}
+
+		foreach ( WPPDF_Languages::get_fallback_order( $requested ) as $code ) {
+			$title = get_post_meta( $post_id, WPPDF_Languages::title_meta_key( $code ), true );
+
+			if ( is_string( $title ) && '' !== trim( $title ) ) {
+				return trim( $title );
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Swap a document's title for the one stored for the current language.
+	 *
+	 * @param string   $title Title so far.
+	 * @param int|null $id    Post ID.
+	 * @return string
+	 */
+	public function filter_title( $title, $id = null ) {
+		// The editor must keep seeing the title it edits, or saving the post
+		// would write the translation back into post_title.
+		if ( is_admin() || ! $id ) {
+			return $title;
+		}
+
+		$post_id = is_object( $id ) && isset( $id->ID ) ? (int) $id->ID : (int) $id;
+
+		if ( ! in_array( get_post_type( $post_id ), WPPDF_Post_Type::get_supported_post_types(), true ) ) {
+			return $title;
+		}
+
+		$translated = self::get_language_title( $post_id );
+
+		return '' !== $translated ? $translated : $title;
+	}
+
+	/**
+	 * The same for the browser tab and feed titles.
+	 *
+	 * @param string       $title Title so far.
+	 * @param WP_Post|null $post  Post object.
+	 * @return string
+	 */
+	public function filter_single_title( $title, $post = null ) {
+		return $this->filter_title( $title, $post );
 	}
 
 	/**

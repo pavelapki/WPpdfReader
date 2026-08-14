@@ -65,6 +65,20 @@ Když se použije jiný než požadovaný jazyk, může se návštěvníkovi zob
 nenápadná poznámka („Tento dokument není ve vašem jazyce, zobrazujeme anglickou
 verzi.“) — jde vypnout v nastavení.
 
+#### Nadpis a adresa pro každý jazyk
+
+V metaboxu je u každého jazyka vedle PDF i pole **nadpis v tomto jazyce**.
+Dokument je pořád jeden příspěvek s jedním `post_title`, ale ve výpisech,
+v hlavičce čtečky i v titulku prohlížeče se použije nadpis podle jazyka.
+
+Nadpis chodí **stejným fallback řetězcem jako soubor**, ne vlastním. Když se
+v italštině servíruje anglické PDF (protože italské není), použije se i
+anglický nadpis — jinak by nad anglickým dokumentem stál český nadpis, což je
+přesně to, co se dělo.
+
+V administraci se nadpis nepřepisuje: editor musí vidět to, co edituje, jinak
+by se překlad při uložení zapsal do `post_title`.
+
 #### Vlastní adresa pro každý jazyk
 
 V metaboxu je u každého jazyka vedle PDF i pole **adresa v tomto jazyce**.

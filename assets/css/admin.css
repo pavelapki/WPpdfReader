@@ -62,11 +62,13 @@
 }
 
 .wppdf-file-row__url,
+.wppdf-file-row__title,
 .wppdf-file-row__slug {
 	margin-top: 8px;
 }
 
 .wppdf-file-row__url label,
+.wppdf-file-row__title label,
 .wppdf-file-row__slug label {
 	display: block;
 	color: #646970;
@@ -74,6 +76,7 @@
 }
 
 .wppdf-file-row__url input,
+.wppdf-file-row__title input,
 .wppdf-file-row__slug input {
 	display: block;
 	margin-top: 3px;

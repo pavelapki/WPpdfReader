@@ -27,6 +27,11 @@ class WPPDF_Languages {
 	const META_COVER = '_wppdf_cover_';
 
 	/**
+	 * Meta key prefix for a language's title.
+	 */
+	const META_TITLE = '_wppdf_title_';
+
+	/**
 	 * Runtime cache for the language list.
 	 *
 	 * @var array|null
@@ -330,5 +335,15 @@ class WPPDF_Languages {
 	 */
 	public static function cover_meta_key( $code ) {
 		return self::META_COVER . str_replace( '-', '_', WPPDF_Settings::sanitize_language_code( $code ) );
+	}
+
+	/**
+	 * Meta key holding the title for a language.
+	 *
+	 * @param string $code Language code.
+	 * @return string
+	 */
+	public static function title_meta_key( $code ) {
+		return self::META_TITLE . str_replace( '-', '_', WPPDF_Settings::sanitize_language_code( $code ) );
 	}
 }

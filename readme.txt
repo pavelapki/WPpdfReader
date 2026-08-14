@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.9.1
+Stable tag: 1.10.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,16 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.10.0 =
+* Each language can now carry its own title, next to its PDF and its address
+  in the metabox. A document served in English was still headed with the
+  Czech title, in listings, in the reader bar and in the browser tab.
+* The title walks the same fallback chain as the file rather than one of its
+  own, so the heading always matches the document underneath it: a site in a
+  language with neither a title nor a PDF gets both in the fallback language.
+* wp-admin keeps showing the real post title, so saving a document cannot
+  write a translation back into post_title.
 
 = 1.9.1 =
 * Fixed language slugs 404ing when another post already carried that name in

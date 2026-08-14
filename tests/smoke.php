@@ -222,7 +222,7 @@ function esc_html_e( $text, $domain = '' ) { echo esc_html( $text ); }
 function esc_attr_e( $text, $domain = '' ) { echo esc_attr( $text ); }
 
 // --- Conditionals / assets ----------------------------------------------.
-function is_admin() { return false; }
+function is_admin() { return ! empty( $GLOBALS["stub_is_admin"] ); }
 function is_singular( $types = '' ) { return ! empty( $GLOBALS['stub_is_singular'] ); }
 function is_post_type_archive( $t = '' ) { return false; }
 function in_the_loop() { return true; }
@@ -1311,6 +1311,58 @@ $acf_settings['acf_category_field'] = '';
 update_option( WPPDF_Settings::OPTION, $acf_settings );
 WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
+
+
+echo "\n== Titles follow the language ==\n";
+
+// Reported live: a document served the English PDF on the Italian site but
+// was still headed with the Czech title. The title walks the same fallback
+// chain as the file, so the heading and the document under it agree.
+$title_settings = WPPDF_Settings::all();
+$title_settings['default_language'] = 'en';
+$title_settings['fallback_chain']   = array( 'en' );
+$title_settings['fallback_any']     = 0;
+update_option( WPPDF_Settings::OPTION, $title_settings );
+WPPDF_Settings::flush_cache();
+WPPDF_Languages::flush_cache();
+
+$GLOBALS['stub_posts'][190] = array( 'ID' => 190, 'post_type' => 'pdf_document', 'post_title' => 'Smlouva o zpracování osobních údajů', 'post_status' => 'publish' );
+update_post_meta( 190, WPPDF_Languages::title_meta_key( 'en' ), 'Personal data processing agreement' );
+
+$documents_titles = new WPPDF_Documents();
+
+$GLOBALS['stub_locale'] = 'en_US';
+WPPDF_Languages::flush_cache();
+ok( 'the English site gets the English title', 'Personal data processing agreement' === $documents_titles->filter_title( 'Smlouva o zpracování osobních údajů', 190 ) );
+
+// The case from the report: Italian has no title and no PDF, both fall back
+// to English, so the heading must not stay Czech.
+$GLOBALS['stub_locale'] = 'it_IT';
+WPPDF_Languages::flush_cache();
+ok( 'a language with neither title nor PDF falls back with the file', 'Personal data processing agreement' === $documents_titles->filter_title( 'Smlouva o zpracování osobních údajů', 190 ) );
+
+update_post_meta( 190, WPPDF_Languages::title_meta_key( 'cs' ), 'Smlouva o zpracování osobních údajů' );
+$GLOBALS['stub_locale'] = 'cs_CZ';
+WPPDF_Languages::flush_cache();
+ok( 'and Czech still gets Czech', 'Smlouva o zpracování osobních údajů' === $documents_titles->filter_title( 'x', 190 ) );
+
+// Nothing stored anywhere leaves the post's own title alone.
+$GLOBALS['stub_posts'][191] = array( 'ID' => 191, 'post_type' => 'pdf_document', 'post_title' => 'Bez překladu', 'post_status' => 'publish' );
+ok( 'a document with no language titles keeps its own', 'Bez překladu' === $documents_titles->filter_title( 'Bez překladu', 191 ) );
+
+$GLOBALS['stub_posts'][192] = array( 'ID' => 192, 'post_type' => 'post', 'post_title' => 'Obyčejný příspěvek', 'post_status' => 'publish' );
+update_post_meta( 192, WPPDF_Languages::title_meta_key( 'cs' ), 'Nesahat' );
+ok( 'another post type is not touched', 'Obyčejný příspěvek' === $documents_titles->filter_title( 'Obyčejný příspěvek', 192 ) );
+
+// In wp-admin the editor must see what it edits, or saving would write the
+// translation back into post_title.
+$GLOBALS['stub_is_admin'] = true;
+ok( 'the editor keeps seeing the real post title', 'Smlouva o zpracování osobních údajů' === $documents_titles->filter_title( 'Smlouva o zpracování osobních údajů', 190 ) );
+$GLOBALS['stub_is_admin'] = false;
+
+update_option( WPPDF_Settings::OPTION, WPPDF_Settings::all() );
+unset( $GLOBALS['stub_locale'], $GLOBALS['stub_posts'][190], $GLOBALS['stub_posts'][191], $GLOBALS['stub_posts'][192] );
+WPPDF_Languages::flush_cache();
 
 
 echo "\n== Covers stand in for the featured image ==\n";

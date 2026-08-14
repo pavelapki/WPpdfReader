@@ -153,6 +153,16 @@ class WPPDF_Meta {
 			);
 			echo '</div>';
 
+			echo '<div class="wppdf-file-row__title">';
+			printf(
+				'<label>%1$s <input type="text" class="regular-text" name="wppdf_title[%2$s]" value="%3$s" placeholder="%4$s" /></label>',
+				esc_html__( 'title in this language:', 'wp-pdf-reader' ),
+				esc_attr( $code ),
+				esc_attr( (string) get_post_meta( $post->ID, WPPDF_Languages::title_meta_key( $code ), true ) ),
+				esc_attr( $post->post_title )
+			);
+			echo '</div>';
+
 			echo '<div class="wppdf-file-row__slug">';
 			printf(
 				'<label>%1$s <input type="text" class="regular-text" name="wppdf_slug[%2$s]" value="%3$s" placeholder="%4$s" /></label>',
@@ -227,14 +237,17 @@ class WPPDF_Meta {
 
 		// Both arrive as one value per language, so they are reduced to what
 		// they are allowed to be here rather than element by element below.
-		$files = isset( $_POST['wppdf_file'] ) && is_array( $_POST['wppdf_file'] )
+		$files  = isset( $_POST['wppdf_file'] ) && is_array( $_POST['wppdf_file'] )
 			? array_map( 'absint', wp_unslash( $_POST['wppdf_file'] ) )
 			: array();
-		$urls  = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] )
+		$urls   = isset( $_POST['wppdf_url'] ) && is_array( $_POST['wppdf_url'] )
 			? array_map( 'esc_url_raw', wp_unslash( $_POST['wppdf_url'] ) )
 			: array();
-		$slugs = isset( $_POST['wppdf_slug'] ) && is_array( $_POST['wppdf_slug'] )
+		$slugs  = isset( $_POST['wppdf_slug'] ) && is_array( $_POST['wppdf_slug'] )
 			? array_map( 'sanitize_title', wp_unslash( $_POST['wppdf_slug'] ) )
+			: array();
+		$titles = isset( $_POST['wppdf_title'] ) && is_array( $_POST['wppdf_title'] )
+			? array_map( 'sanitize_text_field', wp_unslash( $_POST['wppdf_title'] ) )
 			: array();
 
 		foreach ( WPPDF_Languages::get_codes() as $code ) {
@@ -271,6 +284,15 @@ class WPPDF_Meta {
 			// Sanitizing, uniqueness and removal all live in one place, because
 			// a duplicate address decides which document answers on it.
 			WPPDF_Permalinks::set_slug( $post_id, $code, isset( $slugs[ $code ] ) ? $slugs[ $code ] : '' );
+
+			$title_key = WPPDF_Languages::title_meta_key( $code );
+			$title     = isset( $titles[ $code ] ) ? trim( (string) $titles[ $code ] ) : '';
+
+			if ( '' !== $title ) {
+				update_post_meta( $post_id, $title_key, $title );
+			} else {
+				delete_post_meta( $post_id, $title_key );
+			}
 
 			if ( $attachment_id !== $previous ) {
 				delete_post_meta( $post_id, WPPDF_Languages::cover_meta_key( $code ) );
