@@ -85,6 +85,7 @@ class WPPDF_Settings {
 			'override_templates'  => 1,
 			'archive_filters'     => 1,
 			'redirect_old_urls'   => 1,
+			'acf_category_field'  => '',
 
 			// Covers.
 			'generate_covers'     => 1,
@@ -313,6 +314,8 @@ class WPPDF_Settings {
 		foreach ( array( 'override_templates', 'archive_filters', 'redirect_old_urls', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
 			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
+
+		$out['acf_category_field'] = isset( $input['acf_category_field'] ) ? sanitize_key( $input['acf_category_field'] ) : '';
 
 		$out['ocr_max_pages'] = isset( $input['ocr_max_pages'] ) ? min( 500, max( 1, absint( $input['ocr_max_pages'] ) ) ) : $defaults['ocr_max_pages'];
 

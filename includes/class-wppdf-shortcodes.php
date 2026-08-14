@@ -102,6 +102,8 @@ class WPPDF_Shortcodes {
 				'meta'       => 1,
 				'pagination' => 0,
 				'filters'    => 0,
+				'from_field' => '',
+				'empty'      => 'hide',
 			),
 			$atts,
 			$tag
@@ -121,6 +123,40 @@ class WPPDF_Shortcodes {
 
 		if ( '' !== $atts['tag'] ) {
 			$query_args['tag'] = sanitize_text_field( $atts['tag'] );
+		}
+
+		// Categories taken from the page's own field, for templates that show
+		// only what belongs to that page.
+		if ( '' !== $atts['from_field'] ) {
+			$field = in_array( strtolower( $atts['from_field'] ), array( '1', 'true', 'yes', 'on' ), true )
+				? ''
+				: sanitize_key( $atts['from_field'] );
+
+			$term_ids = WPPDF_Acf::get_term_ids( get_the_ID(), $field );
+
+			if ( empty( $term_ids ) ) {
+				// Showing the whole library would be worse than showing none.
+				if ( 'all' !== $atts['empty'] ) {
+					return $filters ? WPPDF_Filters::render() : '';
+				}
+			} else {
+				// The terms may sit in any taxonomy the documents use, so all
+				// of them are asked and a hit in one is enough.
+				$tax_query = array( 'relation' => 'OR' );
+
+				foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
+					$tax_query[] = array(
+						'taxonomy'         => $taxonomy,
+						'field'            => 'term_id',
+						'terms'            => $term_ids,
+						'include_children' => is_taxonomy_hierarchical( $taxonomy ),
+					);
+				}
+
+				if ( count( $tax_query ) > 1 ) {
+					$query_args['tax_query'] = $tax_query;
+				}
+			}
 		}
 
 		if ( '' !== $atts['taxonomy'] && '' !== $atts['terms'] ) {

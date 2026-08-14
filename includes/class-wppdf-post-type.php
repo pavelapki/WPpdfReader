@@ -77,6 +77,31 @@ class WPPDF_Post_Type {
 	}
 
 	/**
+	 * Taxonomies the documents are filed under.
+	 *
+	 * @return string[]
+	 */
+	public static function get_document_taxonomies() {
+		$taxonomies = array();
+
+		if ( WPPDF_Settings::get( 'shared_taxonomies' ) ) {
+			$taxonomies[] = 'category';
+			$taxonomies[] = 'post_tag';
+		}
+
+		if ( WPPDF_Settings::get( 'own_taxonomy' ) ) {
+			$taxonomies[] = self::OWN_TAXONOMY;
+		}
+
+		/**
+		 * Filter the taxonomies documents are filed under.
+		 *
+		 * @param string[] $taxonomies Taxonomy names.
+		 */
+		return array_values( array_unique( (array) apply_filters( 'wppdf_document_taxonomies', $taxonomies ) ) );
+	}
+
+	/**
 	 * Register the post type and taxonomies.
 	 */
 	public function register() {

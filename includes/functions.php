@@ -117,6 +117,66 @@ if ( ! function_exists( 'wppdf_get_post_type' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wppdf_get_page_categories' ) ) {
+	/**
+	 * The document category IDs a page selects in its field.
+	 *
+	 * @param int    $post_id Page ID. Defaults to the current post.
+	 * @param string $field   Field name. Defaults to the configured one.
+	 * @return int[]
+	 */
+	function wppdf_get_page_categories( $post_id = 0, $field = '' ) {
+		return WPPDF_Acf::get_term_ids( $post_id, $field );
+	}
+}
+
+if ( ! function_exists( 'wppdf_get_page_documents' ) ) {
+	/**
+	 * Markup listing the documents that belong to a page.
+	 *
+	 * Reads the categories from the page's field and lists only those
+	 * documents. Nothing is printed when the field is empty.
+	 *
+	 * @param array $args {
+	 *     Optional overrides, matching the [pdf_grid] attributes.
+	 *
+	 *     @type int    $columns  Columns in the grid.
+	 *     @type int    $per_page How many documents at most.
+	 *     @type string $layout   grid or list.
+	 *     @type string $orderby  Sorting field.
+	 *     @type string $order    ASC or DESC.
+	 *     @type string $field    Field to read instead of the configured one.
+	 *     @type string $empty    hide (default) or all.
+	 * }
+	 * @return string
+	 */
+	function wppdf_get_page_documents( array $args = array() ) {
+		$shortcodes = new WPPDF_Shortcodes();
+
+		$atts = wp_parse_args(
+			$args,
+			array(
+				'from_field' => isset( $args['field'] ) && '' !== $args['field'] ? $args['field'] : '1',
+			)
+		);
+
+		unset( $atts['field'] );
+
+		return $shortcodes->grid( $atts, '', 'pdf_grid' );
+	}
+}
+
+if ( ! function_exists( 'wppdf_the_page_documents' ) ) {
+	/**
+	 * Echo the documents that belong to a page.
+	 *
+	 * @param array $args Overrides, see wppdf_get_page_documents().
+	 */
+	function wppdf_the_page_documents( array $args = array() ) {
+		echo wppdf_get_page_documents( $args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- markup built by the plugin.
+	}
+}
+
 if ( ! function_exists( 'wppdf_get_current_language' ) ) {
 	/**
 	 * The language currently used to resolve documents.

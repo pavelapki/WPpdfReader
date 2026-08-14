@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,16 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.6.0 =
+* A page can list just the documents that belong to it. The categories come
+  from a field on the page, chosen once in the settings, and the template
+  prints them with wppdf_the_page_documents() or [pdf_grid from_field="1"].
+  Whatever ACF returns is accepted: term IDs, term objects, slugs, names or a
+  comma separated list. An empty field prints nothing rather than everything.
+* The settings screen spells out how the ACF field should be configured,
+  including the Save Terms trap that would file the page itself into the
+  document categories.
 
 = 1.5.0 =
 * The import keeps each record's slug and remembers the full address it used

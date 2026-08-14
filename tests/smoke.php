@@ -89,7 +89,13 @@ function get_the_excerpt( $id = 0 ) { return 'Excerpt text.'; }
 function get_the_date( $format = '', $id = 0 ) { return '11. 8. 2026'; }
 function get_the_term_list() { return '<a href="#">Reports</a>'; }
 function post_class( $class = '', $id = null ) { echo 'class="' . ( is_array( $class ) ? implode( ' ', $class ) : $class ) . '"'; }
-function wp_reset_postdata() {}
+function wp_reset_postdata() {
+	// Mirrors WordPress: the loop's current post is restored afterwards.
+	if ( ! empty( $GLOBALS['stub_reset_stack'] ) ) {
+		$GLOBALS['stub_current'] = array_pop( $GLOBALS['stub_reset_stack'] );
+	}
+}
+$GLOBALS['stub_reset_stack'] = array();
 class WP_Error {
 	protected $code;
 	protected $message;
@@ -107,7 +113,15 @@ class WP_Query {
 	protected $ids;
 	public function __construct( $args = array() ) { $this->args = $args; $this->ids = isset( $GLOBALS['stub_query_ids'] ) ? $GLOBALS['stub_query_ids'] : array(); }
 	public function have_posts() { return $this->index + 1 < count( $this->ids ); }
-	public function the_post() { $this->index++; $GLOBALS['stub_current'] = $this->ids[ $this->index ]; }
+	protected $saved = null;
+	public function the_post() {
+		if ( null === $this->saved ) {
+			$this->saved = isset( $GLOBALS['stub_current'] ) ? $GLOBALS['stub_current'] : 0;
+			$GLOBALS['stub_reset_stack'][] = $this->saved;
+		}
+		$this->index++;
+		$GLOBALS['stub_current'] = $this->ids[ $this->index ];
+	}
 	public function get( $key ) { return isset( $this->args[ $key ] ) ? $this->args[ $key ] : ''; }
 	public function set( $key, $value ) { $this->args[ $key ] = $value; }
 	public function is_main_query() { return false; }
@@ -224,6 +238,15 @@ function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
 function user_trailingslashit( $v ) { return rtrim( (string) $v, '/' ) . '/'; }
 function untrailingslashit( $v ) { return rtrim( (string) $v, '/' ); }
 function wp_doing_ajax() { return false; }
+function get_term( $id, $tax = '' ) {
+	foreach ( $GLOBALS['stub_terms_db'] as $tid => $term ) {
+		if ( $tid === (int) $id && ( '' === $tax || $term['taxonomy'] === $tax ) ) {
+			return (object) array_merge( array( 'term_id' => $tid ), $term );
+		}
+	}
+	return null;
+}
+class WP_Term { public $term_id; public $taxonomy; public $slug; public $name; }
 function get_post_type_object( $t ) { return null; }
 function maybe_unserialize( $v ) { return is_string( $v ) && preg_match( '/^[aOs]:/', $v ) ? @unserialize( $v ) : $v; }
 function attachment_url_to_postid( $u ) { foreach ( $GLOBALS['stub_posts'] as $id => $p ) { if ( isset( $p['url'] ) && $p['url'] === $u ) { return $id; } } return 0; }
@@ -922,6 +945,72 @@ ok( 'a changed prefix still finds it by slug', $moved['id'] === $by_slug );
 
 $nowhere = call_protected( 'WPPDF_Redirects', 'find_document', array( '/flipbook/neexistuje/' ) );
 ok( 'an unknown address stays a 404', 0 === $nowhere );
+
+
+echo "\n== Documents belonging to a page ==\n";
+
+$GLOBALS['stub_terms_db'] = array(
+	11 => array( 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'category', 'parent' => 0 ),
+	12 => array( 'name' => 'Katalogy', 'slug' => 'katalogy', 'taxonomy' => 'category', 'parent' => 0 ),
+);
+
+$acf_settings = WPPDF_Settings::all();
+$acf_settings['acf_category_field'] = 'pdf_kategorie';
+update_option( WPPDF_Settings::OPTION, $acf_settings );
+WPPDF_Settings::flush_cache();
+
+$GLOBALS['stub_posts'][200] = array( 'ID' => 200, 'post_type' => 'page', 'post_title' => 'Ke stažení' );
+
+// Taxonomy field, return format Term ID — the recommended setup.
+update_post_meta( 200, 'pdf_kategorie', array( 11, 12 ) );
+ok( 'term IDs are read', array( 11, 12 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// Same field with return format Term Object.
+$term_object = new WP_Term();
+$term_object->term_id = 11;
+$term_object->taxonomy = 'category';
+update_post_meta( 200, 'pdf_kategorie', array( $term_object ) );
+ok( 'term objects are read', array( 11 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// A Select or Checkbox field hands back slugs.
+update_post_meta( 200, 'pdf_kategorie', array( 'katalogy' ) );
+ok( 'slugs are matched to terms', array( 12 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// A plain text field, comma separated.
+update_post_meta( 200, 'pdf_kategorie', 'vyrocni-zpravy, katalogy' );
+ok( 'a comma separated list is split', array( 11, 12 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// Names work too, for a Checkbox field storing labels.
+update_post_meta( 200, 'pdf_kategorie', 'Katalogy' );
+ok( 'names are matched as well', array( 12 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// A single value, not an array.
+update_post_meta( 200, 'pdf_kategorie', 11 );
+ok( 'a single value is accepted', array( 11 ) === WPPDF_Acf::get_term_ids( 200 ) );
+
+// Nonsense must not become a term.
+update_post_meta( 200, 'pdf_kategorie', array( 'neexistuje', 99999, '' ) );
+ok( 'unknown values are dropped', array() === WPPDF_Acf::get_term_ids( 200 ) );
+
+delete_post_meta( 200, 'pdf_kategorie' );
+ok( 'an empty field yields nothing', array() === WPPDF_Acf::get_term_ids( 200 ) );
+
+$GLOBALS['stub_current'] = 200;
+$GLOBALS['stub_query_ids'] = array( 10 );
+$empty_page = ( new WPPDF_Shortcodes() )->grid( array( 'from_field' => '1' ) );
+ok( 'a page without categories lists nothing, not everything', '' === $empty_page );
+
+update_post_meta( 200, 'pdf_kategorie', array( 11 ) );
+$page_grid = ( new WPPDF_Shortcodes() )->grid( array( 'from_field' => '1' ) );
+ok( 'a page with categories lists its documents', false !== strpos( $page_grid, 'wppdf-collection' ) );
+
+ok( 'the template tag returns the same markup', $page_grid === wppdf_get_page_documents() );
+ok( 'the categories are exposed to templates', array( 11 ) === wppdf_get_page_categories( 200 ) );
+
+$acf_settings['acf_category_field'] = '';
+update_option( WPPDF_Settings::OPTION, $acf_settings );
+WPPDF_Settings::flush_cache();
+$GLOBALS['stub_current'] = 0;
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

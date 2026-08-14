@@ -162,6 +162,27 @@
 	margin-bottom: 6px;
 }
 
+.wppdf-recommendation {
+	max-width: 46em;
+	margin-top: 10px;
+	padding: 10px 14px;
+	background: #f6f7f7;
+	border-left: 4px solid #2271b1;
+}
+
+.wppdf-recommendation p {
+	margin: 0 0 6px;
+}
+
+.wppdf-recommendation ul {
+	margin: 0 0 6px 18px;
+	list-style: disc;
+}
+
+.wppdf-recommendation li {
+	margin-bottom: 4px;
+}
+
 .wppdf-settings .wppdf-warning {
 	color: #b32d2e;
 }

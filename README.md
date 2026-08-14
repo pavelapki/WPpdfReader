@@ -183,6 +183,51 @@ Co se neimportuje samo:
 * **Záznam s víc PDF** dostane do zvoleného jazyka první z nich, ostatní se
   vypíšou do protokolu, ať si je přiřadíš k jazykům sám.
 
+## Dokumenty patřící ke stránce
+
+Typický případ: každá stránka má svoje PDF a v šabloně chceš vypsat jen ta,
+která k ní patří. Stránka nese ACF pole s kategoriemi, plugin z něj přečte
+termy a vypíše dokumenty jen z nich.
+
+V **Nastavení → Dokumenty patřící ke stránce** vybereš pole ze seznamu (načte
+se z ACF field groups). Pak v šabloně:
+
+```php
+<?php wppdf_the_page_documents(); ?>
+<?php wppdf_the_page_documents( array( 'columns' => 4, 'layout' => 'list' ) ); ?>
+```
+
+nebo shortcodem, když to má jít z editoru:
+
+```
+[pdf_grid from_field="1"]
+[pdf_grid from_field="jine_pole" columns="4"]
+```
+
+Když je pole prázdné, **nevypíše se nic** — ne celá knihovna. To by byla horší
+chyba než prázdné místo. Přepíná se přes `empty="all"`.
+
+### Jak to pole v ACF nastavit
+
+* **Typ pole: Taxonomy**, ne obyčejný Select. Nabídne skutečné kategorie
+  (nedá se překlepnout) a ukládá ID, takže přejmenování kategorie nic
+  nerozbije.
+* **Taxonomy:** ta, kterou používají dokumenty — při sdílených kategoriích
+  `category`, jinak `pdf_category`.
+* **Appearance:** Multi Select nebo Checkbox, ať jich jde vybrat víc.
+* **Return Format:** Term ID.
+* **Save Terms: vypnuto.** Tohle je ta zrádnost — když to necháš zapnuté, ACF
+  zařadí do těch kategorií **samotnou stránku** a ta se pak objeví v archivech
+  kategorií mezi dokumenty.
+* **Load Terms:** taky vypnuto, ze stejného důvodu.
+
+Select ani Checkbox nejsou zakázané — plugin páruje i slugy a názvy, a textové
+pole umí i „kategorie1, kategorie2" — ale takové pole se od skutečného seznamu
+kategorií časem rozejde.
+
+Bez ACF to funguje taky: pole je pak obyčejný meta klíč, do kterého si ID nebo
+slugy uloží cokoli jiného.
+
 ## Filtrování archivu
 
 Nad výpisem dokumentů je lišta s fulltextem, kategorií, jazykem, rokem

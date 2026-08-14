@@ -624,6 +624,91 @@ class WPPDF_Admin {
 					</tr>
 				</table>
 
+				<h2 class="title"><?php esc_html_e( 'Documents belonging to a page', 'wp-pdf-reader' ); ?></h2>
+				<table class="form-table" role="presentation">
+					<tr>
+						<th scope="row"><label for="wppdf-acf-field"><?php esc_html_e( 'Field with the categories', 'wp-pdf-reader' ); ?></label></th>
+						<td>
+							<?php
+							$acf_fields  = WPPDF_Acf::get_selectable_fields();
+							$acf_current = (string) $settings['acf_category_field'];
+
+							if ( WPPDF_Acf::is_active() ) :
+								?>
+								<select id="wppdf-acf-field" name="<?php echo esc_attr( $option ); ?>[acf_category_field]">
+									<option value=""><?php esc_html_e( '— do not use —', 'wp-pdf-reader' ); ?></option>
+									<?php
+									// A stored field that no longer exists stays selectable, so
+									// saving the page does not silently drop it.
+									if ( '' !== $acf_current && ! isset( $acf_fields[ $acf_current ] ) ) {
+										$acf_fields[ $acf_current ] = $acf_current;
+									}
+
+									foreach ( $acf_fields as $name => $label ) :
+										?>
+										<option value="<?php echo esc_attr( $name ); ?>" <?php selected( $acf_current, $name ); ?>>
+											<?php echo esc_html( $label ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							<?php else : ?>
+								<input type="text" id="wppdf-acf-field" class="regular-text" name="<?php echo esc_attr( $option ); ?>[acf_category_field]" value="<?php echo esc_attr( $acf_current ); ?>" placeholder="pdf_kategorie" />
+								<p class="description"><?php esc_html_e( 'ACF was not found, so type the meta key by hand. Any plugin storing term IDs or slugs under that key works.', 'wp-pdf-reader' ); ?></p>
+							<?php endif; ?>
+
+							<div class="wppdf-recommendation">
+								<p><strong><?php esc_html_e( 'How to set the field up in ACF', 'wp-pdf-reader' ); ?></strong></p>
+								<ul>
+									<li>
+										<?php
+										printf(
+											/* translators: %s: ACF field type name. */
+											esc_html__( 'Field type: %s — not a plain select. It offers the real categories, so nothing is mistyped, and it keeps working when a category is renamed because it stores the ID rather than the text.', 'wp-pdf-reader' ),
+											'<strong>' . esc_html__( 'Taxonomy', 'wp-pdf-reader' ) . '</strong>'
+										);
+										?>
+									</li>
+									<li>
+										<?php
+										printf(
+											/* translators: %s: taxonomy name used by the documents. */
+											esc_html__( 'Taxonomy: %s', 'wp-pdf-reader' ),
+											'<code>' . esc_html( implode( ', ', WPPDF_Post_Type::get_document_taxonomies() ) ) . '</code>'
+										);
+										?>
+									</li>
+									<li><?php esc_html_e( 'Appearance: Multi Select or Checkbox, so a page can list several categories.', 'wp-pdf-reader' ); ?></li>
+									<li><?php esc_html_e( 'Return format: Term ID.', 'wp-pdf-reader' ); ?></li>
+									<li>
+										<strong><?php esc_html_e( 'Save Terms: off.', 'wp-pdf-reader' ); ?></strong>
+										<?php esc_html_e( 'This one matters. With it on, ACF files the page itself into those categories, and the page then turns up in category archives among the documents.', 'wp-pdf-reader' ); ?>
+									</li>
+									<li><?php esc_html_e( 'Load Terms: off, for the same reason.', 'wp-pdf-reader' ); ?></li>
+								</ul>
+								<p class="description">
+									<?php esc_html_e( 'A Select or Checkbox field works too — category slugs or names are matched — but it drifts apart from the real category list, so Taxonomy is the safer choice.', 'wp-pdf-reader' ); ?>
+								</p>
+							</div>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Use it in a template', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<p class="description">
+								<?php esc_html_e( 'Both read the field of the page being shown and list only the documents from those categories. When the field is empty, nothing is printed.', 'wp-pdf-reader' ); ?>
+							</p>
+							<p>
+								<code>&lt;?php wppdf_the_page_documents(); ?&gt;</code><br />
+								<code>&lt;?php wppdf_the_page_documents( array( 'columns' =&gt; 4, 'layout' =&gt; 'list' ) ); ?&gt;</code>
+							</p>
+							<p>
+								<code>[pdf_grid from_field="1"]</code><br />
+								<code>[pdf_grid from_field="jine_pole" columns="4"]</code>
+							</p>
+						</td>
+					</tr>
+				</table>
+
 				<h2 class="title"><?php esc_html_e( 'Search, statistics and updates', 'wp-pdf-reader' ); ?></h2>
 				<table class="form-table" role="presentation">
 					<tr>
