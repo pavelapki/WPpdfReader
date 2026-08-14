@@ -198,8 +198,8 @@ function is_post_type_archive( $t = '' ) { return false; }
 function in_the_loop() { return true; }
 function is_main_query() { return true; }
 function is_multisite() { return false; }
-function get_locale() { return 'cs_CZ'; }
-function determine_locale() { return 'cs_CZ'; }
+function get_locale() { return isset( $GLOBALS['stub_locale'] ) ? $GLOBALS['stub_locale'] : 'cs_CZ'; }
+function determine_locale() { return isset( $GLOBALS['stub_locale'] ) ? $GLOBALS['stub_locale'] : 'cs_CZ'; }
 function wp_register_script() {}
 function wp_register_style() {}
 function wp_localize_script() {}
@@ -503,6 +503,50 @@ ok( 'cs first for cs', 'cs' === WPPDF_Languages::get_fallback_order( 'cs' )[0] )
 ok( 'en first for en', 'en' === WPPDF_Languages::get_fallback_order( 'en' )[0] );
 ok( 'unknown language keeps itself then the chain', array( 'de', 'cs', 'en' ) === WPPDF_Languages::get_fallback_order( 'de' ) );
 ok( 'regional variant maps to base', 'en' === WPPDF_Languages::get_fallback_order( 'en-gb' )[0] );
+
+// The rule people actually want: the site's own language, and English when
+// there is no file in it. It hangs on the default language, which is both the
+// end of the chain and where a site language missing from the list lands.
+$lang_before = WPPDF_Settings::all();
+$to_english  = array_merge(
+	$lang_before,
+	array(
+		'default_language' => 'en',
+		'fallback_chain'   => array( 'en' ),
+		'fallback_any'     => 0,
+	)
+);
+update_option( WPPDF_Settings::OPTION, $to_english );
+WPPDF_Settings::flush_cache();
+WPPDF_Languages::flush_cache();
+
+$GLOBALS['stub_locale'] = 'cs_CZ';
+ok( 'a Czech site asks for Czech and falls back to English', array( 'cs', 'en' ) === WPPDF_Languages::get_fallback_order() );
+
+$GLOBALS['stub_locale'] = 'en_US';
+ok( 'an English site stays on English', array( 'en' ) === WPPDF_Languages::get_fallback_order() );
+
+// The case that motivated this: a language with no PDFs at all, and not even
+// in the configured list. Without the default set to English it would land on
+// Czech instead.
+$GLOBALS['stub_locale'] = 'bg_BG';
+ok( 'a Bulgarian site is served English, not the first configured language', array( 'en' ) === WPPDF_Languages::get_fallback_order() );
+
+$GLOBALS['stub_locale'] = 'de_DE';
+ok( 'so is any other unconfigured language', array( 'en' ) === WPPDF_Languages::get_fallback_order() );
+
+// With Czech as the default — the shipped setting — the same Bulgarian site
+// gets Czech. Asserted so the difference between the two setups is a fact
+// rather than a claim in the documentation.
+update_option( WPPDF_Settings::OPTION, $lang_before );
+WPPDF_Settings::flush_cache();
+WPPDF_Languages::flush_cache();
+
+$GLOBALS['stub_locale'] = 'bg_BG';
+ok( 'with Czech as the default the same site gets Czech first', 'cs' === WPPDF_Languages::get_fallback_order()[0] );
+
+unset( $GLOBALS['stub_locale'] );
+WPPDF_Languages::flush_cache();
 
 echo "\n== File resolution ==\n";
 update_post_meta( 10, '_wppdf_file_cs', 20 );

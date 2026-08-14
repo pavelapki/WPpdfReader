@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.7.0
+Stable tag: 1.7.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,20 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.7.1 =
+* The language settings now explain the one thing that decides whether the
+  fallback does what people expect: the default language is both the end of
+  the chain and where a site language missing from the list lands. A site in
+  a language you have no PDFs for is served the default — so if the answer
+  should be English, English has to be the default, not merely last in the
+  chain.
+* Added a worked recipe to the settings screen for "the site's language,
+  otherwise English", and the resolution preview now reports the site
+  language rather than the language of whoever is looking at wp-admin, which
+  are not the same thing and differed silently.
+* The three cases are asserted in the test suite, so the documented behaviour
+  and the actual behaviour cannot drift apart.
 
 = 1.7.0 =
 * A document now opens on a page of its own, filling the window: no theme

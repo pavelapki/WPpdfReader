@@ -515,6 +515,9 @@ class WPPDF_Admin {
 									</option>
 								<?php endforeach; ?>
 							</select>
+							<p class="description">
+								<?php esc_html_e( 'This does two jobs: it ends the fallback chain, and it is what a site language missing from the list above collapses to. A Bulgarian site with no bg in the list is served this language — so if the answer should be English, set this to English.', 'wp-pdf-reader' ); ?>
+							</p>
 						</td>
 					</tr>
 					<tr>
@@ -532,18 +535,49 @@ class WPPDF_Admin {
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Current resolution', 'wp-pdf-reader' ); ?></th>
 						<td>
+							<?php
+							// What a visitor actually gets is decided by the site
+							// language. In wp-admin determine_locale() answers with
+							// the logged in user's own language instead, so the
+							// preview asks about the site explicitly.
+							$site_locale = get_locale();
+							$site_code   = WPPDF_Languages::match_code( $site_locale );
+							$site_code   = '' !== $site_code ? $site_code : WPPDF_Languages::get_default_language();
+							?>
 							<p>
-								<code><?php echo esc_html( implode( ' → ', WPPDF_Languages::get_fallback_order( WPPDF_Languages::get_default_language() ) ) ); ?></code>
+								<code><?php echo esc_html( implode( ' → ', WPPDF_Languages::get_fallback_order( $site_code ) ) ); ?></code>
 							</p>
 							<p class="description">
 								<?php
 								printf(
-									/* translators: %s: detected language code. */
-									esc_html__( 'Detected admin language: %s', 'wp-pdf-reader' ),
-									'<code>' . esc_html( WPPDF_Languages::get_current_language() ) . '</code>'
+									/* translators: 1: site locale, 2: resolved language code. */
+									esc_html__( 'Site language %1$s resolves to %2$s. Visitors are served the first language in that order which has a file.', 'wp-pdf-reader' ),
+									'<code>' . esc_html( $site_locale ) . '</code>',
+									'<code>' . esc_html( $site_code ) . '</code>'
 								);
+
+								if ( WPPDF_Languages::get_current_language() !== $site_code ) {
+									echo ' ';
+									printf(
+										/* translators: %s: language code of the logged in user. */
+										esc_html__( 'Your own admin language is %s, which is why this screen may show something else than the front end.', 'wp-pdf-reader' ),
+										'<code>' . esc_html( WPPDF_Languages::get_current_language() ) . '</code>'
+									);
+								}
 								?>
 							</p>
+
+							<div class="wppdf-recommendation">
+								<p><strong><?php esc_html_e( 'Site language, otherwise English', 'wp-pdf-reader' ); ?></strong></p>
+								<p><?php esc_html_e( 'A Czech site shows the Czech PDF, an English one the English PDF, and a site in a language you have no PDF for shows English. Set it up like this:', 'wp-pdf-reader' ); ?></p>
+								<ul>
+									<li><?php esc_html_e( 'Languages: every language you actually have PDFs in.', 'wp-pdf-reader' ); ?></li>
+									<li><?php esc_html_e( 'Default language: English. It is the last resort, so anything unresolved lands there.', 'wp-pdf-reader' ); ?></li>
+									<li><?php esc_html_e( 'Fallback chain: en — or leave it empty, the default language is appended anyway.', 'wp-pdf-reader' ); ?></li>
+									<li><?php esc_html_e( '"Use any language that has a file": off, otherwise a document with neither a Czech nor an English PDF shows whatever it does have.', 'wp-pdf-reader' ); ?></li>
+								</ul>
+								<p><?php esc_html_e( 'Do not put Czech first in the chain unless you want a visitor on the English site to see the Czech PDF when the English one is missing.', 'wp-pdf-reader' ); ?></p>
+							</div>
 						</td>
 					</tr>
 				</table>

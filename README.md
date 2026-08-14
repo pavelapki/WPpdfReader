@@ -65,6 +65,37 @@ Když se použije jiný než požadovaný jazyk, může se návštěvníkovi zob
 nenápadná poznámka („Tento dokument není ve vašem jazyce, zobrazujeme anglickou
 verzi.“) — jde vypnout v nastavení.
 
+#### Recept: jazyk webu, jinak angličtina
+
+Nejčastější požadavek — český web ukáže české PDF, anglický anglické a web
+v jazyce, ve kterém PDF nemáš, ukáže anglické. Klíčové je, že **výchozí jazyk
+dělá dvě věci najednou**: uzavírá fallback řetězec *a* je tím, kam spadne jazyk
+webu, který není v seznamu jazyků. Proto:
+
+| Nastavení | Hodnota |
+| --- | --- |
+| Jazyky | jen ty, ve kterých opravdu máš PDF |
+| Výchozí jazyk | **en** |
+| Fallback řetězec | `en` (nebo prázdné — výchozí jazyk se stejně připojí) |
+| „Použít jakýkoli jazyk se souborem“ | **vypnuto** |
+
+Výsledek (ověřeno testy v `tests/smoke.php`):
+
+```
+web cs_CZ → cs → en      české PDF, jinak anglické
+web en_US → en           anglické PDF
+web bg_BG → en           bulharština není v seznamu → rovnou anglické
+web de_DE → en           totéž
+```
+
+**Výchozí nastavení pluginu tohle nedělá.** Má výchozí jazyk `cs` a řetězec
+`cs, en`, takže bulharský i německý web dostane **české** PDF, ne anglické — a
+anglický web bez anglického PDF dostane české. To je v pořádku pro jednojazyčný
+český web, ne pro to, co je popsané výše.
+
+Kdyby byl web bulharský a bulharská PDF opravdu měl, přidej `bg` do seznamu
+jazyků; pak vyjde `bg → en`.
+
 WPML není povinné. Když je aktivní, bere se z něj pouze aktuální jazyk
 návštěvníka a jazyky se přidají do seznamu polí.
 
