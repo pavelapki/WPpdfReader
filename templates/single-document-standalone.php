@@ -29,7 +29,7 @@ while ( have_posts() ) :
 </head>
 <body <?php body_class( 'wppdf-standalone' ); ?>>
 	<div class="wppdf-standalone__bar">
-		<a class="wppdf-standalone__back" href="<?php echo esc_url( wppdf_get_back_url( $wppdf_post_id ) ); ?>">
+		<a class="wppdf-standalone__back" href="<?php echo esc_url( wppdf_get_back_url( $wppdf_post_id ) ); ?>" data-wppdf-back>
 			<span aria-hidden="true">&larr;</span>
 			<?php esc_html_e( 'Back', 'wp-pdf-reader' ); ?>
 		</a>
@@ -42,7 +42,12 @@ while ( have_posts() ) :
 	</div>
 
 	<main class="wppdf-standalone__main">
-		<?php wppdf_the_viewer( $wppdf_post_id ); ?>
+		<?php
+		// The reader is the page here, so there is nothing to defer it past:
+		// waiting for it to scroll into view only adds a way for it not to
+		// start at all.
+		wppdf_the_viewer( $wppdf_post_id, array( 'lazy' => false ) );
+		?>
 	</main>
 
 	<?php wp_footer(); ?>

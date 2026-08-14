@@ -595,14 +595,21 @@ body.wppdf-standalone {
 	margin: 0;
 	display: flex;
 	flex-direction: column;
-	min-height: 100vh;
+	height: 100vh;
 	/* 100dvh keeps the reader clear of the address bar on mobile. */
-	min-height: 100dvh;
+	height: 100dvh;
+	/* The reader scrolls inside itself, the page does not scroll at all. */
+	overflow: hidden;
 	background: var( --wppdf-bg, #f6f7f7 );
 }
 
 .wppdf-standalone__bar {
-	display: flex;
+	/*
+	 * Three tracks rather than flex, so the title sits in the middle of the
+	 * window instead of the middle of whatever is left over.
+	 */
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
 	align-items: center;
 	gap: 12px;
 	flex: 0 0 auto;
@@ -612,21 +619,30 @@ body.wppdf-standalone {
 }
 
 .wppdf-standalone__back {
-	color: inherit;
+	justify-self: start;
+	/* Themes style links; this bar is chrome and sets its own colour. */
+	color: #fff;
 	text-decoration: none;
 	white-space: nowrap;
 }
 
 .wppdf-standalone__back:hover,
 .wppdf-standalone__back:focus-visible {
+	color: #fff;
 	text-decoration: underline;
 }
 
 .wppdf-standalone__title {
-	flex: 1 1 auto;
+	grid-column: 2;
 	margin: 0;
+	/*
+	 * Inheriting would lose to any theme rule on h1, which is how this ended
+	 * up grey on near-black.
+	 */
+	color: #fff;
 	font-size: 1rem;
 	font-weight: 600;
+	text-align: center;
 	/* One line: the bar is chrome, not content. */
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -634,25 +650,44 @@ body.wppdf-standalone {
 }
 
 .wppdf-standalone__lang {
-	flex: 0 0 auto;
+	grid-column: 3;
+	justify-self: end;
+	color: #fff;
 	opacity: 0.7;
 	font-size: 0.875rem;
 }
 
 .wppdf-standalone__main {
+	display: flex;
 	flex: 1 1 auto;
+	/* Without this a flex item refuses to shrink below its content. */
 	min-height: 0;
 }
 
 /*
- * The height is an inline custom property on the reader, so overriding it
- * from a stylesheet needs !important. Here the reader fills what the bar
- * leaves rather than a fixed number of pixels.
+ * The reader is sized by flex all the way down rather than by percentages.
+ *
+ * .wppdf-viewer__pages is absolutely positioned, so .wppdf-viewer__body has no
+ * content in flow and no intrinsic height. A percentage height on it only
+ * resolves when every ancestor has a definite height, which a flex item does
+ * not — so it collapsed to zero and the document was never painted, while the
+ * toolbar above it looked perfectly fine.
  */
 .wppdf-standalone .wppdf-viewer {
-	--wppdf-height: 100% !important;
-	height: 100%;
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
 	margin: 0;
+	border: 0;
+	border-radius: 0;
+}
+
+.wppdf-standalone .wppdf-viewer__body {
+	flex: 1 1 auto;
+	min-height: 0;
+	/* Beats .wppdf-viewer__body { height: var( --wppdf-height ) }. */
+	height: auto;
 }
 
 @media print {

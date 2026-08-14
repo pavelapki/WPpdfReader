@@ -1955,15 +1955,59 @@
 		} ).observe( document.body, { childList: true, subtree: true } );
 	}
 
+	/**
+	 * Make the full page reader's back link go back.
+	 *
+	 * The href is a real address — the archive, or wherever the visitor came
+	 * from — so the link works without JavaScript and for someone who arrived
+	 * straight at the document. When there is a same-site page behind this one
+	 * in the session history, going back is what "Back" should mean: it keeps
+	 * the visitor's scroll position and any filter they had applied, which a
+	 * fresh navigation to the archive throws away.
+	 */
+	function bindBackLink() {
+		document.addEventListener( 'click', function ( event ) {
+			var link = event.target.closest ? event.target.closest( '[data-wppdf-back]' ) : null;
+
+			if ( ! link || event.defaultPrevented ) {
+				return;
+			}
+
+			// Let the browser handle anything that is not a plain left click:
+			// opening in a new tab must still reach a real address.
+			if ( 0 !== event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ) {
+				return;
+			}
+
+			// document.referrer is empty on a direct hit or a fresh tab, and
+			// history.back() would then leave the site or do nothing at all.
+			if ( ! document.referrer ) {
+				return;
+			}
+
+			var from = document.createElement( 'a' );
+			from.href = document.referrer;
+
+			if ( from.host !== window.location.host ) {
+				return;
+			}
+
+			event.preventDefault();
+			window.history.back();
+		} );
+	}
+
 	window.wppdfInit = init;
 
 	if ( 'loading' === document.readyState ) {
 		document.addEventListener( 'DOMContentLoaded', function () {
 			init();
 			watch();
+			bindBackLink();
 		} );
 	} else {
 		init();
 		watch();
+		bindBackLink();
 	}
 } )();

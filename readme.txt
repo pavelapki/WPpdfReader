@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.8.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,27 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.8.1 =
+* Fixed the full page reader showing an empty page: the toolbar drew, the
+  document did not, and opening the sidebar appeared to fix it. The pages
+  container is absolutely positioned, so the reader body has nothing in flow
+  and no height of its own; the percentage height it was given could not
+  resolve against a flex ancestor and collapsed to zero. The whole column is
+  now sized by flex, the same way fullscreen mode already was. Measured in a
+  browser: the pages area went from 0 to the full remaining height.
+* The document title in the bar is centred and sets its own colour. It was
+  inheriting one, which loses to any theme rule on h1 — that is why it came
+  out grey on near-black.
+* Back now goes back. When the visitor arrived from a page on this site the
+  link steps through browser history, keeping their scroll position and any
+  filter they had applied. It stays an ordinary link — with a real address —
+  for a direct hit, a new tab or a middle click.
+* The reader is no longer lazy loaded when it is the entire page; there was
+  nothing to defer it past, only a way for it not to start.
+* Hardening: a language slug pointing at a draft resolves only for someone
+  allowed to read that draft. WP_Query guards singular queries itself, but
+  this route no longer depends on that.
 
 = 1.8.0 =
 * Each language can now carry its own address. The metabox has a slug field

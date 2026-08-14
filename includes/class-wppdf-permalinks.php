@@ -246,6 +246,16 @@ class WPPDF_Permalinks {
 			return $vars;
 		}
 
+		// Drafts keep their language slugs so an editor can preview them, and
+		// WP_Query guards singular queries on its own. Checking here as well
+		// means this route cannot expose a document even if that guard changes
+		// or another plugin has already reshaped the query.
+		$status = get_post_status_object( get_post_status( $post_id ) );
+
+		if ( ( ! $status || ! $status->public ) && ! current_user_can( 'read_post', $post_id ) ) {
+			return $vars;
+		}
+
 		unset( $vars['name'], $vars[ $post_type ] );
 
 		$vars['p']         = $post_id;

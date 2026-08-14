@@ -216,6 +216,11 @@ function get_page_by_path( $path, $output = OBJECT, $post_type = 'page' ) {
 	}
 	return null;
 }
+function get_post_status( $id ) { $p = get_post( $id ); return $p && isset( $p->post_status ) ? $p->post_status : false; }
+function get_post_status_object( $status ) {
+	$public = array( 'publish' );
+	return $status ? (object) array( 'name' => $status, 'public' => in_array( $status, $public, true ) ) : null;
+}
 function current_user_can( $cap = '', $object_id = 0 ) {
 	// Tests that care about a capability list the ones the current user is
 	// missing; everything else stays permitted so the rest keeps working.
@@ -1279,6 +1284,41 @@ WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
 
 
+echo "\n== The full page reader actually renders ==\n";
+
+// This one shipped broken and looked fine: the toolbar drew, the document did
+// not, and clicking the sidebar open "fixed" it. .wppdf-viewer__pages is
+// absolutely positioned, so .wppdf-viewer__body has nothing in flow and no
+// intrinsic height; a percentage height on it needs every ancestor to have a
+// definite height, which a flex item does not. It collapsed to zero.
+$standalone_css = file_get_contents( __DIR__ . '/../assets/css/viewer.css' );
+$standalone_css = substr( $standalone_css, (int) strpos( $standalone_css, 'Full page reader' ) );
+
+ok( 'the reader body is sized by flex, not by a percentage', false !== strpos( $standalone_css, '.wppdf-standalone .wppdf-viewer__body' ) && false !== strpos( $standalone_css, 'flex: 1 1 auto' ) );
+ok( 'the percentage height that collapsed to zero is gone', false === strpos( $standalone_css, '--wppdf-height: 100%' ) );
+ok( 'the page itself has a definite height to hand down', false !== strpos( $standalone_css, 'height: 100dvh' ) );
+ok( 'the title sets its own colour instead of inheriting one a theme can win', false !== strpos( $standalone_css, ".wppdf-standalone__title {\n\tgrid-column: 2;\n\tmargin: 0;" ) && false !== strpos( $standalone_css, 'text-align: center' ) );
+
+$standalone_template = file_get_contents( __DIR__ . '/../templates/single-document-standalone.php' );
+
+// Matched as statements, because the file explains in prose what it is not
+// calling and that must not be what the test reads.
+ok( 'the standalone template never calls get_header', 0 === preg_match( '/^\s*get_header\s*\(/m', $standalone_template ) );
+ok( 'nor get_footer', 0 === preg_match( '/^\s*get_footer\s*\(/m', $standalone_template ) );
+ok( 'while the theme template does call them', 1 === preg_match( '/^\s*get_header\s*\(/m', file_get_contents( __DIR__ . '/../templates/single-document.php' ) ) );
+ok( 'but does call wp_head, which the reader needs', false !== strpos( $standalone_template, 'wp_head()' ) );
+ok( 'and wp_footer', false !== strpos( $standalone_template, 'wp_footer()' ) );
+
+// Deferring the reader until it scrolls into view is pointless when it is the
+// page, and it is one more way for it never to start.
+ok( 'the reader is not lazy loaded when it is the whole page', false !== strpos( $standalone_template, "'lazy' => false" ) );
+ok( 'the back link is marked for the history handler', false !== strpos( $standalone_template, 'data-wppdf-back' ) );
+ok( 'and still carries a real address for a direct hit', false !== strpos( $standalone_template, 'wppdf_get_back_url' ) );
+
+$eager = WPPDF_Viewer::render( 10, array( 'lang' => 'cs', 'lazy' => false ) );
+ok( 'and the rendered config says so', false !== strpos( $eager, '&quot;lazy&quot;:false' ) || false !== strpos( $eager, '"lazy":false' ) );
+
+
 echo "\n== Per-language slugs ==\n";
 
 $GLOBALS['stub_posts'][170] = array( 'ID' => 170, 'post_type' => 'pdf_document', 'post_title' => 'Výroční zpráva 2025', 'post_name' => 'vyrocni-zprava-2025', 'post_status' => 'publish' );
@@ -1347,6 +1387,19 @@ ok( 'another post type is not touched', ! isset( $other['p'] ) );
 
 $noname = $permalinks->resolve_request( array( 'post_type' => 'pdf_document' ) );
 ok( 'a request without a name is not touched', ! isset( $noname['p'] ) );
+
+// A draft keeps its language slug so an editor can preview it, but the slug
+// must not be a way around the status for anyone else.
+$GLOBALS['stub_posts'][172] = array( 'ID' => 172, 'post_type' => 'pdf_document', 'post_title' => 'Rozepsaný', 'post_name' => 'rozepsany', 'post_status' => 'draft' );
+WPPDF_Permalinks::set_slug( 172, 'en', 'unpublished-report' );
+
+$GLOBALS['stub_denied_caps'] = array( 'read_post' );
+$hidden = $permalinks->resolve_request( array( 'name' => 'unpublished-report', 'post_type' => 'pdf_document' ) );
+ok( 'a draft does not resolve for someone who may not read it', ! isset( $hidden['p'] ) );
+
+unset( $GLOBALS['stub_denied_caps'] );
+$preview = $permalinks->resolve_request( array( 'name' => 'unpublished-report', 'post_type' => 'pdf_document' ) );
+ok( 'but an editor can still preview it', isset( $preview['p'] ) && 172 === $preview['p'] );
 
 unset( $GLOBALS['stub_locale'] );
 WPPDF_Languages::flush_cache();
