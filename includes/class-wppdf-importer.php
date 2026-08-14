@@ -252,11 +252,46 @@ class WPPDF_Importer {
 		<?php endif; ?>
 
 		<p>
+			<button type="button" class="button" id="wppdf-migrate-choose" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>">
+				<?php esc_html_e( 'Choose records…', 'wp-pdf-reader' ); ?>
+			</button>
 			<button type="button" class="button button-primary" id="wppdf-migrate-start" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>">
-				<?php esc_html_e( 'Import records', 'wp-pdf-reader' ); ?>
+				<?php esc_html_e( 'Import all records', 'wp-pdf-reader' ); ?>
 			</button>
 			<span class="spinner wppdf-migrate__spinner"></span>
 		</p>
+
+		<p class="description">
+			<?php esc_html_e( 'Choosing shows what was found in each record, so the ones holding no PDF — stub translations, notes, index pages — can be left behind. Importing all takes everything the source has.', 'wp-pdf-reader' ); ?>
+		</p>
+
+		<div id="wppdf-migrate-picker" class="wppdf-migrate__picker" hidden>
+			<p class="wppdf-migrate__tools">
+				<button type="button" class="button-link" data-wppdf-select="pdf"><?php esc_html_e( 'Select those with a PDF', 'wp-pdf-reader' ); ?></button>
+				<button type="button" class="button-link" data-wppdf-select="all"><?php esc_html_e( 'Select all', 'wp-pdf-reader' ); ?></button>
+				<button type="button" class="button-link" data-wppdf-select="none"><?php esc_html_e( 'Select none', 'wp-pdf-reader' ); ?></button>
+				<span class="wppdf-migrate__count" aria-live="polite"></span>
+			</p>
+
+			<table class="widefat striped wppdf-migrate__table">
+				<thead>
+					<tr>
+						<td class="check-column"></td>
+						<th scope="col"><?php esc_html_e( 'Record', 'wp-pdf-reader' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'PDF', 'wp-pdf-reader' ); ?></th>
+						<th scope="col"><?php esc_html_e( 'Categories', 'wp-pdf-reader' ); ?></th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+
+			<p>
+				<button type="button" class="button" id="wppdf-migrate-more" hidden><?php esc_html_e( 'Load more', 'wp-pdf-reader' ); ?></button>
+				<button type="button" class="button button-primary" id="wppdf-migrate-selected" data-nonce="<?php echo esc_attr( wp_create_nonce( WPPDF_Migrator::NONCE ) ); ?>">
+					<?php esc_html_e( 'Import selected', 'wp-pdf-reader' ); ?>
+				</button>
+			</p>
+		</div>
 
 		<div id="wppdf-migrate-results" class="wppdf-import__results" aria-live="polite"></div>
 		<?php

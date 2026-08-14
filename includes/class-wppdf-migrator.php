@@ -31,6 +31,11 @@ class WPPDF_Migrator {
 	const BATCH = 10;
 
 	/**
+	 * Records listed per page when picking them by hand.
+	 */
+	const PREVIEW = 25;
+
+	/**
 	 * Meta key holding the source record ID.
 	 */
 	const META_SOURCE_ID = '_wppdf_imported_from';
@@ -60,6 +65,7 @@ class WPPDF_Migrator {
 	 */
 	public function hooks() {
 		add_action( 'wp_ajax_wppdf_migrate', array( $this, 'handle_ajax' ) );
+		add_action( 'wp_ajax_wppdf_migrate_preview', array( $this, 'handle_preview' ) );
 		add_action( 'wp_ajax_wppdf_adopt_slug', array( $this, 'handle_adopt_slug' ) );
 	}
 
@@ -303,10 +309,17 @@ class WPPDF_Migrator {
 	 *
 	 * @param string $post_type Source post type.
 	 * @param int    $limit     Maximum IDs.
+	 * @param int    $offset    Offset into the pending list.
 	 * @return int[]
 	 */
-	public static function get_pending_ids( $post_type, $limit = 0 ) {
-		return self::query_pending( $post_type, $limit, false );
+	public static function get_pending_ids( $post_type, $limit = 0, $offset = 0 ) {
+		return self::query_pending(
+			$post_type,
+			array(
+				'limit'  => $limit,
+				'offset' => $offset,
+			)
+		);
 	}
 
 	/**
@@ -316,7 +329,32 @@ class WPPDF_Migrator {
 	 * @return int
 	 */
 	public static function count_pending( $post_type ) {
-		return (int) self::query_pending( $post_type, 0, true );
+		return (int) self::query_pending( $post_type, array( 'count_only' => true ) );
+	}
+
+	/**
+	 * Keep only the IDs that really are pending records of this source.
+	 *
+	 * When the browser names the records to import, the names cannot be taken
+	 * at face value: they would otherwise reach any post on the site, of any
+	 * type and status. The pending query is the authority on what may be
+	 * imported, so the request is intersected with it rather than checked
+	 * against it field by field.
+	 *
+	 * @param string $post_type Source post type.
+	 * @param int[]  $ids       Requested record IDs.
+	 * @return int[] The subset that may be imported, in the requested order.
+	 */
+	public static function filter_pending( $post_type, array $ids ) {
+		$ids = array_values( array_filter( array_unique( array_map( 'absint', $ids ) ) ) );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$allowed = self::query_pending( $post_type, array( 'include' => $ids ) );
+
+		return array_values( array_intersect( $ids, $allowed ) );
 	}
 
 	/**
@@ -326,15 +364,26 @@ class WPPDF_Migrator {
 	 * ten records would be handed back on every batch and the run would never
 	 * finish. Starting a fresh run clears those flags again.
 	 *
-	 * @param string $post_type  Source post type.
-	 * @param int    $limit      Maximum IDs.
-	 * @param bool   $count_only Return the number of matches.
+	 * @param string $post_type Source post type.
+	 * @param array  $args      limit, offset, count_only and include.
 	 * @return int[]|int
 	 */
-	protected static function query_pending( $post_type, $limit, $count_only ) {
+	protected static function query_pending( $post_type, array $args = array() ) {
 		global $wpdb;
 
-		$select = $count_only ? 'COUNT(*)' : 'p.ID';
+		$args = array_merge(
+			array(
+				'limit'      => 0,
+				'offset'     => 0,
+				'count_only' => false,
+				'include'    => array(),
+			),
+			$args
+		);
+
+		$count_only = (bool) $args['count_only'];
+		$limit      = (int) $args['limit'];
+		$select     = $count_only ? 'COUNT(*)' : 'p.ID';
 
 		$sql = "SELECT {$select} FROM {$wpdb->posts} AS p
 			WHERE p.post_type = %s
@@ -350,6 +399,13 @@ class WPPDF_Migrator {
 
 		$params = array( $post_type, self::META_SOURCE_ID, self::META_SKIPPED );
 
+		$include = array_values( array_filter( array_map( 'absint', (array) $args['include'] ) ) );
+
+		if ( $include ) {
+			$sql   .= ' AND p.ID IN ( ' . implode( ',', array_fill( 0, count( $include ), '%d' ) ) . ' )';
+			$params = array_merge( $params, $include );
+		}
+
 		if ( $count_only ) {
 			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a NOT EXISTS over meta is not expressible in WP_Query, and the remaining count changes with every batch.
 			return (int) $wpdb->get_var( $wpdb->prepare( $sql, $params ) );
@@ -358,14 +414,108 @@ class WPPDF_Migrator {
 		$sql .= ' ORDER BY p.ID ASC';
 
 		if ( $limit > 0 ) {
-			$sql     .= ' LIMIT %d';
-			$params[] = (int) $limit;
+			$sql     .= ' LIMIT %d OFFSET %d';
+			$params[] = $limit;
+			$params[] = max( 0, (int) $args['offset'] );
 		}
 
 		// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- a NOT EXISTS over meta is not expressible in WP_Query, and each batch must see what the last one wrote.
 		$ids = $wpdb->get_col( $wpdb->prepare( $sql, $params ) );
 
 		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
+	 * What a page of pending records holds, so they can be picked by hand.
+	 *
+	 * A source usually contains records that carry no PDF at all — stub
+	 * translations, drafts someone started, an index page. Importing those
+	 * produces documents with nothing to show, so the screen lists what was
+	 * found in each record and lets the operator choose.
+	 *
+	 * @param string $post_type Source post type.
+	 * @param int    $limit     Records per page.
+	 * @param int    $offset    Offset into the pending list.
+	 * @return array[] One row per record.
+	 */
+	public static function preview( $post_type, $limit = 25, $offset = 0 ) {
+		$ids = self::get_pending_ids( $post_type, max( 1, (int) $limit ), $offset );
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		// describe() reads several meta values per record and the generic path
+		// reads all of them, so without priming this is one query per row twice
+		// over. Both caches are filled in one query each.
+		_prime_post_caches( $ids, false, true );
+
+		$terms = self::get_source_terms_batch( $ids );
+		$rows  = array();
+
+		foreach ( $ids as $id ) {
+			$post  = get_post( $id );
+			$found = self::describe( $id, $post_type );
+
+			$names = array();
+
+			foreach ( isset( $terms[ $id ] ) ? $terms[ $id ] : array() as $taxonomy_terms ) {
+				foreach ( $taxonomy_terms as $term ) {
+					$names[] = $term['name'];
+				}
+			}
+
+			$file = '';
+
+			if ( ! empty( $found['attachments'] ) ) {
+				$file = basename( (string) get_attached_file( $found['attachments'][0] ) );
+			} elseif ( ! empty( $found['url'] ) ) {
+				$file = basename( (string) wp_parse_url( $found['url'], PHP_URL_PATH ) );
+			}
+
+			$rows[] = array(
+				'id'     => (int) $id,
+				'title'  => $post && '' !== $post->post_title ? $post->post_title : sprintf( '#%d', $id ),
+				'status' => $post ? $post->post_status : '',
+				'date'   => $post ? mysql2date( get_option( 'date_format' ), $post->post_date ) : '',
+				'hasPdf' => ! empty( $found['attachments'] ) || ! empty( $found['url'] ),
+				'file'   => $file,
+				'pages'  => (int) $found['pages'],
+				'terms'  => array_values( array_unique( $names ) ),
+				'edit'   => (string) get_edit_post_link( $id, '' ),
+			);
+		}
+
+		return $rows;
+	}
+
+	/**
+	 * Hand the screen one page of records to choose from.
+	 */
+	public function handle_preview() {
+		check_ajax_referer( self::NONCE, 'nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'You are not allowed to migrate documents.', 'wp-pdf-reader' ) ), 403 );
+		}
+
+		$post_type = isset( $_POST['source'] ) ? sanitize_key( wp_unslash( $_POST['source'] ) ) : '';
+
+		if ( '' === $post_type || in_array( $post_type, WPPDF_Post_Type::get_supported_post_types(), true ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unknown source.', 'wp-pdf-reader' ) ), 400 );
+		}
+
+		$offset = isset( $_POST['offset'] ) ? absint( wp_unslash( $_POST['offset'] ) ) : 0;
+		$rows   = self::preview( $post_type, self::PREVIEW, $offset );
+
+		wp_send_json_success(
+			array(
+				'rows'   => $rows,
+				'offset' => $offset + count( $rows ),
+				'total'  => self::count_pending( $post_type ),
+				'done'   => count( $rows ) < self::PREVIEW,
+			)
+		);
 	}
 
 	/**
@@ -773,20 +923,44 @@ class WPPDF_Migrator {
 	 * @return array Map of taxonomy => list of term rows.
 	 */
 	public static function get_source_terms( $source_id ) {
+		$all = self::get_source_terms_batch( array( $source_id ) );
+
+		return isset( $all[ (int) $source_id ] ) ? $all[ (int) $source_id ] : array();
+	}
+
+	/**
+	 * The same, for many records at once.
+	 *
+	 * The preview lists the categories of every record on the screen, which
+	 * one query per record would make quadratic in all but name.
+	 *
+	 * @param int[] $source_ids Source record IDs.
+	 * @return array Grouped terms keyed by record ID; records with none are absent.
+	 */
+	public static function get_source_terms_batch( array $source_ids ) {
 		global $wpdb;
 
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the source taxonomy is usually unregistered by now, so the term APIs return nothing and the relationships have to be read directly.
+		$source_ids = array_values( array_filter( array_unique( array_map( 'absint', $source_ids ) ) ) );
+
+		if ( empty( $source_ids ) ) {
+			return array();
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $source_ids ), '%d' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- $placeholders is a list of %d built from a count and filled by prepare(); the source taxonomy is usually unregistered by now, so the term APIs return nothing and the relationships have to be read directly.
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT t.term_id, t.name, t.slug, tt.taxonomy, tt.parent, tt.description
+				"SELECT tr.object_id, t.term_id, t.name, t.slug, tt.taxonomy, tt.parent, tt.description
 				FROM {$wpdb->term_relationships} AS tr
 				INNER JOIN {$wpdb->term_taxonomy} AS tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
 				INNER JOIN {$wpdb->terms} AS t ON t.term_id = tt.term_id
-				WHERE tr.object_id = %d
+				WHERE tr.object_id IN ( {$placeholders} )
 				ORDER BY tt.parent ASC, t.name ASC",
-				$source_id
+				$source_ids
 			)
 		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
 
 		$grouped = array();
 
@@ -798,7 +972,7 @@ class WPPDF_Migrator {
 				continue;
 			}
 
-			$grouped[ $taxonomy ][] = array(
+			$grouped[ (int) $row->object_id ][ $taxonomy ][] = array(
 				'term_id'     => (int) $row->term_id,
 				'name'        => (string) $row->name,
 				'slug'        => (string) $row->slug,
@@ -944,9 +1118,24 @@ class WPPDF_Migrator {
 			self::clear_skipped( $post_type );
 		}
 
-		$ids      = self::get_pending_ids( $post_type, self::BATCH );
-		$imported = array();
-		$skipped  = array();
+		// The screen may name the records to import rather than take the next
+		// batch. filter_pending() decides which of them may actually be
+		// imported, so a hand-edited request cannot reach another post type.
+		if ( isset( $_POST['ids'] ) ) {
+			$chosen = self::filter_pending( $post_type, (array) wp_unslash( $_POST['ids'] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- absint() is applied to every element inside filter_pending().
+
+			if ( empty( $chosen ) ) {
+				wp_send_json_error( array( 'message' => __( 'None of the selected records can be imported.', 'wp-pdf-reader' ) ), 400 );
+			}
+
+			$ids = array_slice( $chosen, 0, self::BATCH );
+		} else {
+			$ids = self::get_pending_ids( $post_type, self::BATCH );
+		}
+
+		$requested = count( $ids );
+		$imported  = array();
+		$skipped   = array();
 
 		foreach ( $ids as $source_id ) {
 			$result = self::import(
@@ -975,10 +1164,14 @@ class WPPDF_Migrator {
 
 		wp_send_json_success(
 			array(
-				'imported' => $imported,
-				'skipped'  => $skipped,
-				'done'     => count( $ids ) < self::BATCH,
-				'left'     => self::count_pending( $post_type ),
+				'imported'  => $imported,
+				'skipped'   => $skipped,
+				// With a hand-picked list the browser knows what is left of its
+				// own selection, so it decides when to stop; only the run that
+				// walks the whole source ends when a batch comes back short.
+				'done'      => $requested < self::BATCH,
+				'processed' => $requested,
+				'left'      => self::count_pending( $post_type ),
 			)
 		);
 	}

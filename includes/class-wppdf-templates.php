@@ -90,6 +90,28 @@ class WPPDF_Templates {
 	}
 
 	/**
+	 * Which single template the settings ask for.
+	 *
+	 * The standalone one gives the reader the whole viewport by never calling
+	 * get_header() or get_footer(), which is what prints the theme's header,
+	 * navigation and footer.
+	 *
+	 * @return string Template file name.
+	 */
+	public static function single_template_name() {
+		$standalone = 'theme' !== WPPDF_Settings::get( 'single_layout' );
+
+		/**
+		 * Filter whether a document opens on a page of its own.
+		 *
+		 * @param bool $standalone Whether to use the full page template.
+		 */
+		$standalone = (bool) apply_filters( 'wppdf_standalone_single', $standalone );
+
+		return $standalone ? 'single-document-standalone.php' : 'single-document.php';
+	}
+
+	/**
 	 * Swap in the plugin's single/archive templates when the theme has none.
 	 *
 	 * @param string $template Template path chosen by WordPress.
@@ -105,7 +127,7 @@ class WPPDF_Templates {
 		if ( is_singular( $post_type ) ) {
 			$theme_template = locate_template( array( "single-{$post_type}.php" ) );
 			if ( ! $theme_template ) {
-				$plugin_template = self::locate( 'single-document.php' );
+				$plugin_template = self::locate( self::single_template_name() );
 				if ( $plugin_template ) {
 					return $plugin_template;
 				}

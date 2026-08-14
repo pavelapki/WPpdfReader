@@ -206,6 +206,7 @@ function wp_localize_script() {}
 function wp_enqueue_script( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function wp_enqueue_style( $h ) { $GLOBALS['stub_enqueued'][] = $h; }
 function locate_template( $templates ) { return ''; }
+function wp_get_referer() { return isset( $GLOBALS['stub_referer'] ) ? $GLOBALS['stub_referer'] : false; }
 function current_user_can( $cap = '', $object_id = 0 ) {
 	// Tests that care about a capability list the ones the current user is
 	// missing; everything else stays permitted so the rest keeps working.
@@ -254,6 +255,7 @@ function wp_mkdir_p( $d ) { return is_dir( $d ) || mkdir( $d, 0777, true ); }
 function update_attached_file( $id, $file ) { $GLOBALS['stub_posts'][ $id ]['file'] = $file; return true; }
 function wp_using_ext_object_cache() { return false; }
 function _prime_post_caches( $ids, $terms = true, $meta = true ) { $GLOBALS['stub_primed'] = array_merge( isset( $GLOBALS['stub_primed'] ) ? $GLOBALS['stub_primed'] : array(), (array) $ids ); }
+function mysql2date( $format, $date, $translate = true ) { return date( $format, strtotime( $date ) ); }
 function update_meta_cache( $type, $ids ) { return true; }
 function wp_get_attachment_metadata( $id ) { return isset( $GLOBALS['stub_attachment_meta'][ $id ] ) ? $GLOBALS['stub_attachment_meta'][ $id ] : array(); }
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
@@ -392,7 +394,15 @@ class Stub_WPDB {
 	public function update( $table, $data, $where ) { return 3; }
 	public function esc_like( $t ) { return addcslashes( (string) $t, '_%\\' ); }
 	public function query( $q ) { return 1; }
-	public function get_col( $q ) { return array( 10, 11 ); }
+	public function get_col( $q ) {
+		// The migrator's "not imported yet" query, which the picker tests drive
+		// with their own records.
+		if ( isset( $GLOBALS['stub_pending_ids'] ) && false !== strpos( $q, '_wppdf_import_skipped' ) ) {
+			return $GLOBALS['stub_pending_ids'];
+		}
+
+		return array( 10, 11 );
+	}
 	public function get_var( $q ) {
 		// "Did anything get imported at all", the guard in front of the lookup.
 		if ( false !== strpos( $q, 'SELECT 1 FROM' ) ) {
@@ -425,7 +435,27 @@ class Stub_WPDB {
 
 		return 2;
 	}
-	public function get_results( $q ) { return isset( $GLOBALS['stub_term_rows'] ) ? $GLOBALS['stub_term_rows'] : array(); }
+	public function get_results( $q ) {
+		$rows = isset( $GLOBALS['stub_term_rows'] ) ? $GLOBALS['stub_term_rows'] : array();
+
+		// The term lookup asks for many records at once and groups the answer
+		// by object_id, so the stub has to say which record each row belongs
+		// to. Every queried record gets the fixture's terms.
+		if ( $rows && preg_match( '/tr\.object_id IN \(([^)]*)\)/', $q, $m ) ) {
+			$ids  = array_map( 'intval', array_filter( array_map( 'trim', explode( ',', $m[1] ) ), 'is_numeric' ) );
+			$rows = array();
+
+			foreach ( $ids as $id ) {
+				foreach ( $GLOBALS['stub_term_rows'] as $row ) {
+					$copy            = clone $row;
+					$copy->object_id = $id;
+					$rows[]          = $copy;
+				}
+			}
+		}
+
+		return $rows;
+	}
 	public function get_row( $q ) { return isset( $GLOBALS['stub_term_parent'] ) ? $GLOBALS['stub_term_parent'] : null; }
 	public $term_relationships = 'wp_term_relationships';
 	public $term_taxonomy = 'wp_term_taxonomy';
@@ -963,8 +993,8 @@ echo "\n== Categories survive the migration ==\n";
 // TNC Classic keeps its categories in its own taxonomy. With the plugin
 // switched off that taxonomy is no longer registered, but the rows remain.
 $GLOBALS['stub_term_rows'] = array(
-	(object) array( 'term_id' => 501, 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
-	(object) array( 'term_id' => 502, 'name' => 'Katalogy', 'slug' => 'katalogy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
+	(object) array( 'object_id' => 71, 'term_id' => 501, 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
+	(object) array( 'object_id' => 71, 'term_id' => 502, 'name' => 'Katalogy', 'slug' => 'katalogy', 'taxonomy' => 'tnc_category', 'parent' => 0, 'description' => '' ),
 );
 
 $grouped = WPPDF_Migrator::get_source_terms( 71 );
@@ -999,6 +1029,35 @@ $native = WPPDF_Migrator::import( 82, array( 'language' => 'cs', 'status' => 'dr
 ok( 'a native category keeps its own term ID', array( 601 ) === $GLOBALS['stub_object_terms'][ $native['id'] ]['category'] );
 
 $GLOBALS['stub_term_rows'] = array();
+
+
+echo "\n== Picking which records to migrate ==\n";
+
+// A source usually holds records with no PDF — stub translations and the
+// like. The screen lists what each record holds so those can be left out.
+update_option( 'date_format', 'Y-m-d' );
+
+$GLOBALS['stub_posts'][150] = array( 'ID' => 150, 'post_type' => 'tnc_flipbook', 'post_title' => 'Má PDF', 'post_name' => 'ma-pdf', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'publish', 'post_date' => '2025-03-04 00:00:00', 'post_date_gmt' => '2025-03-04 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+$GLOBALS['stub_posts'][151] = array( 'ID' => 151, 'post_type' => 'tnc_flipbook', 'post_title' => 'Prázdný překlad', 'post_name' => 'prazdny', 'post_content' => '', 'post_excerpt' => '', 'post_status' => 'draft', 'post_date' => '2025-03-05 00:00:00', 'post_date_gmt' => '2025-03-05 00:00:00', 'post_author' => 1, 'menu_order' => 0 );
+update_post_meta( 150, '_tncfb3d_pdf_id', 70 );
+$GLOBALS['stub_pending_ids'] = array( 150, 151 );
+
+$preview = WPPDF_Migrator::preview( 'tnc_flipbook', 25, 0 );
+ok( 'the preview lists the pending records', 2 === count( $preview ) );
+ok( 'a record holding a PDF is marked as such', true === $preview[0]['hasPdf'] );
+ok( 'and the file name is shown', '' !== $preview[0]['file'] );
+ok( 'a record without a PDF is marked too', false === $preview[1]['hasPdf'] );
+ok( 'the status is carried over so drafts are visible', 'draft' === $preview[1]['status'] );
+
+// The browser sends the chosen IDs back. They decide what gets copied into
+// published documents, so they are intersected with the pending query rather
+// than trusted: the stub's pending set is 10 and 11.
+ok( 'a chosen record is accepted', array( 150 ) === WPPDF_Migrator::filter_pending( 'tnc_flipbook', array( 150 ) ) );
+ok( 'a record outside the pending set is dropped', array( 150, 151 ) === WPPDF_Migrator::filter_pending( 'tnc_flipbook', array( 150, 151, 4242 ) ) );
+ok( 'nothing is accepted from an empty request', array() === WPPDF_Migrator::filter_pending( 'tnc_flipbook', array() ) );
+ok( 'junk is not turned into a record', array() === WPPDF_Migrator::filter_pending( 'tnc_flipbook', array( 'abc', 0, -5 ) ) );
+
+unset( $GLOBALS['stub_posts'][150], $GLOBALS['stub_posts'][151] );
 
 
 echo "\n== Addresses survive the migration ==\n";
@@ -1120,6 +1179,47 @@ $acf_settings['acf_category_field'] = '';
 update_option( WPPDF_Settings::OPTION, $acf_settings );
 WPPDF_Settings::flush_cache();
 $GLOBALS['stub_current'] = 0;
+
+
+echo "\n== Full page reader ==\n";
+
+// The theme's header, menu and footer come from get_header()/get_footer(),
+// which the standalone template does not call. Picking the wrong file is the
+// only way that can go wrong, so that is what is checked.
+$layout_settings = WPPDF_Settings::all();
+ok( 'a document opens on its own page by default', 'single-document-standalone.php' === WPPDF_Templates::single_template_name() );
+
+$layout_settings['single_layout'] = 'theme';
+update_option( WPPDF_Settings::OPTION, $layout_settings );
+WPPDF_Settings::flush_cache();
+ok( 'the theme layout can be chosen instead', 'single-document.php' === WPPDF_Templates::single_template_name() );
+
+$layout_settings['single_layout'] = 'nonsense';
+$sanitizer = new WPPDF_Settings();
+ok( 'an unknown layout falls back to the full page', 'standalone' === $sanitizer->sanitize( $layout_settings )['single_layout'] );
+
+$layout_settings['single_layout'] = 'standalone';
+update_option( WPPDF_Settings::OPTION, $layout_settings );
+WPPDF_Settings::flush_cache();
+
+ok( 'both single templates exist', '' !== WPPDF_Templates::locate( 'single-document-standalone.php' ) && '' !== WPPDF_Templates::locate( 'single-document.php' ) );
+
+// A page with no navigation needs a way out.
+$GLOBALS['stub_posts'][160] = array( 'ID' => 160, 'post_type' => 'pdf_document', 'post_title' => 'Dokument', 'post_name' => 'dokument', 'post_status' => 'publish' );
+
+$GLOBALS['stub_referer'] = 'https://example.test/vyrocni-zpravy/';
+ok( 'the back link returns the visitor where they came from', 'https://example.test/vyrocni-zpravy/' === wppdf_get_back_url( 160 ) );
+
+// Reloading the reader makes the document itself the referer, which would be
+// a link to nowhere.
+$GLOBALS['stub_referer'] = get_permalink( 160 );
+ok( 'a reload does not make the link point at itself', 'https://example.test/pdf/' === wppdf_get_back_url( 160 ) );
+
+$GLOBALS['stub_referer'] = 'https://elsewhere.example/link/';
+ok( 'a referer from another site is not followed', 'https://example.test/pdf/' === wppdf_get_back_url( 160 ) );
+
+$GLOBALS['stub_referer'] = false;
+ok( 'without a referer the archive is offered', 'https://example.test/pdf/' === wppdf_get_back_url( 160 ) );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

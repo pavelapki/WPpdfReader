@@ -131,6 +131,17 @@ PDF. Originály zůstávají nedotčené, nic se nemaže. Každý import si u do
 poznamená, odkud přišel (`_wppdf_imported_from`), takže opakované spuštění
 nic nezduplikuje.
 
+**Co se má naimportovat, si můžeš vybrat.** Tlačítko **Vybrat záznamy…**
+vypíše, co v každém záznamu doopravdy je: jestli u něj sedí PDF, jak se soubor
+jmenuje, kolik má stran, jaké má kategorie a stav. Zaškrtnuté jsou jen ty
+s PDF — prázdné překlady a rozcestníky by jinak skončily jako dokumenty, které
+nemají co zobrazit. Tlačítko **Importovat všechny záznamy** vedle bere zdroj
+celý, jako dřív.
+
+Vybrané ID se na serveru protnou s dotazem na dosud neimportované záznamy
+daného typu, takže ručně upravený požadavek se nedostane k jinému typu obsahu
+ani k záznamu, který už importovaný je.
+
 **TNC FlipBook 3D** je rozpoznaný napřímo. Klíče jsem si přečetl ze zdrojáku
 pluginu, ne odhadl: typ obsahu `tnc_flipbook`, PDF v `_tncfb3d_pdf_id`
 (u vícesouborových v `_tncfb3d_pdf_ids`). Navíc se přebírá `_tncfb3d_page_count`
@@ -351,6 +362,26 @@ Plugin použije vlastní šablony jen tehdy, když je téma nemá. Pořadí:
 
 Přepsat lze i jednotlivé části: `wp-pdf-reader/parts/card.php` a
 `wp-pdf-reader/parts/archive-loop.php`.
+
+**Detail dokumentu se ve výchozím stavu otevírá přes celé okno.** Hlavičku,
+menu a patičku vykresluje `get_header()` a `get_footer()` — samostatná šablona
+`single-document-standalone.php` je prostě nevolá. `wp_head()` a `wp_footer()`
+volá dál, protože skripty a styly nejsou součástí obalu webu a prohlížeč je
+potřebuje. Zůstane jen úzký pruh s názvem a odkazem zpět; ten míří tam, odkud
+návštěvník přišel (`wp_get_referer()` v rámci vlastního webu), jinak na archiv
+dokumentů.
+
+Přepnout zpět do šablony webu jde v **Nastavení → Archiv → Otevření
+dokumentu**, nebo filtrem:
+
+```php
+// Detail v šabloně webu jen pro určitou kategorii.
+add_filter( 'wppdf_standalone_single', function ( $standalone ) {
+    return has_term( 'interni', 'category' ) ? false : $standalone;
+} );
+```
+
+`single-{post_type}.php` v tématu má přednost před obojím.
 
 ### Filtry
 

@@ -240,6 +240,267 @@
 		step( true );
 	} );
 
+	// --- Picking records by hand ------------------------------------------
+
+	var previewOffset = 0;
+
+	/**
+	 * Update the "n of m selected" line and the state of the import button.
+	 */
+	function refreshSelection() {
+		var $rows = $( '#wppdf-migrate-picker tbody input[type="checkbox"]' );
+		var selected = $rows.filter( ':checked' ).length;
+
+		$( '.wppdf-migrate__count' ).text(
+			( i18n.selectedCount || '%1$d of %2$d selected' )
+				.replace( '%1$d', selected )
+				.replace( '%2$d', $rows.length )
+		);
+
+		$( '#wppdf-migrate-selected' ).prop( 'disabled', 0 === selected );
+	}
+
+	/**
+	 * Append one page of records to the picker.
+	 *
+	 * @param {Array} rows Records as returned by the preview endpoint.
+	 */
+	function renderRows( rows ) {
+		var $body = $( '#wppdf-migrate-picker tbody' );
+
+		rows.forEach( function ( row ) {
+			var $check = $( '<input />' )
+				.attr( { type: 'checkbox', value: row.id, id: 'wppdf-pick-' + row.id } )
+				// A record with no PDF is the reason this screen exists, so it
+				// starts unticked rather than merely marked.
+				.prop( 'checked', !! row.hasPdf )
+				.attr( 'data-has-pdf', row.hasPdf ? '1' : '0' );
+
+			var $title = $( '<td />' );
+
+			$( '<label />' )
+				.attr( 'for', 'wppdf-pick-' + row.id )
+				.text( row.title )
+				.appendTo( $title );
+
+			if ( row.status && 'publish' !== row.status ) {
+				$title.append( ' ' ).append( $( '<span />' ).addClass( 'wppdf-migrate__status' ).text( '(' + row.status + ')' ) );
+			}
+
+			if ( row.edit ) {
+				$title.append( ' ' ).append(
+					$( '<a />' ).attr( { href: row.edit, target: '_blank', rel: 'noopener' } ).text( i18n.viewRecord || 'view' )
+				);
+			}
+
+			var $pdf = $( '<td />' );
+
+			if ( row.hasPdf ) {
+				$pdf.text( row.file || '✓' );
+
+				if ( row.pages ) {
+					$pdf.append( $( '<span />' ).addClass( 'wppdf-migrate__pages' ).text( ' · ' + row.pages ) );
+				}
+			} else {
+				$pdf.addClass( 'wppdf-migrate__nopdf' ).text( i18n.noPdf || 'no PDF' );
+			}
+
+			$( '<tr />' )
+				.append( $( '<th />' ).addClass( 'check-column' ).attr( 'scope', 'row' ).append( $check ) )
+				.append( $title )
+				.append( $pdf )
+				.append( $( '<td />' ).text( ( row.terms || [] ).join( ', ' ) ) )
+				.appendTo( $body );
+		} );
+
+		refreshSelection();
+	}
+
+	/**
+	 * Fetch one page of records to choose from.
+	 *
+	 * @param {jQuery}  $button Button that triggered the load.
+	 * @param {boolean} reset   Whether to start the list over.
+	 */
+	function loadPreview( $button, reset ) {
+		var source = $( '#wppdf-migrate-source' ).val();
+
+		if ( ! source ) {
+			return;
+		}
+
+		if ( reset ) {
+			previewOffset = 0;
+			$( '#wppdf-migrate-picker tbody' ).empty();
+		}
+
+		$button.prop( 'disabled', true );
+		$( '.wppdf-migrate__spinner' ).addClass( 'is-active' );
+
+		$.post( config.ajaxUrl, {
+			action: 'wppdf_migrate_preview',
+			nonce: $button.data( 'nonce' ) || $( '#wppdf-migrate-choose' ).data( 'nonce' ),
+			source: source,
+			offset: previewOffset
+		} ).done( function ( response ) {
+			if ( ! response || ! response.success ) {
+				$( '#wppdf-migrate-results' ).text(
+					response && response.data && response.data.message ? response.data.message : i18n.failed
+				);
+				return;
+			}
+
+			previewOffset = response.data.offset;
+			renderRows( response.data.rows || [] );
+
+			$( '#wppdf-migrate-picker' ).prop( 'hidden', false );
+			$( '#wppdf-migrate-more' ).prop( 'hidden', !! response.data.done );
+		} ).fail( function () {
+			$( '#wppdf-migrate-results' ).text( i18n.failed );
+		} ).always( function () {
+			$button.prop( 'disabled', false );
+			$( '.wppdf-migrate__spinner' ).removeClass( 'is-active' );
+		} );
+	}
+
+	$( document ).on( 'click', '#wppdf-migrate-choose', function ( event ) {
+		event.preventDefault();
+		loadPreview( $( this ), true );
+	} );
+
+	$( document ).on( 'click', '#wppdf-migrate-more', function ( event ) {
+		event.preventDefault();
+		loadPreview( $( this ), false );
+	} );
+
+	// Changing the source invalidates whatever is listed.
+	$( document ).on( 'change', '#wppdf-migrate-source', function () {
+		$( '#wppdf-migrate-picker' ).prop( 'hidden', true ).find( 'tbody' ).empty();
+		previewOffset = 0;
+	} );
+
+	$( document ).on( 'click', '#wppdf-migrate-picker [data-wppdf-select]', function ( event ) {
+		event.preventDefault();
+
+		var mode = $( this ).data( 'wppdf-select' );
+
+		$( '#wppdf-migrate-picker tbody input[type="checkbox"]' ).each( function () {
+			var $box = $( this );
+
+			if ( 'all' === mode ) {
+				$box.prop( 'checked', true );
+			} else if ( 'none' === mode ) {
+				$box.prop( 'checked', false );
+			} else {
+				$box.prop( 'checked', '1' === $box.attr( 'data-has-pdf' ) );
+			}
+		} );
+
+		refreshSelection();
+	} );
+
+	$( document ).on( 'change', '#wppdf-migrate-picker tbody input[type="checkbox"]', refreshSelection );
+
+	$( document ).on( 'click', '#wppdf-migrate-selected', function ( event ) {
+		event.preventDefault();
+
+		var $button = $( this );
+		var source = $( '#wppdf-migrate-source' ).val();
+		var imported = 0;
+
+		var queue = $( '#wppdf-migrate-picker tbody input[type="checkbox"]:checked' ).map( function () {
+			return parseInt( this.value, 10 );
+		} ).get();
+
+		if ( $button.prop( 'disabled' ) || ! source || ! queue.length ) {
+			return;
+		}
+
+		$button.prop( 'disabled', true );
+		$( '.wppdf-migrate__spinner' ).addClass( 'is-active' );
+		$( '#wppdf-migrate-results' ).empty();
+
+		/**
+		 * Add one line to the migration log.
+		 *
+		 * @param {string}  message Text to show.
+		 * @param {boolean} isError Whether it is a failure.
+		 * @param {string}  href    Optional link target.
+		 */
+		function line( message, isError, href ) {
+			var $line = $( '<p />' ).addClass( isError ? 'wppdf-import__error' : '' );
+
+			if ( href ) {
+				$line.append( $( '<a />' ).attr( 'href', href ).text( message ) );
+			} else {
+				$line.text( message );
+			}
+
+			$( '#wppdf-migrate-results' ).append( $line );
+		}
+
+		/**
+		 * Stop and report.
+		 *
+		 * @param {string}  message Message to show.
+		 * @param {boolean} isError Whether it is a failure.
+		 */
+		function finish( message, isError ) {
+			$( '.wppdf-migrate__spinner' ).removeClass( 'is-active' );
+			$button.prop( 'disabled', false );
+			line( message, isError );
+		}
+
+		/**
+		 * Send the chosen records a batch at a time.
+		 *
+		 * The server takes at most one batch per request, so the queue is
+		 * shortened by what it reports having handled rather than by a fixed
+		 * number, and a request that moves nothing ends the run instead of
+		 * looping forever.
+		 */
+		function step() {
+			$.post( config.ajaxUrl, {
+				action: 'wppdf_migrate',
+				nonce: $button.data( 'nonce' ),
+				source: source,
+				lang: $( '#wppdf-migrate-language' ).val(),
+				status: $( '#wppdf-migrate-status' ).val(),
+				ids: queue
+			} ).done( function ( response ) {
+				if ( ! response || ! response.success ) {
+					finish( response && response.data && response.data.message ? response.data.message : i18n.failed, true );
+					return;
+				}
+
+				( response.data.imported || [] ).forEach( function ( item ) {
+					imported++;
+					var suffix = item.notes && item.notes.length ? ' — ' + item.notes.join( ', ' ) : '';
+					line( item.title + suffix, false, item.edit );
+				} );
+
+				( response.data.skipped || [] ).forEach( function ( item ) {
+					line( item.title + ' — ' + item.reason, true );
+				} );
+
+				var handled = response.data.processed || 0;
+
+				queue = queue.slice( handled );
+
+				if ( ! handled || ! queue.length ) {
+					finish( i18n.migrated.replace( '%1$d', imported ).replace( '%2$d', response.data.left ) );
+					return;
+				}
+
+				step();
+			} ).fail( function () {
+				finish( i18n.failed, true );
+			} );
+		}
+
+		step();
+	} );
+
 	$( document ).on( 'click', '#wppdf-import-select', function ( event ) {
 		event.preventDefault();
 

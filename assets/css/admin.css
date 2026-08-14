@@ -226,3 +226,32 @@
 .wppdf-import__results p.wppdf-import__error {
 	border-left-color: #d63638;
 }
+
+.wppdf-migrate__picker {
+	max-width: 60em;
+	margin: 12px 0;
+}
+
+.wppdf-migrate__table {
+	display: block;
+	max-height: 24em;
+	overflow-y: auto;
+}
+
+.wppdf-migrate__tools > * {
+	margin-right: 12px;
+}
+
+.wppdf-migrate__count {
+	color: #646970;
+}
+
+.wppdf-migrate__status,
+.wppdf-migrate__pages {
+	color: #646970;
+}
+
+/* The whole point of the list is spotting these at a glance. */
+.wppdf-migrate__nopdf {
+	color: #b32d2e;
+}

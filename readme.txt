@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.6.3
+Stable tag: 1.7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,27 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.7.0 =
+* A document now opens on a page of its own, filling the window: no theme
+  header, menu or footer, only a slim bar with the title and a link back to
+  wherever the visitor came from. The old behaviour is one radio button away
+  under Archive → Opening a document, and a single-{post type}.php in the
+  theme still wins over both.
+* The migration can be driven by hand. "Choose records" lists what each
+  record in the source actually holds — the PDF, its file name, the page
+  count, the categories, the status — and ticks only those that carry a PDF,
+  so stub translations and index pages are left behind instead of becoming
+  empty documents.
+* The chosen records are checked against the pending query on the server, so
+  a hand-edited request cannot reach another post type or a record that was
+  already imported.
+* Performance: the record list primes the post and meta caches in one query
+  each, and reads the categories of every listed record in a single query
+  instead of one per record.
+* The views setting now says what it actually does: the ten minute window
+  that ignores repeat views needs a persistent object cache, and without one
+  every reload counts.
 
 = 1.6.3 =
 * The plugin is now discovered by site-wide GitHub updaters: the main file

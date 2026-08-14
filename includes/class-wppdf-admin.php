@@ -106,20 +106,24 @@ class WPPDF_Admin {
 					'nonce'   => wp_create_nonce( WPPDF_Importer::NONCE ),
 					'batch'   => WPPDF_Importer::BATCH,
 					'i18n'    => array(
-						'selectTitle'  => __( 'Select the PDFs to import', 'wp-pdf-reader' ),
-						'selectButton' => __( 'Import these PDFs', 'wp-pdf-reader' ),
-						'created'      => __( 'created', 'wp-pdf-reader' ),
-						'failed'       => __( 'The import request failed.', 'wp-pdf-reader' ),
+						'selectTitle'   => __( 'Select the PDFs to import', 'wp-pdf-reader' ),
+						'selectButton'  => __( 'Import these PDFs', 'wp-pdf-reader' ),
+						'created'       => __( 'created', 'wp-pdf-reader' ),
+						'failed'        => __( 'The import request failed.', 'wp-pdf-reader' ),
 						/* translators: %d: number of files. */
-						'finished'     => __( 'Finished, %d files processed.', 'wp-pdf-reader' ),
+						'finished'      => __( 'Finished, %d files processed.', 'wp-pdf-reader' ),
 						/* translators: 1: number imported, 2: number left unimported. */
-						'migrated'     => __( 'Done: %1$d imported, %2$d left.', 'wp-pdf-reader' ),
+						'migrated'      => __( 'Done: %1$d imported, %2$d left.', 'wp-pdf-reader' ),
 						/* translators: %s: old URL prefix. */
-						'oldPrefix'    => __( 'The records answer under %s.', 'wp-pdf-reader' ),
+						'oldPrefix'     => __( 'The records answer under %s.', 'wp-pdf-reader' ),
 						/* translators: %s: URL prefix. */
-						'adopt'        => __( 'Take over %s', 'wp-pdf-reader' ),
-						'slugUnknown'  => __( 'Their URL prefix cannot be read, because the plugin is no longer active and it was not seen before.', 'wp-pdf-reader' ),
-						'stillActive'  => __( 'The other plugin is still active — deactivate it first, otherwise both claim these addresses.', 'wp-pdf-reader' ),
+						'adopt'         => __( 'Take over %s', 'wp-pdf-reader' ),
+						'slugUnknown'   => __( 'Their URL prefix cannot be read, because the plugin is no longer active and it was not seen before.', 'wp-pdf-reader' ),
+						'stillActive'   => __( 'The other plugin is still active — deactivate it first, otherwise both claim these addresses.', 'wp-pdf-reader' ),
+						/* translators: 1: number selected, 2: number listed. */
+						'selectedCount' => __( '%1$d of %2$d selected', 'wp-pdf-reader' ),
+						'noPdf'         => __( 'no PDF', 'wp-pdf-reader' ),
+						'viewRecord'    => __( 'open', 'wp-pdf-reader' ),
 					),
 				)
 			);
@@ -610,6 +614,25 @@ class WPPDF_Admin {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Opening a document', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<fieldset>
+								<label>
+									<input type="radio" name="<?php echo esc_attr( $option ); ?>[single_layout]" value="standalone" <?php checked( 'theme' !== $settings['single_layout'] ); ?> />
+									<?php esc_html_e( 'On a page of its own, filling the whole window', 'wp-pdf-reader' ); ?>
+								</label>
+								<br />
+								<label>
+									<input type="radio" name="<?php echo esc_attr( $option ); ?>[single_layout]" value="theme" <?php checked( 'theme', $settings['single_layout'] ); ?> />
+									<?php esc_html_e( 'Inside the theme, with its header, menu and footer', 'wp-pdf-reader' ); ?>
+								</label>
+							</fieldset>
+							<p class="description">
+								<?php esc_html_e( 'A page of its own gives the reader the full window: the theme header, menu and footer are not rendered, only a slim bar with the title and a link back to where the visitor came from. This applies to the bundled template — a single-{post type}.php in the theme always wins.', 'wp-pdf-reader' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><?php esc_html_e( 'Templates and covers', 'wp-pdf-reader' ); ?></th>
 						<td>
 							<?php
@@ -791,7 +814,7 @@ class WPPDF_Admin {
 						<td>
 							<?php
 							$this->checkbox( 'language_switcher', __( 'Let visitors switch language versions in the reader toolbar', 'wp-pdf-reader' ) );
-							$this->checkbox( 'count_views', __( 'Count views and downloads per language', 'wp-pdf-reader' ) );
+							$this->checkbox( 'count_views', __( 'Count views and downloads per language', 'wp-pdf-reader' ), __( 'Counting is anonymous and repeat views from the same visitor are ignored for ten minutes — but that window needs a persistent object cache (Redis, Memcached). Without one every reload counts, so read the numbers as a trend rather than as visitors.', 'wp-pdf-reader' ) );
 							$this->checkbox( 'seo_metadata', __( 'Output structured data and Open Graph tags on documents', 'wp-pdf-reader' ) );
 							?>
 						</td>

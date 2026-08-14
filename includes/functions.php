@@ -193,6 +193,35 @@ if ( ! function_exists( 'wppdf_the_page_documents' ) ) {
 	}
 }
 
+if ( ! function_exists( 'wppdf_get_back_url' ) ) {
+	/**
+	 * Where the full page reader's back link should go.
+	 *
+	 * A page without the site's navigation needs a way out. The referring page
+	 * is the honest answer when the visitor came from this site — a listing, a
+	 * category, a search — and the document archive is the fallback for a
+	 * direct hit or a link from elsewhere.
+	 *
+	 * @param int $post_id Document ID.
+	 * @return string
+	 */
+	function wppdf_get_back_url( $post_id = 0 ) {
+		$referer = wp_get_referer();
+		$home    = wp_parse_url( home_url(), PHP_URL_HOST );
+
+		// wp_get_referer() already refuses a referer from another host, but it
+		// also returns the current URL when the visitor reloaded the reader,
+		// which would make the link go nowhere.
+		if ( $referer && wp_parse_url( $referer, PHP_URL_HOST ) === $home && get_permalink( $post_id ) !== $referer ) {
+			return $referer;
+		}
+
+		$archive = get_post_type_archive_link( WPPDF_Post_Type::get_key() );
+
+		return $archive ? $archive : home_url( '/' );
+	}
+}
+
 if ( ! function_exists( 'wppdf_get_current_language' ) ) {
 	/**
 	 * The language currently used to resolve documents.

@@ -588,3 +588,75 @@
 		background: rgba( 126, 182, 255, 0.25 );
 	}
 }
+
+/* Full page reader ------------------------------------------------------- */
+
+body.wppdf-standalone {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	/* 100dvh keeps the reader clear of the address bar on mobile. */
+	min-height: 100dvh;
+	background: var( --wppdf-bg, #f6f7f7 );
+}
+
+.wppdf-standalone__bar {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex: 0 0 auto;
+	padding: 8px 16px;
+	background: #1d2327;
+	color: #fff;
+}
+
+.wppdf-standalone__back {
+	color: inherit;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wppdf-standalone__back:hover,
+.wppdf-standalone__back:focus-visible {
+	text-decoration: underline;
+}
+
+.wppdf-standalone__title {
+	flex: 1 1 auto;
+	margin: 0;
+	font-size: 1rem;
+	font-weight: 600;
+	/* One line: the bar is chrome, not content. */
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.wppdf-standalone__lang {
+	flex: 0 0 auto;
+	opacity: 0.7;
+	font-size: 0.875rem;
+}
+
+.wppdf-standalone__main {
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+/*
+ * The height is an inline custom property on the reader, so overriding it
+ * from a stylesheet needs !important. Here the reader fills what the bar
+ * leaves rather than a fixed number of pixels.
+ */
+.wppdf-standalone .wppdf-viewer {
+	--wppdf-height: 100% !important;
+	height: 100%;
+	margin: 0;
+}
+
+@media print {
+	.wppdf-standalone__bar {
+		display: none;
+	}
+}

@@ -83,6 +83,7 @@ class WPPDF_Settings {
 			'archive_columns'      => 3,
 			'archive_per_page'     => 12,
 			'override_templates'   => 1,
+			'single_layout'        => 'standalone',
 			'archive_filters'      => 1,
 			'redirect_old_urls'    => 1,
 			'acf_category_field'   => '',
@@ -313,6 +314,9 @@ class WPPDF_Settings {
 		// --- Archive ---------------------------------------------------.
 		$layout                = isset( $input['archive_layout'] ) ? sanitize_key( $input['archive_layout'] ) : 'grid';
 		$out['archive_layout'] = in_array( $layout, array( 'grid', 'list' ), true ) ? $layout : 'grid';
+
+		$single               = isset( $input['single_layout'] ) ? sanitize_key( $input['single_layout'] ) : 'standalone';
+		$out['single_layout'] = in_array( $single, array( 'standalone', 'theme' ), true ) ? $single : 'standalone';
 
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
 		$out['archive_per_page'] = isset( $input['archive_per_page'] ) ? min( 100, max( 1, absint( $input['archive_per_page'] ) ) ) : $defaults['archive_per_page'];
