@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,15 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.6.2 =
+* Fixed the reader failing to start on a lot of hosting. The bundled PDF.js
+  build shipped with the .mjs extension, and servers without a MIME type for
+  it answer with an empty Content-Type, which browsers refuse to run as a
+  module. The files are now named .js, which every server knows. Nothing about
+  their contents changed, and the release build refuses to ship .mjs again.
+* When the reader cannot load at all, the console now names the file and the
+  likely cause instead of only "Failed to fetch dynamically imported module".
 
 = 1.6.1 =
 * Review pass: the plugin now passes WordPress Coding Standards with no errors,

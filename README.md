@@ -452,10 +452,15 @@ Návrh se drží několika pravidel, aby plugin nebyl drahý:
 ```bash
 npm pack pdfjs-dist@<verze>
 tar -xzf pdfjs-dist-<verze>.tgz
-cp package/legacy/build/pdf.min.mjs package/legacy/build/pdf.worker.min.mjs \
-   assets/vendor/pdfjs/
+cp package/legacy/build/pdf.min.mjs   assets/vendor/pdfjs/pdf.min.js
+cp package/legacy/build/pdf.worker.min.mjs assets/vendor/pdfjs/pdf.worker.min.js
 cp package/standard_fonts/* assets/vendor/pdfjs/standard_fonts/
 ```
+
+Přípona se při kopírování mění z `.mjs` na `.js` schválně: spousta hostingů
+nemá pro `.mjs` nastavený MIME typ a pošle soubor s prázdnou hlavičkou
+`Content-Type`, což prohlížeč jako ES modul odmítne spustit. Obsah souboru
+je nedotčený, mění se jen jméno.
 
 Používá se **legacy** build kvůli podpoře starších prohlížečů. Načítá se přes
 dynamický `import()` z `assets/js/viewer.js`, žádná registrace skriptu ve

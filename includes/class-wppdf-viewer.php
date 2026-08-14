@@ -57,8 +57,14 @@ class WPPDF_Viewer {
 			'wppdf-viewer',
 			'wppdfSettings',
 			array(
-				'libSrc'              => $vendor . 'pdf.min.mjs',
-				'workerSrc'           => $vendor . 'pdf.worker.min.mjs',
+				/*
+				 * The upstream build ships as .mjs, but a lot of hosting still
+				 * has no MIME type for that extension and serves it with an
+				 * empty Content-Type, which browsers refuse to run as a module.
+				 * The files are renamed to .js, which every server knows.
+				 */
+				'libSrc'              => $vendor . 'pdf.min.js',
+				'workerSrc'           => $vendor . 'pdf.worker.min.js',
 				'standardFontDataUrl' => $vendor . 'standard_fonts/',
 
 				/*

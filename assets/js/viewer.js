@@ -56,7 +56,20 @@
 				}
 
 				resolve( lib );
-			}, reject );
+			}, function ( error ) {
+				// A failed module import says only "Failed to fetch dynamically
+				// imported module", which sends people looking for a broken file
+				// when the file is usually fine and the server is the problem:
+				// either it 404s or it answers without a JavaScript MIME type.
+				reject(
+					new Error(
+						'WP PDF Reader: could not load ' + settings.libSrc +
+						'. Check that the file exists and that the server sends it ' +
+						'with a JavaScript Content-Type. Original error: ' +
+						( error && error.message ? error.message : error )
+					)
+				);
+			} );
 		} );
 
 		return libPromise;

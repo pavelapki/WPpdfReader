@@ -79,8 +79,11 @@ jobs:
 
           # The bundled reader is the whole point of the zip, so its absence
           # must stop the release rather than ship a plugin that cannot render.
-          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.min.mjs
-          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.worker.min.mjs
+          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.min.js
+          test -f build/wp-pdf-reader/assets/vendor/pdfjs/pdf.worker.min.js
+          # The reader must not go back to .mjs: too much hosting serves that
+          # extension with no MIME type, and the module then never runs.
+          test -z "$(find build/wp-pdf-reader/assets -name '*.mjs')"
           test -f build/wp-pdf-reader/languages/wp-pdf-reader-cs_CZ.mo
 
           cd build
