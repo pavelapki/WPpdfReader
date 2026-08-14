@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.9.0
+Stable tag: 1.9.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,14 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.9.1 =
+* Fixed language slugs 404ing when another post already carried that name in
+  a state WordPress will not serve — a leftover translation, an old draft,
+  something in the trash. The resolver stood aside for any post it found,
+  including those, and WordPress then had nothing to show. It now stands
+  aside only for a post that would really be served: published, or one the
+  visitor is allowed to read.
 
 = 1.9.0 =
 * A document now behaves like a post in any loop that shows a featured image.

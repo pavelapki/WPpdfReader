@@ -95,7 +95,12 @@ function update_post_meta( $id, $key, $value ) { $GLOBALS['stub_meta'][ $id ][ $
 function delete_post_meta( $id, $key ) { unset( $GLOBALS['stub_meta'][ $id ][ $key ] ); }
 
 // --- Posts / attachments -------------------------------------------------.
-function get_post( $id ) { return isset( $GLOBALS['stub_posts'][ $id ] ) ? (object) $GLOBALS['stub_posts'][ $id ] : null; }
+function get_post( $id ) {
+	// Core accepts an ID or a post object; the stub has to as well, or code
+	// that legitimately passes an object blows up only here.
+	if ( is_object( $id ) ) { return $id; }
+	return isset( $GLOBALS['stub_posts'][ $id ] ) ? (object) $GLOBALS['stub_posts'][ $id ] : null;
+}
 function get_post_type( $id ) { $p = get_post( $id ); return $p ? $p->post_type : ''; }
 function get_post_mime_type( $post ) { $id = is_object( $post ) ? $post->ID : $post; $p = get_post( $id ); return $p && isset( $p->post_mime_type ) ? $p->post_mime_type : ''; }
 function wp_get_attachment_url( $id ) { $p = get_post( $id ); return $p && isset( $p->url ) ? $p->url : false; }
@@ -1448,6 +1453,27 @@ ok( 'another post type is not touched', ! isset( $other['p'] ) );
 
 $noname = $permalinks->resolve_request( array( 'post_type' => 'pdf_document' ) );
 ok( 'a request without a name is not touched', ! isset( $noname['p'] ) );
+
+// Found live: a leftover post — an old translation, a draft, something in the
+// trash — carrying the same post_name made the resolver stand aside, and
+// WordPress then 404'd because that post is not servable. Only a post
+// WordPress would really serve may take precedence over a language slug.
+$GLOBALS['stub_posts'][175] = array( 'ID' => 175, 'post_type' => 'pdf_document', 'post_title' => 'Starý překlad', 'post_name' => 'annual-report-2025', 'post_status' => 'draft' );
+
+$GLOBALS['stub_denied_caps'] = array( 'read_post' );
+$shadowed = $permalinks->resolve_request( array( 'name' => 'annual-report-2025', 'post_type' => 'pdf_document' ) );
+ok( 'an unservable post of the same name does not block the language slug', isset( $shadowed['p'] ) && 170 === $shadowed['p'] );
+unset( $GLOBALS['stub_denied_caps'] );
+
+// The editor who may read that draft still gets it, because that is what
+// WordPress would have served.
+$editors = $permalinks->resolve_request( array( 'name' => 'annual-report-2025', 'post_type' => 'pdf_document' ) );
+ok( 'but an editor who can read it still reaches it', ! isset( $editors['p'] ) );
+
+$GLOBALS['stub_posts'][175]['post_status'] = 'publish';
+$published = $permalinks->resolve_request( array( 'name' => 'annual-report-2025', 'post_type' => 'pdf_document' ) );
+ok( 'and a published post of that name always wins', ! isset( $published['p'] ) );
+unset( $GLOBALS['stub_posts'][175] );
 
 // A draft keeps its language slug so an editor can preview it, but the slug
 // must not be a way around the status for anyone else.

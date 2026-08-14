@@ -213,6 +213,31 @@ class WPPDF_Permalinks {
 	}
 
 	/**
+	 * Whether WordPress would actually serve this post to this visitor.
+	 *
+	 * Published posts qualify; a draft, a pending or a trashed one only for
+	 * someone who may read it. Both sides of the resolver need the same answer:
+	 * one to decide whether to stand aside, the other to decide whether to
+	 * point at a document at all.
+	 *
+	 * @param WP_Post|null $post Post to test.
+	 * @return bool
+	 */
+	protected static function is_servable( $post ) {
+		if ( ! $post || ! isset( $post->ID ) ) {
+			return false;
+		}
+
+		$status = get_post_status_object( get_post_status( $post ) );
+
+		if ( $status && ! empty( $status->public ) ) {
+			return true;
+		}
+
+		return current_user_can( 'read_post', $post->ID );
+	}
+
+	/**
 	 * Point a request at the document whose language slug it names.
 	 *
 	 * Only runs when WordPress found nothing itself, so an ordinary address is
@@ -236,7 +261,15 @@ class WPPDF_Permalinks {
 
 		// A real post_name wins: it is what WordPress would have served, and
 		// looking further would let a language slug shadow another document.
-		if ( get_page_by_path( $name, OBJECT, $post_type ) ) {
+		//
+		// Only a post WordPress would actually serve counts. get_page_by_path()
+		// answers with drafts and trashed posts as well, and standing aside for
+		// one of those produces a 404 while a perfectly good language slug was
+		// available — which is exactly what a leftover translation or an old
+		// draft sharing the name did.
+		$existing = get_page_by_path( $name, OBJECT, $post_type );
+
+		if ( $existing && self::is_servable( $existing ) ) {
 			return $vars;
 		}
 
@@ -250,9 +283,7 @@ class WPPDF_Permalinks {
 		// WP_Query guards singular queries on its own. Checking here as well
 		// means this route cannot expose a document even if that guard changes
 		// or another plugin has already reshaped the query.
-		$status = get_post_status_object( get_post_status( $post_id ) );
-
-		if ( ( ! $status || ! $status->public ) && ! current_user_can( 'read_post', $post_id ) ) {
+		if ( ! self::is_servable( get_post( $post_id ) ) ) {
 			return $vars;
 		}
 
