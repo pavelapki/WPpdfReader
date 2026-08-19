@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.10.1
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,24 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.11.0 =
+* Fallback pages no longer look like error pages to search engines. A document
+  shown in a fallback language now names the language version that holds the
+  file as its canonical address, so /de/ and /pl/ copies of a Czech document
+  count as copies of it instead of being reported as soft 404s in Search
+  Console. Visitors keep the page and the document exactly as before.
+* The canonical is handed to Yoast, Rank Math, SEOPress, AIOSEO and The SEO
+  Framework as well, since each prints its own; without an SEO plugin it is
+  printed directly. It can be switched off in the settings or redirected with
+  the wppdf_canonical_url filter.
+* The fallback notice states which language is being shown instead of
+  announcing that the document is not available — "not available in your
+  language" is how an error page talks, and on a page whose remaining words
+  are a toolbar that was enough to be filed as a soft 404.
+* The reader's interface carries data-nosnippet, and a description an SEO
+  plugin built out of the toolbar is replaced by what the document says: its
+  excerpt, or the text extracted from the PDF.
 
 = 1.10.1 =
 * A WPML or Polylang translation with no PDF of its own now falls back on its

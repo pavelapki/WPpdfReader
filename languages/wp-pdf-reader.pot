@@ -14,7 +14,7 @@ msgstr ""
 msgid "\"Use any language that has a file\": off, otherwise a document with neither a Czech nor an English PDF shows whatever it does have."
 msgstr ""
 
-#: includes/class-wppdf-settings.php:359
+#: includes/class-wppdf-settings.php:360
 msgid "%1$d documents were moved from \"%2$s\" to \"%3$s\"."
 msgstr ""
 
@@ -95,6 +95,10 @@ msgstr ""
 msgid "A page of its own gives the reader the full window: the theme header, menu and footer are not rendered, only a slim bar with the title and a link back to where the visitor came from. This applies to the bundled template — a single-{post type}.php in the theme always wins."
 msgstr ""
 
+#: includes/class-wppdf-admin.php:853
+msgid "A visitor whose language has no file keeps the page and sees the fallback. Search engines are told the content belongs to the language version that holds the file, so the address counts as a copy of that page instead of being reported as a soft 404."
+msgstr ""
+
 #: includes/class-wppdf-admin.php:713
 msgid "ACF was not found, so type the meta key by hand. Any plugin storing term IDs or slugs under that key works."
 msgstr ""
@@ -119,7 +123,7 @@ msgstr ""
 msgid "Addresses"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:302
+#: includes/class-wppdf-viewer.php:314
 #: templates/parts/filters.php:47
 #: templates/parts/filters.php:75
 msgid "All"
@@ -157,7 +161,7 @@ msgstr ""
 msgid "Ascending"
 msgstr ""
 
-#: includes/class-wppdf-settings.php:269
+#: includes/class-wppdf-settings.php:270
 msgid "At least one language is required. The default languages were restored."
 msgstr ""
 
@@ -182,7 +186,7 @@ msgstr ""
 msgid "Both read the field of the page being shown and list only the documents from those categories. When the field is empty, nothing is printed."
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:314
+#: includes/class-wppdf-viewer.php:326
 msgid "Cancel"
 msgstr ""
 
@@ -225,11 +229,11 @@ msgstr ""
 msgid "Comma separated codes tried in order when the current language has no file, for example: cs, en"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:325
+#: includes/class-wppdf-viewer.php:337
 msgid "Contents"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:252
+#: includes/class-wppdf-viewer.php:264
 msgid "Contents and thumbnails"
 msgstr ""
 
@@ -237,7 +241,7 @@ msgstr ""
 msgid "Copies existing records into documents: title, text, date, author, featured image, the PDF itself and the categories — including categories from a taxonomy of the other plugin, which are matched to yours by name or created. The originals are left untouched, and a record that was already imported is never imported twice."
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:287
+#: includes/class-wppdf-viewer.php:299
 msgid "Copy a link to this page"
 msgstr ""
 
@@ -266,7 +270,7 @@ msgstr ""
 msgid "Create as"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:303
+#: includes/class-wppdf-viewer.php:315
 msgid "Current page"
 msgstr ""
 
@@ -314,7 +318,7 @@ msgstr ""
 msgid "Document category"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:278
+#: includes/class-wppdf-viewer.php:290
 msgid "Document language"
 msgstr ""
 
@@ -355,11 +359,11 @@ msgid "Done: %1$d imported, %2$d left."
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:86
-#: includes/class-wppdf-viewer.php:292
+#: includes/class-wppdf-viewer.php:304
 msgid "Download"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:885
+#: includes/class-wppdf-admin.php:886
 #: includes/class-wppdf-shortcodes.php:259
 msgid "Download PDF"
 msgstr ""
@@ -437,12 +441,12 @@ msgstr ""
 
 #: includes/class-wppdf-admin.php:600
 #: includes/class-wppdf-viewer.php:83
-#: includes/class-wppdf-viewer.php:265
+#: includes/class-wppdf-viewer.php:277
 #: assets/js/blocks.js:92
 msgid "Fit width"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:306
+#: includes/class-wppdf-viewer.php:318
 msgid "From"
 msgstr ""
 
@@ -455,7 +459,7 @@ msgid "Full text, category, language and year, plus sorting. The same filters ca
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:85
-#: includes/class-wppdf-viewer.php:294
+#: includes/class-wppdf-viewer.php:306
 msgid "Fullscreen"
 msgstr ""
 
@@ -568,7 +572,7 @@ msgstr ""
 msgid "Languages: every language you actually have PDFs in."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:869
+#: includes/class-wppdf-admin.php:870
 msgid "Latest release: %1$s, installed: %2$s"
 msgstr ""
 
@@ -611,8 +615,9 @@ msgstr ""
 msgid "Load the document only when it scrolls into view"
 msgstr ""
 
+#: includes/class-wppdf-seo.php:124
 #: includes/class-wppdf-viewer.php:74
-#: includes/class-wppdf-viewer.php:335
+#: includes/class-wppdf-viewer.php:347
 msgid "Loading document…"
 msgstr ""
 
@@ -640,12 +645,12 @@ msgstr ""
 msgid "Newest first"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:273
+#: includes/class-wppdf-viewer.php:285
 msgid "Next match"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:80
-#: includes/class-wppdf-viewer.php:258
+#: includes/class-wppdf-viewer.php:270
 msgid "Next page"
 msgstr ""
 
@@ -706,7 +711,7 @@ msgstr ""
 msgid "OCR needs pdftoppm (poppler) and tesseract on the server. Neither was found, so scans stay unindexed."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:859
+#: includes/class-wppdf-admin.php:860
 msgid "Offer plugin updates from GitHub releases"
 msgstr ""
 
@@ -726,7 +731,8 @@ msgstr ""
 msgid "Only logged in visitors may open this document"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:345
+#: includes/class-wppdf-seo.php:127
+#: includes/class-wppdf-viewer.php:357
 msgid "Open the PDF"
 msgstr ""
 
@@ -772,7 +778,7 @@ msgid "PDF files by language"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:76
-#: includes/class-wppdf-viewer.php:255
+#: includes/class-wppdf-viewer.php:267
 msgid "Page"
 msgstr ""
 
@@ -780,7 +786,7 @@ msgstr ""
 msgid "Page %1$d of %2$d"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:324
+#: includes/class-wppdf-viewer.php:336
 msgid "Pages"
 msgstr ""
 
@@ -788,7 +794,8 @@ msgstr ""
 msgid "Pages at most"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:301
+#: includes/class-wppdf-seo.php:126
+#: includes/class-wppdf-viewer.php:313
 msgid "Pages to print"
 msgstr ""
 
@@ -800,6 +807,10 @@ msgstr ""
 msgid "Plural"
 msgstr ""
 
+#: includes/class-wppdf-admin.php:853
+msgid "Point search engines at the language version a fallback page is showing"
+msgstr ""
+
 #: includes/class-wppdf-admin.php:437
 msgid "Post type key"
 msgstr ""
@@ -808,18 +819,18 @@ msgstr ""
 msgid "Preparing pages…"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:272
+#: includes/class-wppdf-viewer.php:284
 msgid "Previous match"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:79
-#: includes/class-wppdf-viewer.php:253
+#: includes/class-wppdf-viewer.php:265
 msgid "Previous page"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:87
-#: includes/class-wppdf-viewer.php:289
-#: includes/class-wppdf-viewer.php:313
+#: includes/class-wppdf-viewer.php:301
+#: includes/class-wppdf-viewer.php:325
 msgid "Print"
 msgstr ""
 
@@ -894,7 +905,8 @@ msgstr ""
 msgid "Search %s"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:269
+#: includes/class-wppdf-seo.php:125
+#: includes/class-wppdf-viewer.php:281
 msgid "Search in the document"
 msgstr ""
 
@@ -906,7 +918,7 @@ msgstr ""
 msgid "Searching…"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:270
+#: includes/class-wppdf-viewer.php:282
 msgid "Search…"
 msgstr ""
 
@@ -955,7 +967,7 @@ msgstr ""
 msgid "Share the post categories and tags"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:880
+#: includes/class-wppdf-admin.php:881
 msgid "Shortcodes"
 msgstr ""
 
@@ -1093,7 +1105,7 @@ msgstr ""
 msgid "The other plugin is still active — deactivate it first, otherwise both claim these addresses."
 msgstr ""
 
-#: includes/class-wppdf-settings.php:215
+#: includes/class-wppdf-settings.php:216
 msgid "The post type key is empty or reserved by WordPress. The previous value was kept."
 msgstr ""
 
@@ -1105,11 +1117,11 @@ msgstr ""
 msgid "The records answer under %s."
 msgstr ""
 
-#: includes/class-wppdf-admin.php:862
+#: includes/class-wppdf-admin.php:863
 msgid "The repository in owner/name form. The newest published release is offered as an update."
 msgstr ""
 
-#: includes/class-wppdf-settings.php:344
+#: includes/class-wppdf-settings.php:345
 msgid "The repository must be given as owner/name. The previous value was kept."
 msgstr ""
 
@@ -1133,10 +1145,6 @@ msgstr ""
 msgid "This document has no file yet, so the reader will not be rendered."
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:242
-msgid "This document is not available in your language, showing the %s version."
-msgstr ""
-
 #: includes/class-wppdf-protection.php:252
 msgid "This document is not available."
 msgstr ""
@@ -1147,6 +1155,10 @@ msgstr ""
 
 #: includes/class-wppdf-admin.php:519
 msgid "This does two jobs: it ends the fallback chain, and it is what a site language missing from the list above collapses to. A Bulgarian site with no bg in the list is served this language — so if the answer should be English, set this to English."
+msgstr ""
+
+#: includes/class-wppdf-viewer.php:254
+msgid "This is the %s version of the document."
 msgstr ""
 
 #: includes/class-wppdf-admin.php:741
@@ -1186,7 +1198,7 @@ msgstr ""
 msgid "Untitled document"
 msgstr ""
 
-#: includes/class-wppdf-admin.php:857
+#: includes/class-wppdf-admin.php:858
 msgid "Updates from GitHub"
 msgstr ""
 
@@ -1257,12 +1269,12 @@ msgid "Your own admin language is %s, which is why this screen may show somethin
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:81
-#: includes/class-wppdf-viewer.php:264
+#: includes/class-wppdf-viewer.php:276
 msgid "Zoom in"
 msgstr ""
 
 #: includes/class-wppdf-viewer.php:82
-#: includes/class-wppdf-viewer.php:262
+#: includes/class-wppdf-viewer.php:274
 msgid "Zoom out"
 msgstr ""
 
@@ -1318,7 +1330,7 @@ msgstr ""
 msgid "title in this language:"
 msgstr ""
 
-#: includes/class-wppdf-viewer.php:308
+#: includes/class-wppdf-viewer.php:320
 msgid "to"
 msgstr ""
 

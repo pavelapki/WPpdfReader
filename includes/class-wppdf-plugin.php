@@ -53,6 +53,7 @@ class WPPDF_Plugin {
 			'filters'    => new WPPDF_Filters(),
 			'stats'      => new WPPDF_Stats(),
 			'seo'        => new WPPDF_Seo(),
+			'canonical'  => new WPPDF_Canonical(),
 			'protection' => new WPPDF_Protection(),
 			'permalinks' => new WPPDF_Permalinks(),
 			'meta'       => new WPPDF_Meta(),
@@ -103,6 +104,7 @@ class WPPDF_Plugin {
 		WPPDF_Languages::flush_cache();
 		WPPDF_Post_Type::flush_cache();
 		WPPDF_Documents::flush_cache();
+		WPPDF_Canonical::flush_cache();
 	}
 
 	/**

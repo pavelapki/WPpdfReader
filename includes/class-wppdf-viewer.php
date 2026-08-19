@@ -235,11 +235,23 @@ class WPPDF_Viewer {
 			style="--wppdf-height: <?php echo (int) $height; ?>px;">
 
 			<?php if ( $file['is_fallback'] && WPPDF_Settings::get( 'show_fallback_notice' ) ) : ?>
-				<p class="wppdf-viewer__fallback">
+				<?php
+				/*
+				 * Which language a visitor is looking at, said as a fact rather
+				 * than as a failure. "Not available in your language" is how an
+				 * error page talks, and on a page whose remaining words are a
+				 * toolbar it is enough for a search engine to file the address
+				 * as a soft 404 — the document is right there.
+				 *
+				 * data-nosnippet keeps this and the rest of the interface out of
+				 * search result snippets, which describe the document instead.
+				 */
+				?>
+				<p class="wppdf-viewer__fallback" data-nosnippet>
 					<?php
 					printf(
 						/* translators: %s: language label. */
-						esc_html__( 'This document is not available in your language, showing the %s version.', 'wp-pdf-reader' ),
+						esc_html__( 'This is the %s version of the document.', 'wp-pdf-reader' ),
 						'<strong>' . esc_html( $file['language_label'] ) . '</strong>'
 					);
 					?>
@@ -247,7 +259,7 @@ class WPPDF_Viewer {
 			<?php endif; ?>
 
 			<?php if ( $args['toolbar'] ) : ?>
-				<div class="wppdf-viewer__toolbar">
+				<div class="wppdf-viewer__toolbar" data-nosnippet>
 					<div class="wppdf-toolbar__group">
 						<button type="button" class="wppdf-btn wppdf-sidebar-toggle" aria-expanded="false" aria-label="<?php esc_attr_e( 'Contents and thumbnails', 'wp-pdf-reader' ); ?>">&#9776;</button>
 						<button type="button" class="wppdf-btn wppdf-prev" aria-label="<?php esc_attr_e( 'Previous page', 'wp-pdf-reader' ); ?>">&#8249;</button>
@@ -296,7 +308,7 @@ class WPPDF_Viewer {
 				</div>
 
 				<?php if ( $args['print'] ) : ?>
-					<div class="wppdf-print-dialog" hidden>
+					<div class="wppdf-print-dialog" data-nosnippet hidden>
 						<fieldset>
 							<legend><?php esc_html_e( 'Pages to print', 'wp-pdf-reader' ); ?></legend>
 							<label><input type="radio" name="<?php echo esc_attr( $id ); ?>-range" value="all" checked /> <?php esc_html_e( 'All', 'wp-pdf-reader' ); ?></label>
@@ -319,7 +331,7 @@ class WPPDF_Viewer {
 			<?php endif; ?>
 
 			<div class="wppdf-viewer__body">
-				<aside class="wppdf-viewer__sidebar" hidden>
+				<aside class="wppdf-viewer__sidebar" data-nosnippet hidden>
 					<div class="wppdf-sidebar__tabs" role="tablist">
 						<button type="button" class="wppdf-sidebar__tab is-active" role="tab" aria-selected="true" data-panel="thumbs"><?php esc_html_e( 'Pages', 'wp-pdf-reader' ); ?></button>
 						<button type="button" class="wppdf-sidebar__tab" role="tab" aria-selected="false" data-panel="outline" hidden><?php esc_html_e( 'Contents', 'wp-pdf-reader' ); ?></button>
@@ -330,7 +342,7 @@ class WPPDF_Viewer {
 
 				<div class="wppdf-viewer__stage">
 					<div class="wppdf-viewer__pages" tabindex="0" role="document"></div>
-					<div class="wppdf-viewer__status" role="status">
+					<div class="wppdf-viewer__status" role="status" data-nosnippet>
 						<span class="wppdf-spinner" aria-hidden="true"></span>
 						<span class="wppdf-status-text"><?php esc_html_e( 'Loading document…', 'wp-pdf-reader' ); ?></span>
 					</div>

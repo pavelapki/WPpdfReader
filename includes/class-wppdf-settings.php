@@ -101,6 +101,7 @@ class WPPDF_Settings {
 			// Statistics, SEO and updates.
 			'count_views'          => 1,
 			'seo_metadata'         => 1,
+			'canonical_fallback'   => 1,
 			'language_switcher'    => 1,
 			'github_updates'       => 1,
 			'github_repository'    => 'pavelapki/WPpdfReader',
@@ -321,7 +322,7 @@ class WPPDF_Settings {
 		$out['archive_columns']  = isset( $input['archive_columns'] ) ? min( 6, max( 1, absint( $input['archive_columns'] ) ) ) : $defaults['archive_columns'];
 		$out['archive_per_page'] = isset( $input['archive_per_page'] ) ? min( 100, max( 1, absint( $input['archive_per_page'] ) ) ) : $defaults['archive_per_page'];
 
-		foreach ( array( 'override_templates', 'archive_filters', 'redirect_old_urls', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'language_switcher', 'github_updates' ) as $flag ) {
+		foreach ( array( 'override_templates', 'archive_filters', 'redirect_old_urls', 'generate_covers', 'extract_text', 'search_pdf_text', 'ocr_enabled', 'count_views', 'seo_metadata', 'canonical_fallback', 'language_switcher', 'github_updates' ) as $flag ) {
 			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
 		}
 

@@ -71,8 +71,48 @@ pak zbytek — čímž se dosáhne na originál. Prázdný italský překlad tak
 anglické PDF sám od sebe, bez čehokoli vyplňování.
 
 Když se použije jiný než požadovaný jazyk, může se návštěvníkovi zobrazit
-nenápadná poznámka („Tento dokument není ve vašem jazyce, zobrazujeme anglickou
-verzi.“) — jde vypnout v nastavení.
+nenápadná poznámka („Zobrazená verze dokumentu: Čeština“) — jde vypnout
+v nastavení.
+
+#### Fallback a vyhledávače (falešné 404)
+
+Fallback je záměr: návštěvník na `/de/` nebo `/pl/` má dostat české nebo
+anglické PDF, ne 404. Vedlejší efekt ale je, že jeden dokument má tolik adres,
+kolik má web jazyků, a všechny ukazují totéž. Pro Google je taková stránka
+podezřelá: vlastními slovy na ní je jen hláška o jazyce a čtečka, která se
+teprve načítá. V Search Console pak takové adresy skončí jako **falešná 404
+(soft 404)** — což je hlášení „vypadá to jako chybová stránka“, ne skutečná
+chyba serveru.
+
+Plugin to neřeší skrýváním fallbacku, ale tím, že stránka řekne, kde její obsah
+doopravdy je:
+
+* **Kanonická adresa fallback stránky ukazuje na jazykovou verzi, která soubor
+  má.** `/de/dokumenty/lokality/` se tedy přihlásí ke své české předloze.
+  Vyhledávač ji pak bere jako kopii té stránky — což taky je — místo jako
+  rozbitou. Návštěvníkovi se nemění nic, stránka funguje dál.
+* Hodnota se předává i SEO pluginu (Yoast, Rank Math, SEOPress, AIOSEO,
+  The SEO Framework), protože každý z nich si kanonickou vypisuje sám. Bez SEO
+  pluginu ji vypíše plugin a odhlásí vlastní `rel_canonical()` WordPressu.
+* Když žádný vícejazyčný plugin neběží, má dokument stejně jen jednu adresu —
+  pak se nic nevypisuje, ukazovat sama na sebe nemá smysl.
+* **Poznámka o jazyce nezní jako chyba.** Původní „Tento dokument není ve vašem
+  jazyce“ je přesně to, jak mluví chybová stránka, a na stránce, jejíž zbytek
+  je lišta s tlačítky, to Googlu na soft 404 stačilo.
+* **Ovládání čtečky je označené `data-nosnippet`**, takže se lišta a stavové
+  hlášky neobjeví v popisku ve výsledcích hledání. Když z nich přesto nějaký
+  SEO plugin popisek postaví, plugin ho vymění za to, co říká dokument:
+  perex, jinak text vytažený z PDF.
+
+V Search Console se adresa po přeindexování přesune z **Falešná 404** do
+**Alternativní stránka s příslušnou kanonickou značkou** — což je informace,
+ne chyba. Indexovaná zůstane ta jazyková verze, která soubor opravdu má.
+Přeindexování Googlu chvíli trvá; „Ověřit opravu" u hlášení se dá pustit hned,
+ale výsledek přijde řádově ve dnech.
+
+Vypnout jde zaškrtávátkem **Odkázat vyhledávače na jazykovou verzi, kterou
+náhradní stránka zobrazuje** v nastavení, nebo přesměrovat jinam filtrem
+`wppdf_canonical_url`.
 
 #### Nadpis a adresa pro každý jazyk
 
@@ -386,6 +426,11 @@ Kdo smí číst, se dá předefinovat filtrem `wppdf_user_can_read` — třeba p
 * **Schema.org `DigitalDocument` + Open Graph** na detailu dokumentu. Když
   běží Yoast, Rank Math, SEOPress, AIOSEO nebo The SEO Framework, OG tagy se
   nevypisují, aby se neduplikovaly.
+* **Kanonická adresa fallback stránek** míří na jazykovou verzi, která soubor
+  má, takže se `/de/` a `/pl/` adresy nehlásí jako falešné 404 — viz
+  [Fallback a vyhledávače](#fallback-a-vyhledávače-falešné-404).
+* **Popisek dokumentu** se bere z perexu, a když žádný není, z textu vytaženého
+  z PDF. Popisek poskládaný z tlačítek čtečky se vymění.
 * **Aktualizace z GitHub releasů** — plugin si sám nabídne novou verzi
   v přehledu pluginů. Odpověď API se cachuje na 6 hodin (neúspěch na 2), takže
   administrace na GitHub nikdy nečeká. Balíček se přijme jen z HTTPS a jen
@@ -488,6 +533,7 @@ add_filter( 'wppdf_standalone_single', function ( $standalone ) {
 | `wppdf_count_hit` | zda se zobrazení započítá (rate limit, boti) |
 | `wppdf_schema_data` | data pro JSON-LD |
 | `wppdf_seo_plugin_active` | vypnutí OG tagů kvůli jinému SEO pluginu |
+| `wppdf_canonical_url` | kanonická adresa fallback stránky (prázdný řetězec = nechat být) |
 | `wppdf_file_url` | URL, ze které se soubor servíruje |
 | `wppdf_is_protected` | zda dokument vyžaduje přihlášení |
 | `wppdf_user_can_read` | kdo smí chráněný dokument otevřít |
@@ -521,8 +567,8 @@ tests/smoke.php            smoke test bez WordPressu
 `tests/smoke.php` obsahuje odlehčený harness, který si nastubuje potřebné
 funkce WordPressu a projde klíčové cesty — jazykový fallback, vyhodnocení
 souboru, HTML prohlížeče, shortcody, sanitizaci nastavení, extrakci textu
-z reálně vygenerovaného PDF, rozšíření SQL dotazu při hledání i validaci
-balíčků z GitHubu:
+z reálně vygenerovaného PDF, rozšíření SQL dotazu při hledání, kanonickou
+adresu fallback stránek i validaci balíčků z GitHubu:
 
 ```bash
 php tests/smoke.php

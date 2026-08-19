@@ -760,6 +760,36 @@ class WPPDF_Text {
 	}
 
 	/**
+	 * The text extracted from a document's file.
+	 *
+	 * @param int    $post_id Document ID.
+	 * @param string $code    Language code, defaults to the resolved one.
+	 * @return string Empty when nothing was extracted.
+	 */
+	public static function get_text( $post_id, $code = '' ) {
+		$post_id = absint( $post_id );
+
+		if ( ! $post_id ) {
+			return '';
+		}
+
+		$code = WPPDF_Settings::sanitize_language_code( $code );
+
+		if ( '' === $code ) {
+			$file = WPPDF_Documents::get_file( $post_id );
+
+			if ( ! $file ) {
+				return '';
+			}
+
+			$post_id = $file['post_id'];
+			$code    = $file['lang'];
+		}
+
+		return (string) get_post_meta( $post_id, self::text_meta_key( $code ), true );
+	}
+
+	/**
 	 * Page count stored for a document, using the resolved language first.
 	 *
 	 * @param int    $post_id Document ID.

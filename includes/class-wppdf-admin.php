@@ -850,6 +850,7 @@ class WPPDF_Admin {
 							$this->checkbox( 'language_switcher', __( 'Let visitors switch language versions in the reader toolbar', 'wp-pdf-reader' ) );
 							$this->checkbox( 'count_views', __( 'Count views and downloads per language', 'wp-pdf-reader' ), __( 'Counting is anonymous and repeat views from the same visitor are ignored for ten minutes — but that window needs a persistent object cache (Redis, Memcached). Without one every reload counts, so read the numbers as a trend rather than as visitors.', 'wp-pdf-reader' ) );
 							$this->checkbox( 'seo_metadata', __( 'Output structured data and Open Graph tags on documents', 'wp-pdf-reader' ) );
+							$this->checkbox( 'canonical_fallback', __( 'Point search engines at the language version a fallback page is showing', 'wp-pdf-reader' ), __( 'A visitor whose language has no file keeps the page and sees the fallback. Search engines are told the content belongs to the language version that holds the file, so the address counts as a copy of that page instead of being reported as a soft 404.', 'wp-pdf-reader' ) );
 							?>
 						</td>
 					</tr>

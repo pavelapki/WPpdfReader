@@ -34,6 +34,7 @@ $GLOBALS['stub_filter_callbacks'] = array();
 
 // --- Hooks ---------------------------------------------------------------.
 function add_action( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
+function remove_action( $tag, $cb, $priority = 10 ) { return true; }
 function add_filter( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['stub_actions'][ $tag ][] = $cb; }
 function has_filter( $tag, $cb = false ) { return isset( $GLOBALS['stub_actions'][ $tag ] ); }
 function apply_filters( $tag, $value ) {
@@ -125,7 +126,7 @@ function get_post_thumbnail_id( $id = 0 ) {
 }
 function has_post_thumbnail( $id = 0 ) { return (bool) get_post_thumbnail_id( $id ); }
 function wp_get_attachment_image() { return '<img src="cover.jpg" alt="" />'; }
-function get_the_excerpt( $id = 0 ) { return 'Excerpt text.'; }
+function get_the_excerpt( $id = 0 ) { return isset( $GLOBALS['stub_excerpt'] ) ? $GLOBALS['stub_excerpt'] : 'Excerpt text.'; }
 function get_the_date( $format = '', $id = 0 ) { return '11. 8. 2026'; }
 function get_the_term_list() { return '<a href="#">Reports</a>'; }
 function post_class( $class = '', $id = null ) { echo 'class="' . ( is_array( $class ) ? implode( ' ', $class ) : $class ) . '"'; }
@@ -1611,6 +1612,124 @@ ok( 'but an editor can still preview it', isset( $preview['p'] ) && 172 === $pre
 
 unset( $GLOBALS['stub_locale'] );
 WPPDF_Languages::flush_cache();
+
+
+echo "\n== Fallback pages and search engines ==\n";
+
+// The case from Search Console: /de/ and /pl/ addresses of a document that
+// only has a Czech file. They serve the Czech PDF on purpose, but to Google
+// they were pages whose only words were "not available in your language" plus
+// a reader that had not loaded — filed as soft 404s. The page stays; what
+// changes is that it now says where the content it shows really lives.
+$GLOBALS['stub_posts'][180] = array( 'ID' => 180, 'post_type' => 'pdf_document', 'post_title' => 'Lokality', 'post_name' => 'lokality', 'post_status' => 'publish' );
+update_post_meta( 180, '_wppdf_file_cs', 20 );
+
+// The shipped setup, plus the German that WPML sync adds to the list on a site
+// that has a German version of everything else.
+$before_fallback                = WPPDF_Settings::all();
+$fallback_settings              = WPPDF_Settings::defaults();
+$fallback_settings['languages'] = array(
+	array( 'code' => 'cs', 'label' => 'Čeština' ),
+	array( 'code' => 'en', 'label' => 'English' ),
+	array( 'code' => 'de', 'label' => 'Deutsch' ),
+);
+update_option( WPPDF_Settings::OPTION, $fallback_settings );
+WPPDF_Settings::flush_cache();
+
+$GLOBALS['stub_locale']      = 'de_DE';
+$GLOBALS['stub_is_singular'] = true;
+$GLOBALS['stub_current']     = 180;
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+WPPDF_Canonical::flush_cache();
+
+$german = WPPDF_Documents::get_file( 180 );
+ok( 'a German visitor gets the Czech file', $german && 'cs' === $german['lang'] && $german['is_fallback'] );
+
+// One address per language is what a multilingual plugin makes; without one
+// there is only ever a single address, and pointing it at itself says nothing.
+ok( 'nothing to point at without a multilingual plugin', '' === WPPDF_Canonical::get_target() );
+
+// WPML's own filter is what puts /cs/ or /de/ in front of an address, so it is
+// asked for the language that holds the file rather than the visitor's.
+function stub_wpml_permalink( $url, $code = '', $absolute = false ) {
+	return str_replace( 'https://example.test/', 'https://example.test/' . $code . '/', $url );
+}
+$GLOBALS['stub_actions']['wpml_permalink']           = array( 'stub_wpml_permalink' );
+$GLOBALS['stub_filter_callbacks']['wpml_permalink']  = array( 'stub_wpml_permalink' );
+
+WPPDF_Canonical::flush_cache();
+ok( 'a fallback page is canonical to the language holding the file', 'https://example.test/cs/pdf/lokality/' === WPPDF_Canonical::get_target() );
+
+// And to that language's own address when it has one, not to the slug the
+// visitor's language happens to be using.
+WPPDF_Permalinks::set_slug( 180, 'cs', 'ceske-lokality' );
+WPPDF_Canonical::flush_cache();
+ok( 'the language slug of the target is used', 'https://example.test/cs/pdf/ceske-lokality/' === WPPDF_Canonical::get_target() );
+ok( 'the address is built for the asked language, not the current one', 'https://example.test/cs/pdf/ceske-lokality/' === WPPDF_Permalinks::get_language_permalink( 180, 'cs' ) );
+
+// A visitor in the language the file belongs to is on the real page already.
+$GLOBALS['stub_locale'] = 'cs_CZ';
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+WPPDF_Canonical::flush_cache();
+ok( 'no canonical when the language matches', '' === WPPDF_Canonical::get_target() );
+
+$GLOBALS['stub_locale'] = 'de_DE';
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+
+$canonical_off                       = WPPDF_Settings::all();
+$canonical_off['canonical_fallback'] = 0;
+update_option( WPPDF_Settings::OPTION, $canonical_off );
+WPPDF_Settings::flush_cache();
+WPPDF_Canonical::flush_cache();
+ok( 'the setting switches it off', '' === WPPDF_Canonical::get_target() );
+
+$canonical_off['canonical_fallback'] = 1;
+update_option( WPPDF_Settings::OPTION, $canonical_off );
+WPPDF_Settings::flush_cache();
+WPPDF_Canonical::flush_cache();
+
+// The notice tells a visitor what they are looking at without sounding like a
+// missing page, and the interface is kept out of search result snippets.
+$notice = WPPDF_Viewer::render( 180 );
+ok( 'the notice does not announce a failure', false === strpos( $notice, 'not available' ) );
+ok( 'the notice names the language it is showing', false !== strpos( $notice, 'version of the document' ) );
+ok( 'the interface is marked as no snippet material', false !== strpos( $notice, 'data-nosnippet' ) );
+
+echo "\n== Document descriptions ==\n";
+
+update_post_meta( 180, '_wppdf_text_cs', 'Seznam lokalit a jejich obsluhy v jednotlivých směnách.' );
+ok( 'extracted text is readable back', 'Seznam lokalit a jejich obsluhy v jednotlivých směnách.' === WPPDF_Text::get_text( 180, 'cs' ) );
+ok( 'and follows the resolved language', 'Seznam lokalit a jejich obsluhy v jednotlivých směnách.' === WPPDF_Text::get_text( 180 ) );
+
+$GLOBALS['stub_excerpt'] = '';
+ok( 'a document with no excerpt is described by its own text', 'Seznam lokalit a jejich obsluhy v jednotlivých směnách.' === WPPDF_Seo::get_description( 180 ) );
+
+$GLOBALS['stub_excerpt'] = 'Přehled lokalit.';
+ok( 'an excerpt wins when there is one', 'Přehled lokalit.' === WPPDF_Seo::get_description( 180 ) );
+
+// What Search Console showed as the description of those pages: the reader's
+// own buttons, summarised by an SEO plugin as if they were the document.
+$seo   = new WPPDF_Seo();
+$chrome = 'This is the Čeština version of the document. ☰ ‹ / – › Search in the document Loading document… Open the PDF';
+ok( 'a description made of toolbar labels is replaced', 'Přehled lokalit.' === $seo->filter_description( $chrome ) );
+ok( 'a real description is left alone', 'Roční přehled.' === $seo->filter_description( 'Roční přehled.' ) );
+
+$GLOBALS['stub_excerpt'] = '';
+delete_post_meta( 180, '_wppdf_text_cs' );
+ok( 'and an empty one beats button labels when there is nothing else', '' === $seo->filter_description( $chrome ) );
+unset( $GLOBALS['stub_excerpt'] );
+
+unset( $GLOBALS['stub_actions']['wpml_permalink'], $GLOBALS['stub_filter_callbacks']['wpml_permalink'] );
+unset( $GLOBALS['stub_locale'], $GLOBALS['stub_is_singular'] );
+$GLOBALS['stub_current'] = 0;
+update_option( WPPDF_Settings::OPTION, $before_fallback );
+WPPDF_Settings::flush_cache();
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+WPPDF_Canonical::flush_cache();
 
 
 echo "\n== Full page reader ==\n";

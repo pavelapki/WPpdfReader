@@ -320,13 +320,77 @@ class WPPDF_Permalinks {
 			return $link;
 		}
 
+		return self::swap_slug( $link, $slug, $post );
+	}
+
+	/**
+	 * The address this document answers on in one particular language.
+	 *
+	 * Two things make a language's address: the language part, which belongs to
+	 * WPML or Polylang — /de/ against /pl/ — and the last segment, which is
+	 * this plugin's per-language slug. Both are asked for the language wanted
+	 * rather than the one the visitor happens to be browsing in, which is what
+	 * lets a page say where its content really lives.
+	 *
+	 * @param int    $post_id Document ID.
+	 * @param string $code    Language code.
+	 * @return string Empty when the document has no address at all.
+	 */
+	public static function get_language_permalink( $post_id, $code ) {
+		$post = get_post( $post_id );
+
+		if ( ! $post || ! isset( $post->post_name ) ) {
+			return '';
+		}
+
+		$link = get_permalink( $post_id );
+
+		if ( ! $link ) {
+			return '';
+		}
+
+		$code = WPPDF_Settings::sanitize_language_code( $code );
+
+		if ( '' !== $code && WPPDF_Settings::get( 'sync_with_wpml' ) && has_filter( 'wpml_permalink' ) ) {
+			// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filter, consumed rather than introduced.
+			$translated = apply_filters( 'wpml_permalink', $link, $code, true );
+
+			if ( is_string( $translated ) && '' !== $translated ) {
+				$link = $translated;
+			}
+		}
+
+		$slug = self::get_slug( $post_id, $code );
+
+		if ( '' === $slug ) {
+			$slug = $post->post_name;
+		}
+
+		return '' !== $slug ? self::swap_slug( $link, $slug, $post ) : $link;
+	}
+
+	/**
+	 * Replace the last segment of an address with a slug.
+	 *
+	 * @param string  $link Address.
+	 * @param string  $slug Slug to put there.
+	 * @param WP_Post $post Post the address belongs to.
+	 * @return string
+	 */
+	protected static function swap_slug( $link, $slug, $post ) {
 		$trailing = '/' === substr( $link, -1 );
 		$parts    = explode( '/', untrailingslashit( $link ) );
 		$last     = array_pop( $parts );
 
+		if ( $last === $slug ) {
+			return $link;
+		}
+
 		// Plain permalinks end in ?p=123 rather than the name, and a structure
-		// nobody expected should be left exactly as it is.
-		if ( $last !== $post->post_name ) {
+		// nobody expected should be left exactly as it is. A segment that is one
+		// of this document's own language slugs is expected: get_permalink()
+		// already put the current language's there.
+		if ( $last !== $post->post_name && ! self::owns_slug( $post->ID, $last ) ) {
 			return $link;
 		}
 
@@ -334,5 +398,26 @@ class WPPDF_Permalinks {
 		$link    = implode( '/', $parts );
 
 		return $trailing ? trailingslashit( $link ) : $link;
+	}
+
+	/**
+	 * Whether a slug is one this document answers on.
+	 *
+	 * @param int    $post_id Document ID.
+	 * @param string $slug    Address segment.
+	 * @return bool
+	 */
+	protected static function owns_slug( $post_id, $slug ) {
+		if ( '' === $slug ) {
+			return false;
+		}
+
+		foreach ( WPPDF_Languages::get_codes() as $code ) {
+			if ( self::get_slug( $post_id, $code ) === $slug ) {
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
