@@ -35,7 +35,9 @@ class WPPDF_Admin {
 	 */
 	public function register_list_table_hooks() {
 		foreach ( WPPDF_Post_Type::get_supported_post_types() as $post_type ) {
-			add_filter( "manage_edit-{$post_type}_columns", array( $this, 'columns' ) );
+			// Late, so the columns other plugins add are already there to be
+			// pruned — see columns().
+			add_filter( "manage_edit-{$post_type}_columns", array( $this, 'columns' ), 999 );
 			add_action( "manage_{$post_type}_posts_custom_column", array( $this, 'column_content' ), 10, 2 );
 		}
 	}
@@ -171,6 +173,10 @@ class WPPDF_Admin {
 		$new = array();
 
 		foreach ( $columns as $key => $label ) {
+			if ( $this->is_pruned_column( $key ) ) {
+				continue;
+			}
+
 			if ( 'title' === $key ) {
 				$new['wppdf_cover'] = __( 'Cover', 'wp-pdf-reader' );
 			}
@@ -187,6 +193,32 @@ class WPPDF_Admin {
 		}
 
 		return $new;
+	}
+
+	/**
+	 * Whether a list table column is dropped from the document screen.
+	 *
+	 * The title column is the one being read, and every extra column takes
+	 * its room. Tags are not used on documents, and the columns Rank Math and
+	 * WP Rocket attach to every post type ("SEO Details", "Rocket Insights")
+	 * are no help on a document list either, so they go. The list is
+	 * filterable for anyone who wants one of them back.
+	 *
+	 * @param string $key Column key.
+	 * @return bool
+	 */
+	protected function is_pruned_column( $key ) {
+		$keys = apply_filters(
+			'wppdf_pruned_list_table_columns',
+			array(
+				'tags',
+				'taxonomy-post_tag',
+				'rank_math_seo_details',
+				'rocket_insights',
+			)
+		);
+
+		return in_array( $key, (array) $keys, true );
 	}
 
 	/**

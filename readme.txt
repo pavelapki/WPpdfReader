@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.11.0
+Stable tag: 1.11.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,16 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.11.1 =
+* The document list in wp-admin gives the title its room back. The tags
+  column is gone (documents do not use tags), and so are the columns Rank
+  Math and WP Rocket attach to every post type, "SEO Details" and "Rocket
+  Insights" — on a document list they only squeezed the title into a few
+  characters per line. The remaining columns have fixed widths, so the title
+  takes what is left; on a half-width window the author column steps aside
+  as well. The `wppdf_pruned_list_table_columns` filter brings any of them
+  back.
 
 = 1.11.0 =
 * Fallback pages no longer look like error pages to search engines. A document

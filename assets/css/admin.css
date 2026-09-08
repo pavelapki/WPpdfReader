@@ -161,6 +161,41 @@
 	width: 180px;
 }
 
+/*
+ * The title is what the list is read by, so everything else gets a fixed
+ * width and the title takes the rest. Core only sizes author and date.
+ */
+.wp-list-table.posts .column-wppdf_stats {
+	width: 110px;
+}
+
+.wp-list-table.posts .column-categories {
+	width: 18%;
+}
+
+.wp-list-table.posts .column-author {
+	width: 12%;
+}
+
+.wp-list-table.posts .column-date {
+	width: 11%;
+}
+
+/* Half a screen: the badges wrap into two rows and the author steps aside. */
+@media screen and (min-width: 783px) and (max-width: 1280px) {
+	.wp-list-table.posts .column-wppdf_files {
+		width: 120px;
+	}
+
+	.wp-list-table.posts .column-wppdf_stats {
+		width: 80px;
+	}
+
+	.wp-list-table.posts .column-author {
+		display: none;
+	}
+}
+
 /* Settings page ---------------------------------------------------------- */
 
 .wppdf-settings .wppdf-checkbox {
