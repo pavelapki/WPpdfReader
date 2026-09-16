@@ -54,6 +54,7 @@ class WPPDF_Plugin {
 			'stats'      => new WPPDF_Stats(),
 			'seo'        => new WPPDF_Seo(),
 			'protection' => new WPPDF_Protection(),
+			'noindex'    => new WPPDF_Noindex(),
 			'permalinks' => new WPPDF_Permalinks(),
 			'meta'       => new WPPDF_Meta(),
 			'importer'   => new WPPDF_Importer(),

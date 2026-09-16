@@ -188,6 +188,7 @@ function sanitize_title( $v ) {
 	return trim( preg_replace( '/-+/', '-', preg_replace( '/[^a-z0-9\-]/', '', $v ) ), '-' );
 }
 function sanitize_text_field( $v ) { return trim( strip_tags( (string) $v ) ); }
+function sanitize_textarea_field( $v ) { return trim( strip_tags( (string) $v ) ); }
 function sanitize_html_class( $v ) { return preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $v ); }
 function sanitize_file_name( $v ) { return preg_replace( '/[^A-Za-z0-9_\-\.]/', '-', (string) $v ); }
 function esc_attr( $v ) { return htmlspecialchars( (string) $v, ENT_QUOTES ); }
@@ -224,7 +225,16 @@ function esc_attr_e( $text, $domain = '' ) { echo esc_attr( $text ); }
 // --- Conditionals / assets ----------------------------------------------.
 function is_admin() { return ! empty( $GLOBALS["stub_is_admin"] ); }
 function is_singular( $types = '' ) { return ! empty( $GLOBALS['stub_is_singular'] ); }
-function is_post_type_archive( $t = '' ) { return false; }
+function is_post_type_archive( $t = '' ) {
+	$current = $GLOBALS['stub_post_type_archive'] ?? '';
+	if ( '' === $current ) { return false; }
+	return '' === $t ? true : in_array( $current, (array) $t, true );
+}
+function get_post_types( $args = array(), $output = 'names' ) {
+	if ( isset( $GLOBALS['stub_post_types'] ) ) { return $GLOBALS['stub_post_types']; }
+	$key = WPPDF_Settings::get( 'post_type_key' );
+	return array( 'post' => 'post', 'page' => 'page', $key => $key );
+}
 function in_the_loop() { return true; }
 function is_main_query() { return true; }
 function is_multisite() { return false; }
@@ -314,7 +324,7 @@ function get_term( $id, $tax = '' ) {
 	return null;
 }
 class WP_Term { public $term_id; public $taxonomy; public $slug; public $name; }
-function get_post_type_object( $t ) { return null; }
+function get_post_type_object( $t ) { return $GLOBALS['stub_post_type_objects'][ $t ] ?? null; }
 function maybe_unserialize( $v ) { return is_string( $v ) && preg_match( '/^[aOs]:/', $v ) ? @unserialize( $v ) : $v; }
 function attachment_url_to_postid( $u ) { foreach ( $GLOBALS['stub_posts'] as $id => $p ) { if ( isset( $p['url'] ) && $p['url'] === $u ) { return $id; } } return 0; }
 function set_post_thumbnail( $post_id, $thumb ) { return true; }
@@ -1652,6 +1662,196 @@ ok( 'a referer from another site is not followed', 'https://example.test/pdf/' =
 
 $GLOBALS['stub_referer'] = false;
 ok( 'without a referer the archive is offered', 'https://example.test/pdf/' === wppdf_get_back_url( 160 ) );
+
+echo "\n== Search engines and AI ==\n";
+
+// The whole point of these settings is that they are requests, not locks, so
+// what is checked is that the request actually reaches the crawler: the header,
+// the robots.txt body, the sitemap. Whether a crawler obeys is not ours to test.
+$noindex = new WPPDF_Noindex();
+
+$GLOBALS['stub_post_type_objects'] = array(
+	'pdf_document' => (object) array(
+		'rewrite' => array( 'slug' => 'dokumenty' ),
+		'labels'  => (object) array( 'name' => 'Dokumenty' ),
+	),
+	'post'         => (object) array(
+		'rewrite' => false,
+		'labels'  => (object) array( 'name' => 'Příspěvky' ),
+	),
+);
+
+$GLOBALS['stub_posts'][300] = array( 'ID' => 300, 'post_type' => 'pdf_document', 'post_title' => 'Návod', 'post_name' => 'navod', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][301] = array( 'ID' => 301, 'post_type' => 'post', 'post_title' => 'Článek', 'post_name' => 'clanek', 'post_status' => 'publish' );
+
+$index_settings = WPPDF_Settings::all();
+ok( 'nothing is excluded until it is asked for', ! WPPDF_Noindex::is_noindex( 300 ) && ! WPPDF_Noindex::is_noindex( 301 ) );
+
+$index_settings['noindex_post_types'] = array( 'pdf_document' );
+$index_settings['noindex_block_ai']   = 1;
+$index_settings['noindex_pdf_files']  = 0;
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+ok( 'excluding the post type excludes its documents', WPPDF_Noindex::is_noindex( 300 ) );
+ok( 'and leaves other post types alone', ! WPPDF_Noindex::is_noindex( 301 ) );
+
+// A document rewritten as a post is the case the per-post switch exists for.
+update_post_meta( 301, WPPDF_Noindex::META, 1 );
+ok( 'a single post can be excluded on its own', WPPDF_Noindex::is_noindex( 301 ) );
+delete_post_meta( 301, WPPDF_Noindex::META );
+ok( 'and goes back to being indexed when the flag is dropped', ! WPPDF_Noindex::is_noindex( 301 ) );
+
+// The archive lists every excluded document, so leaving it indexable would
+// keep the titles and excerpts in search results after the pages are gone.
+$GLOBALS['stub_post_type_archive'] = 'pdf_document';
+ok( 'the archive of an excluded post type is excluded too', WPPDF_Noindex::current_request_is_noindex() );
+$GLOBALS['stub_post_type_archive'] = 'other_thing';
+ok( 'another archive is not', ! WPPDF_Noindex::current_request_is_noindex() );
+$GLOBALS['stub_post_type_archive'] = '';
+
+// The page a visitor actually lands on.
+$GLOBALS['stub_is_singular'] = true;
+$GLOBALS['stub_current']     = 300;
+ok( 'the document page itself is excluded', WPPDF_Noindex::current_request_is_noindex() );
+$GLOBALS['stub_current'] = 301;
+ok( 'an ordinary post page is not', ! WPPDF_Noindex::current_request_is_noindex() );
+unset( $GLOBALS['stub_is_singular'], $GLOBALS['stub_current'] );
+
+$robots = $noindex->filter_robots( array( 'index' => true, 'follow' => true ) );
+ok( 'a request that is not for excluded content keeps its robots directives', isset( $robots['index'] ) );
+
+$GLOBALS['stub_post_type_archive'] = 'pdf_document';
+$robots = $noindex->filter_robots( array( 'index' => true, 'follow' => true, 'max-image-preview' => 'large' ) );
+ok( 'the noindex directive replaces index', isset( $robots['noindex'] ) && ! isset( $robots['index'] ) );
+ok( 'and the image preview hint goes with it', ! isset( $robots['max-image-preview'] ) );
+$GLOBALS['stub_post_type_archive'] = '';
+
+// robots.txt.
+$txt = $noindex->filter_robots_txt( "User-agent: *\nDisallow:\n", true );
+ok( 'the AI crawlers are named in robots.txt', false !== strpos( $txt, 'User-agent: GPTBot' ) && false !== strpos( $txt, 'User-agent: ClaudeBot' ) );
+ok( 'the excluded archive is the path they are kept out of', false !== strpos( $txt, 'Disallow: /dokumenty/' ) );
+ok( 'what was already in robots.txt is kept', 0 === strpos( $txt, "User-agent: *\nDisallow:\n" ) );
+
+// Blocking Googlebot would be the classic own goal: it could no longer fetch
+// the page, so it could never read the noindex, and the page would sit in the
+// index on inbound links alone.
+ok( 'Googlebot is deliberately not blocked', false === strpos( $txt, 'Googlebot' ) );
+
+ok( 'posts contribute no path, because their permalinks are everywhere', ! in_array( '/post/', WPPDF_Noindex::blocked_paths(), true ) );
+
+$index_settings['noindex_block_ai'] = 0;
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+ok( 'with the switch off robots.txt is left as it was', "User-agent: *\n" === $noindex->filter_robots_txt( "User-agent: *\n", true ) );
+
+$index_settings['noindex_block_ai'] = 1;
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+ok( 'a non-public site is left alone as well', "User-agent: *\n" === $noindex->filter_robots_txt( "User-agent: *\n", false ) );
+
+// The agent list ends up in robots.txt verbatim, where a newline would end the
+// User-agent line and let whatever follows become a directive of its own.
+$injected              = WPPDF_Settings::all();
+$injected['noindex_ai_agents'] = "GoodBot\nUser-agent: *\rDisallow: /\n# comment\n  \nBad:Bot";
+$sanitized             = ( new WPPDF_Settings() )->sanitize( $injected );
+ok( 'a colon cannot be smuggled into a user agent', false === strpos( $sanitized['noindex_ai_agents'], ':' ) );
+ok( 'and the harmless names survive', false !== strpos( $sanitized['noindex_ai_agents'], 'GoodBot' ) );
+
+$index_settings['noindex_ai_agents'] = "GoodBot\n# a comment\n\nOtherBot";
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+ok( 'comments and blank lines are not user agents', array( 'GoodBot', 'OtherBot' ) === WPPDF_Noindex::ai_user_agents() );
+
+// Sitemaps: the crawler starts there, so an excluded page that stays listed is
+// an invitation to come and read the noindex it was not meant to need.
+$types = $noindex->filter_sitemap_post_types( array( 'pdf_document' => (object) array(), 'post' => (object) array() ) );
+ok( 'an excluded post type is dropped from the sitemap', ! isset( $types['pdf_document'] ) && isset( $types['post'] ) );
+
+$args = $noindex->filter_sitemap_query_args( array(), 'post' );
+ok( 'individually excluded posts are filtered out of the sitemap query', ! empty( $args['meta_query'] ) );
+
+// SEO plugins decide from their own meta keys; answering the read leaves the
+// editor's stored choice untouched.
+update_post_meta( 301, WPPDF_Noindex::META, 1 );
+ok( 'Rank Math is told noindex for an excluded post', array( array( 'noindex', 'nofollow' ) ) === $noindex->filter_seo_meta( null, 301, 'rank_math_robots', true ) );
+ok( 'Yoast is told the same', array( '1' ) === $noindex->filter_seo_meta( null, 301, '_yoast_wpseo_meta-robots-noindex', true ) );
+delete_post_meta( 301, WPPDF_Noindex::META );
+ok( 'and an indexable post is not interfered with', null === $noindex->filter_seo_meta( null, 301, 'rank_math_robots', true ) );
+ok( 'an unrelated meta key is passed through', 'left alone' === $noindex->filter_seo_meta( 'left alone', 301, '_wppdf_file_cs', true ) );
+
+// Structured data would hand a crawler contentUrl — the address of the very
+// PDF being kept quiet.
+$index_settings['seo_metadata']       = 1;
+$index_settings['noindex_post_types'] = array();
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+update_post_meta( 300, '_wppdf_file_cs', 20 );
+$GLOBALS['stub_is_singular'] = true;
+$GLOBALS['stub_current']     = 300;
+
+ob_start();
+( new WPPDF_Seo() )->render();
+$schema = ob_get_clean();
+ok( 'an indexable document gets its structured data', false !== strpos( $schema, 'DigitalDocument' ) );
+ok( 'which is what hands a crawler the PDF address', false !== strpos( $schema, 'contentUrl' ) );
+
+$index_settings['noindex_post_types'] = array( 'pdf_document' );
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+ob_start();
+( new WPPDF_Seo() )->render();
+$schema = ob_get_clean();
+ok( 'and an excluded one gets none', '' === trim( $schema ) );
+
+delete_post_meta( 300, '_wppdf_file_cs' );
+unset( $GLOBALS['stub_is_singular'], $GLOBALS['stub_current'] );
+
+// The TDM reservation. Unlike everything else here it is not an appeal to
+// manners, so it matters that it only goes out where it was asked for.
+$index_settings['noindex_tdm']        = 0;
+$index_settings['noindex_tdm_policy'] = 'https://example.test/podminky/';
+$index_settings['noindex_ai_notice']  = 'Nepoužívat pro trénink ani pro vývoj konkurenčního softwaru.';
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+$GLOBALS['stub_is_singular'] = true;
+$GLOBALS['stub_current']     = 300;
+
+ob_start();
+$noindex->render_tdm_meta();
+$head = ob_get_clean();
+ok( 'no reservation until it is switched on', '' === trim( $head ) );
+
+$index_settings['noindex_tdm'] = 1;
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+ob_start();
+$noindex->render_tdm_meta();
+$head = ob_get_clean();
+ok( 'the reservation is declared on an excluded document', false !== strpos( $head, 'name="tdm-reservation" content="1"' ) );
+ok( 'and points at the usage terms', false !== strpos( $head, 'https://example.test/podminky/' ) );
+ok( 'the notice for whoever is reading goes out with it', false !== strpos( $head, 'Nepoužívat pro trénink' ) );
+
+$GLOBALS['stub_current'] = 301;
+ob_start();
+$noindex->render_tdm_meta();
+$head = ob_get_clean();
+ok( 'an indexable post carries no reservation', '' === trim( $head ) );
+
+unset( $GLOBALS['stub_is_singular'], $GLOBALS['stub_current'] );
+
+$index_settings['noindex_post_types'] = array();
+$index_settings['noindex_block_ai']   = 0;
+$index_settings['noindex_tdm']        = 0;
+$index_settings['noindex_tdm_policy'] = '';
+$index_settings['noindex_ai_notice']  = '';
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+unset( $GLOBALS['stub_post_type_objects'] );
 
 echo "\n";
 echo empty( $GLOBALS['stub_failed'] ) ? "ALL CHECKS PASSED\n" : "SOME CHECKS FAILED\n";

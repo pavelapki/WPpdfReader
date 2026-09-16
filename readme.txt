@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.10.1
+Stable tag: 1.11.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,30 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.11.0 =
+* Documents can be kept out of search engines and AI crawlers: pick whole post
+  types in the settings, or a single post at a time in the editor. Excluded
+  content gets noindex in the robots meta tag and in the X-Robots-Tag header,
+  drops out of the sitemap — the core one and the SEO plugin's — and stops
+  printing the DigitalDocument schema, whose contentUrl is the address of the
+  very PDF being kept quiet.
+* Optionally an X-Robots-Tag header for the PDF files themselves, written into
+  the uploads .htaccess, and a robots.txt block that turns the AI crawlers away
+  by name. Googlebot is deliberately not blocked: a page it may not fetch is a
+  page whose noindex it never reads, so it stays in the index on inbound links
+  alone.
+* Optionally a text and data mining reservation (TDMRep): a tdm-reservation
+  meta tag and header, an optional tdm-policy pointing at your usage terms, and
+  /.well-known/tdmrep.json for the crawlers that never render the page. EU
+  copyright law lets anyone mine lawfully accessible content unless the rights
+  holder reserved that right in a machine-readable way, so this is the one
+  signal here with something behind it — after the fact, not as a lock.
+* A free-text notice printed in the markup of excluded pages, for whoever, or
+  whatever, is reading.
+* None of this is a lock — it is a request that well-behaved crawlers honour.
+  The settings screen says so, and points at the per-document "only logged in
+  visitors" switch, which is the one that actually stops a download.
 
 = 1.10.1 =
 * A WPML or Polylang translation with no PDF of its own now falls back on its

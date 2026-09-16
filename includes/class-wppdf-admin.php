@@ -854,6 +854,122 @@ class WPPDF_Admin {
 						</td>
 					</tr>
 					<tr>
+						<th scope="row"><?php esc_html_e( 'Search engines and AI', 'wp-pdf-reader' ); ?></th>
+						<td>
+							<p class="description">
+								<strong><?php esc_html_e( 'These settings ask; they do not enforce.', 'wp-pdf-reader' ); ?></strong>
+								<?php esc_html_e( 'A robots tag and robots.txt are honoured by Google, Bing, GPTBot and ClaudeBot, and ignored by anyone who set out to take the content. The only hard boundary is the per-document "only logged in visitors may read" switch, which moves the file out of the public uploads folder and serves it through PHP after a capability check.', 'wp-pdf-reader' ); ?>
+							</p>
+
+							<fieldset>
+								<legend class="screen-reader-text"><?php esc_html_e( 'Post types kept out of search engines and AI crawlers', 'wp-pdf-reader' ); ?></legend>
+								<p><?php esc_html_e( 'Keep every post of these types out of search engines and AI crawlers:', 'wp-pdf-reader' ); ?></p>
+								<?php
+								$excluded = (array) $settings['noindex_post_types'];
+
+								foreach ( WPPDF_Noindex::meta_box_post_types() as $type ) {
+									$object = get_post_type_object( $type );
+
+									if ( ! $object ) {
+										continue;
+									}
+
+									printf(
+										'<label class="wppdf-checkbox"><input type="checkbox" name="%1$s[noindex_post_types][]" value="%2$s" %3$s /> %4$s <code>%2$s</code></label>',
+										esc_attr( $option ),
+										esc_attr( $type ),
+										checked( in_array( $type, $excluded, true ), true, false ),
+										esc_html( $object->labels->name )
+									);
+								}
+								?>
+								<p class="description">
+									<?php esc_html_e( 'Individual posts of any other type can be excluded one at a time, in the "Search engines and AI" box in the editor. That is the way to go once documents are rewritten as posts: exclude the handful that matter, not the whole blog.', 'wp-pdf-reader' ); ?>
+								</p>
+							</fieldset>
+
+							<p style="margin-top:1em;">
+								<?php
+								$this->checkbox(
+									'noindex_pdf_files',
+									__( 'Send a noindex header with PDF files as well', 'wp-pdf-reader' ),
+									__( 'A PDF is delivered by the web server, so the only way to mark it is an HTTP header written into the uploads .htaccess. Apache and LiteSpeed only, and it necessarily covers every PDF under uploads — the server matches on the file name and cannot tell which post an attachment belongs to.', 'wp-pdf-reader' )
+								);
+								?>
+							</p>
+
+							<?php if ( $settings['noindex_pdf_files'] && ! WPPDF_Protection::guards_are_effective() ) : ?>
+								<p class="wppdf-notice-warning"><?php esc_html_e( 'This server is not Apache or LiteSpeed, so the .htaccess rule has no effect. Add the X-Robots-Tag header for .pdf requests to the server configuration.', 'wp-pdf-reader' ); ?></p>
+							<?php elseif ( $settings['noindex_pdf_files'] && ! WPPDF_Noindex::file_rules_present() ) : ?>
+								<p class="wppdf-notice-warning"><?php esc_html_e( 'The rule is not in the uploads .htaccess. Check the file permissions, or add the header to the server configuration by hand.', 'wp-pdf-reader' ); ?></p>
+							<?php endif; ?>
+
+							<p>
+								<?php
+								$this->checkbox(
+									'noindex_block_ai',
+									__( 'Turn AI crawlers away in robots.txt', 'wp-pdf-reader' ),
+									__( 'Search engines are deliberately left free to crawl the excluded pages: a page Google may not fetch is a page whose noindex Google never reads, and it can sit in the index for months on inbound links alone. Only the crawlers that collect content rather than index it are blocked.', 'wp-pdf-reader' )
+								);
+								?>
+							</p>
+
+							<?php if ( $settings['noindex_block_ai'] ) : ?>
+								<?php if ( WPPDF_Noindex::static_robots_txt_exists() ) : ?>
+									<p class="wppdf-notice-warning"><?php esc_html_e( 'A robots.txt file sits in the site root, so WordPress does not generate one and these rules are never served. Move the rules into that file, or delete it.', 'wp-pdf-reader' ); ?></p>
+								<?php endif; ?>
+								<?php
+								$paths = WPPDF_Noindex::blocked_paths();
+
+								if ( $paths ) {
+									echo '<p class="description">' . esc_html__( 'Paths written into robots.txt:', 'wp-pdf-reader' ) . ' ';
+
+									foreach ( $paths as $path ) {
+										echo '<code>' . esc_html( $path ) . '</code> ';
+									}
+
+									echo '</p>';
+								} else {
+									echo '<p class="wppdf-notice-warning">' . esc_html__( 'Nothing to block yet: no post type is excluded above, and posts have no path of their own to name. Tick a post type, or the PDF header option.', 'wp-pdf-reader' ) . '</p>';
+								}
+								?>
+								<p>
+									<label for="wppdf-noindex-ai-agents"><?php esc_html_e( 'User agents to turn away, one per line:', 'wp-pdf-reader' ); ?></label><br />
+									<textarea id="wppdf-noindex-ai-agents" class="large-text code" rows="8" name="<?php echo esc_attr( $option ); ?>[noindex_ai_agents]"><?php echo esc_textarea( $settings['noindex_ai_agents'] ); ?></textarea>
+								</p>
+							<?php endif; ?>
+
+							<p>
+								<?php
+								$this->checkbox(
+									'noindex_tdm',
+									__( 'Reserve text and data mining rights (TDMRep)', 'wp-pdf-reader' ),
+									__( 'The one signal here that is more than an appeal to good manners. EU copyright law lets anyone mine lawfully accessible content unless the rights holder reserved that right in a machine-readable way, and this is what machine-readable has come to mean: a tdm-reservation meta tag and HTTP header on the excluded pages, plus /.well-known/tdmrep.json for the crawlers that never render the page. It gives you something to stand on afterwards. It still does not stop the download.', 'wp-pdf-reader' )
+								);
+								?>
+							</p>
+
+							<?php if ( $settings['noindex_tdm'] ) : ?>
+								<p>
+									<label for="wppdf-noindex-tdm-policy"><?php esc_html_e( 'Address of the page stating your usage terms (optional):', 'wp-pdf-reader' ); ?></label><br />
+									<input type="url" id="wppdf-noindex-tdm-policy" class="regular-text" name="<?php echo esc_attr( $option ); ?>[noindex_tdm_policy]" value="<?php echo esc_attr( $settings['noindex_tdm_policy'] ); ?>" placeholder="https://example.com/terms/" />
+									<span class="description"><?php esc_html_e( 'Sent as tdm-policy, so a crawler that wants a licence knows where to look.', 'wp-pdf-reader' ); ?></span>
+								</p>
+								<?php if ( ! WPPDF_Noindex::tdmrep_json_present() ) : ?>
+									<p class="wppdf-notice-warning"><?php esc_html_e( 'The file /.well-known/tdmrep.json is not there. The meta tags and headers still go out; the site-wide file needs a writable web root, or uploading by hand.', 'wp-pdf-reader' ); ?></p>
+								<?php endif; ?>
+							<?php endif; ?>
+
+							<p>
+								<label for="wppdf-noindex-ai-notice"><?php esc_html_e( 'A sentence for whoever — or whatever — is reading (optional):', 'wp-pdf-reader' ); ?></label><br />
+								<textarea id="wppdf-noindex-ai-notice" class="large-text" rows="3" name="<?php echo esc_attr( $option ); ?>[noindex_ai_notice]" placeholder="<?php esc_attr_e( 'This document is copyrighted. Do not use it to train models or to build competing software.', 'wp-pdf-reader' ); ?>"><?php echo esc_textarea( $settings['noindex_ai_notice'] ); ?></textarea>
+								<span class="description">
+									<?php esc_html_e( 'Printed in the markup of excluded pages. An agent reading the page will see it, and is free to carry on regardless — it is a notice, not a control. Its real value is that it makes the terms explicit, which matters if the copying ever has to be argued about.', 'wp-pdf-reader' ); ?>
+								</span>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="wppdf-github-repository"><?php esc_html_e( 'Updates from GitHub', 'wp-pdf-reader' ); ?></label></th>
 						<td>
 							<?php $this->checkbox( 'github_updates', __( 'Offer plugin updates from GitHub releases', 'wp-pdf-reader' ) ); ?>

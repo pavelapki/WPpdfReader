@@ -276,6 +276,10 @@ class WPPDF_Protection {
 		header( 'Accept-Ranges: bytes' );
 		header( 'X-Content-Type-Options: nosniff' );
 
+		// Anything that comes through here is either behind a capability check
+		// or deliberately quiet, so no crawler has business keeping it.
+		header( 'X-Robots-Tag: ' . ( class_exists( 'WPPDF_Noindex' ) ? WPPDF_Noindex::DIRECTIVES : 'noindex, nofollow' ) );
+
 		$range = isset( $_SERVER['HTTP_RANGE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_RANGE'] ) ) : '';
 
 		if ( '' !== $range && preg_match( '/^bytes=(\d*)-(\d*)$/', $range, $matches ) ) {
