@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.12.0
+Stable tag: 1.13.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,26 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.13.0 =
+* Keeping documents out of search engines and AI crawlers is now ON by default,
+  and deliberately so: a document library is the plugin's own content, and the
+  case for having it read by an answer engine is weaker than the case for not
+  handing a competitor the manual. Unticking it is the way round that fails
+  safely. NOTE: these keys are absent from settings saved by an earlier
+  version, so updating turns the exclusion on for an existing library too —
+  untick it in the settings if it should stay in Google.
+* The uploads .htaccess rule and /.well-known/tdmrep.json are written on the
+  first admin request, so the protection the defaults claim is on does not wait
+  for somebody to open the settings screen and press Save.
+* An excluded document no longer gets a meta description built from the first
+  words of its PDF. That fallback exists so a fallback page is not described by
+  the reader's own buttons, but on a page meant to be quiet it was putting the
+  document's own text back into the markup.
+* Renaming the post type key no longer quietly un-excludes the library: the
+  exclusion list holds keys, and the old one stopped matching anything.
+* The whole settings screen is translated into Czech, including the new
+  section.
 
 = 1.12.0 =
 * Documents can be kept out of search engines and AI crawlers: pick whole post
