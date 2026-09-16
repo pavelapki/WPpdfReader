@@ -58,6 +58,13 @@ class WPPDF_Noindex {
 	const STATE_OPTION = 'wppdf_noindex_state';
 
 	/**
+	 * Memoised list of posts published inside an excluded post type.
+	 *
+	 * @var int[]|null
+	 */
+	protected static $allowed_cache = null;
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -94,10 +101,17 @@ class WPPDF_Noindex {
 	 */
 	public function maybe_write_files() {
 		$wanted = array(
-			'files'  => (bool) WPPDF_Settings::get( 'noindex_pdf_files' ),
-			'tdm'    => (bool) WPPDF_Settings::get( 'noindex_tdm' ),
-			'paths'  => self::blocked_paths(),
-			'policy' => self::tdm_policy_url(),
+			'files'    => (bool) WPPDF_Settings::get( 'noindex_pdf_files' ),
+			'tdm'      => (bool) WPPDF_Settings::get( 'noindex_tdm' ),
+			'paths'    => self::blocked_paths(),
+			'policy'   => self::tdm_policy_url(),
+			// Publishing one document out of an excluded library changes what
+			// the reservation file has to carve out, so it belongs in the
+			// comparison — otherwise the file would keep the old exceptions.
+			'allowed'  => self::allowed_paths(),
+			// The uploads rule names files, so swapping the PDF behind a
+			// published document has to rewrite it too.
+			'files_ok' => self::allowed_file_names(),
 		);
 
 		if ( get_option( self::STATE_OPTION ) === $wanted ) {
@@ -141,12 +155,24 @@ class WPPDF_Noindex {
 	public static function is_noindex( $post_id ) {
 		$post_id   = (int) $post_id;
 		$post_type = $post_id ? get_post_type( $post_id ) : '';
-		$noindex   = false;
 
-		if ( $post_type && in_array( $post_type, self::excluded_post_types(), true ) ) {
+		// The post type decides, and a single post may say otherwise in either
+		// direction. Both exceptions are needed: a library that is excluded
+		// wholesale still has the odd document meant to be seen — a
+		// certificate, a price list, a leaflet — and publishing that should not
+		// mean unticking the whole type and re-ticking it document by document,
+		// which would leave every new upload public until somebody remembered.
+		//
+		// The meta is only stored when it disagrees with the post type, so '1'
+		// means "exclude this one" and '0' means "publish this one anyway".
+		$exception = $post_id ? get_post_meta( $post_id, self::META, true ) : '';
+
+		if ( '1' === (string) $exception ) {
 			$noindex = true;
-		} elseif ( $post_id && get_post_meta( $post_id, self::META, true ) ) {
-			$noindex = true;
+		} elseif ( '0' === (string) $exception ) {
+			$noindex = false;
+		} else {
+			$noindex = (bool) $post_type && in_array( $post_type, self::excluded_post_types(), true );
 		}
 
 		/**
@@ -369,11 +395,37 @@ class WPPDF_Noindex {
 	 * @return array
 	 */
 	public function filter_sitemap_post_types( $post_types ) {
+		// A type with an exception in it stays, or the document published on
+		// purpose would have no way of being found. The query filter below then
+		// narrows that sitemap down to the exceptions.
+		$keep = self::allowed_post_types_with_exceptions();
+
 		foreach ( self::excluded_post_types() as $type ) {
-			unset( $post_types[ $type ] );
+			if ( ! in_array( $type, $keep, true ) ) {
+				unset( $post_types[ $type ] );
+			}
 		}
 
 		return $post_types;
+	}
+
+	/**
+	 * Excluded post types that hold at least one post published on purpose.
+	 *
+	 * @return array
+	 */
+	protected static function allowed_post_types_with_exceptions() {
+		$types = array();
+
+		foreach ( self::allowed_posts() as $post_id ) {
+			$type = get_post_type( $post_id );
+
+			if ( $type ) {
+				$types[] = $type;
+			}
+		}
+
+		return array_values( array_unique( $types ) );
 	}
 
 	/**
@@ -384,9 +436,20 @@ class WPPDF_Noindex {
 	 * @return array
 	 */
 	public function filter_sitemap_query_args( $args, $post_type ) {
-		unset( $post_type );
-
 		$args['meta_query'] = isset( $args['meta_query'] ) && is_array( $args['meta_query'] ) ? $args['meta_query'] : array(); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the sitemap is generated, not requested per visitor.
+
+		if ( in_array( (string) $post_type, self::excluded_post_types(), true ) ) {
+			// The type only survived filter_sitemap_post_types() because it
+			// holds an exception, so this sitemap lists nothing else.
+			$args['meta_query'][] = array(
+				array(
+					'key'   => self::META,
+					'value' => '0',
+				),
+			);
+
+			return $args;
+		}
 
 		$args['meta_query'][] = array(
 			'relation' => 'OR',
@@ -429,10 +492,20 @@ class WPPDF_Noindex {
 			return $output;
 		}
 
-		$lines = array( '', '# Added by WP PDF Reader: no AI crawlers on the excluded content.' );
+		$lines   = array( '', '# Added by WP PDF Reader: no AI crawlers on the excluded content.' );
+		$allowed = self::allowed_paths();
 
 		foreach ( self::ai_user_agents() as $agent ) {
 			$lines[] = 'User-agent: ' . $agent;
+
+			// Allow before Disallow, and more specific than it: a document
+			// published on purpose sits under the same path as the rest, so
+			// without this line the path-wide rule would hide it too. Google
+			// and Bing resolve the overlap by the longest match, which is the
+			// Allow — that is the whole reason this works.
+			foreach ( $allowed as $path ) {
+				$lines[] = 'Allow: ' . $path;
+			}
 
 			foreach ( $paths as $path ) {
 				$lines[] = 'Disallow: ' . $path;
@@ -442,6 +515,113 @@ class WPPDF_Noindex {
 		}
 
 		return $output . implode( "\n", $lines ) . "\n";
+	}
+
+	/**
+	 * Posts published on purpose inside an otherwise excluded post type.
+	 *
+	 * A certificate or a leaflet sits under the same path as the manuals, so
+	 * every path-wide rule this class writes has to carve it out again by name:
+	 * robots.txt, the mining reservation, the sitemap.
+	 *
+	 * @return int[] Post IDs.
+	 */
+	public static function allowed_posts() {
+		if ( null !== self::$allowed_cache ) {
+			return self::$allowed_cache;
+		}
+
+		$excluded = self::excluded_post_types();
+
+		if ( ! $excluded ) {
+			self::$allowed_cache = array();
+
+			return self::$allowed_cache;
+		}
+
+		$found = get_posts(
+			array(
+				'post_type'        => $excluded,
+				'post_status'      => 'publish',
+				// A cap, because this list is written into robots.txt and into
+				// the .htaccess: an exception is meant to be the odd document,
+				// and a library where hundreds are exceptions wants the post
+				// type unticked instead.
+				'numberposts'      => 200, // phpcs:ignore WordPress.WP.PostsPerPage.posts_per_page_numberposts -- deliberate cap, see above.
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+				'no_found_rows'    => true,
+				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- the exception is the rare case, so this matches few rows.
+					array(
+						'key'   => self::META,
+						'value' => '0',
+					),
+				),
+			)
+		);
+
+		self::$allowed_cache = is_array( $found ) ? array_map( 'intval', $found ) : array();
+
+		return self::$allowed_cache;
+	}
+
+	/**
+	 * Forget the memoised exception list.
+	 *
+	 * Called when a post is saved and from the settings, because both can turn
+	 * a document into an exception or back.
+	 */
+	public static function flush_cache() {
+		self::$allowed_cache = null;
+	}
+
+	/**
+	 * File names of the PDFs belonging to posts published on purpose.
+	 *
+	 * The uploads rule matches on the file name, because that is all Apache
+	 * has to go on, so this is what an exception to it has to be written from.
+	 *
+	 * @return array
+	 */
+	public static function allowed_file_names() {
+		$names = array();
+
+		foreach ( self::allowed_posts() as $post_id ) {
+			foreach ( WPPDF_Languages::get_codes() as $code ) {
+				$attachment_id = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
+
+				if ( ! $attachment_id ) {
+					continue;
+				}
+
+				$file = get_attached_file( $attachment_id );
+
+				if ( $file ) {
+					$names[] = basename( $file );
+				}
+			}
+		}
+
+		return array_values( array_unique( $names ) );
+	}
+
+	/**
+	 * Paths of the posts published inside an excluded post type.
+	 *
+	 * @return array
+	 */
+	public static function allowed_paths() {
+		$paths = array();
+
+		foreach ( self::allowed_posts() as $post_id ) {
+			$path = wp_parse_url( (string) get_permalink( $post_id ), PHP_URL_PATH );
+
+			if ( is_string( $path ) && '' !== $path && '/' !== $path ) {
+				$paths[] = $path;
+			}
+		}
+
+		return array_values( array_unique( $paths ) );
 	}
 
 	/**
@@ -605,8 +785,28 @@ class WPPDF_Noindex {
 				'<FilesMatch "\.pdf$">',
 				'Header set X-Robots-Tag "' . self::DIRECTIVES . '"',
 				'</FilesMatch>',
-				'</IfModule>',
 			);
+
+			// The rule above cannot tell one PDF from another, so a document
+			// published on purpose gets its file named here and the header set
+			// back. Apache applies Header directives in order, so this one,
+			// coming second, wins for those files.
+			$names = array();
+
+			foreach ( self::allowed_file_names() as $name ) {
+				// The name goes into a regex. WordPress sanitises upload names,
+				// but a dot is still a metacharacter and a hand-placed file can
+				// hold anything.
+				$names[] = preg_quote( $name, '' );
+			}
+
+			if ( $names ) {
+				$rules[] = '<FilesMatch "^(' . implode( '|', $names ) . ')$">';
+				$rules[] = 'Header set X-Robots-Tag "all"';
+				$rules[] = '</FilesMatch>';
+			}
+
+			$rules[] = '</IfModule>';
 		}
 
 		return (bool) insert_with_markers( $path, self::MARKER, $rules );
@@ -657,6 +857,18 @@ class WPPDF_Noindex {
 			}
 
 			$entries[] = $entry;
+		}
+
+		// Same carve-out as in robots.txt, for the same reason: the entries
+		// above name whole paths, and a document published on purpose lives
+		// under one of them. Listed after, so a reader taking the last match
+		// gets the exception; TDMRep itself says the most specific location
+		// wins, and these are more specific.
+		foreach ( self::allowed_paths() as $allowed ) {
+			$entries[] = array(
+				'location'        => ltrim( $allowed, '/' ),
+				'tdm-reservation' => 0,
+			);
 		}
 
 		if ( ! $entries ) {
@@ -760,19 +972,23 @@ class WPPDF_Noindex {
 	 */
 	public function render_meta_box( $post ) {
 		$by_type = in_array( $post->post_type, self::excluded_post_types(), true );
-		$checked = $by_type || (bool) get_post_meta( $post->ID, self::META, true );
+		$checked = self::is_noindex( $post->ID );
 
 		wp_nonce_field( 'wppdf_noindex', 'wppdf_noindex_nonce' );
 
+		// Hidden companion field: an unticked checkbox is not submitted at all,
+		// so without something that always arrives there is no telling "the
+		// editor unticked it" from "this save never showed the box".
+		echo '<input type="hidden" name="wppdf_noindex_present" value="1" />';
+
 		printf(
-			'<p><label><input type="checkbox" name="wppdf_noindex" value="1" %1$s %2$s /> %3$s</label></p>',
+			'<p><label><input type="checkbox" name="wppdf_noindex" value="1" %1$s /> %2$s</label></p>',
 			checked( $checked, true, false ),
-			disabled( $by_type, true, false ),
 			esc_html__( 'Keep out of search engines and AI crawlers', 'wp-pdf-reader' )
 		);
 
 		if ( $by_type ) {
-			echo '<p class="description">' . esc_html__( 'Every post of this type is excluded in the plugin settings, so this cannot be turned off here.', 'wp-pdf-reader' ) . '</p>';
+			echo '<p class="description">' . esc_html__( 'Every post of this type is excluded in the plugin settings. Unticking it here publishes this one document anyway — for a certificate, a price list or a leaflet that is meant to be found.', 'wp-pdf-reader' ) . '</p>';
 			return;
 		}
 
@@ -806,18 +1022,25 @@ class WPPDF_Noindex {
 			return;
 		}
 
-		// A post type excluded as a whole has the box disabled, and a disabled
-		// checkbox is not submitted — saving would clear a flag the editor was
-		// never shown.
-		if ( in_array( $post->post_type, self::excluded_post_types(), true ) ) {
+		// Quick Edit and REST saves never render the box, and treating their
+		// silence as "unticked" would publish a document nobody touched.
+		if ( empty( $_POST['wppdf_noindex_present'] ) ) {
 			return;
 		}
 
-		if ( empty( $_POST['wppdf_noindex'] ) ) {
+		$wanted       = ! empty( $_POST['wppdf_noindex'] );
+		$type_default = in_array( $post->post_type, self::excluded_post_types(), true );
+
+		self::flush_cache();
+
+		// The meta is the exception, not the state: storing it only when it
+		// disagrees with the post type means a library-wide change in the
+		// settings still moves every document that never said otherwise.
+		if ( $wanted === $type_default ) {
 			delete_post_meta( $post_id, self::META );
 			return;
 		}
 
-		update_post_meta( $post_id, self::META, 1 );
+		update_post_meta( $post_id, self::META, $wanted ? '1' : '0' );
 	}
 }

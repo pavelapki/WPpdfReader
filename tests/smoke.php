@@ -203,6 +203,23 @@ function wp_json_encode( $v ) { return json_encode( $v ); }
 function wp_trim_words( $text, $n = 55 ) { return $text; }
 function size_format( $bytes, $decimals = 0 ) { return round( $bytes / 1024, $decimals ) . ' KB'; }
 function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
+// Enough of get_posts() for the one query the plugin runs through it: published
+// posts of the given types whose meta key holds the given value.
+function get_posts( $args = array() ) {
+	$types = isset( $args['post_type'] ) ? (array) $args['post_type'] : array( 'post' );
+	$key   = $args['meta_query'][0][0]['key'] ?? ( $args['meta_query'][0]['key'] ?? '' );
+	$value = $args['meta_query'][0][0]['value'] ?? ( $args['meta_query'][0]['value'] ?? null );
+	$out   = array();
+
+	foreach ( $GLOBALS['stub_posts'] as $id => $post ) {
+		if ( ! in_array( $post['post_type'] ?? '', $types, true ) ) { continue; }
+		if ( 'publish' !== ( $post['post_status'] ?? 'publish' ) ) { continue; }
+		if ( '' !== $key && (string) ( $GLOBALS['stub_meta'][ $id ][ $key ] ?? '' ) !== (string) $value ) { continue; }
+		$out[] = (int) $id;
+	}
+
+	return $out;
+}
 function wp_parse_args( $args, $defaults = array() ) { return array_merge( $defaults, (array) $args ); }
 function trailingslashit( $v ) { return rtrim( (string) $v, '/\\' ) . '/'; }
 function home_url( $path = '' ) { return 'https://example.test' . $path; }
@@ -1967,6 +1984,44 @@ ok(
 delete_post_meta( 300, '_wppdf_file_cs' );
 unset( $GLOBALS['stub_is_singular'], $GLOBALS['stub_current'] );
 
+// One document out of an excluded library, published on purpose: a
+// certificate, a price list, a leaflet. Every path-wide rule this class writes
+// covers the whole library, so each one has to carve it back out by name.
+$GLOBALS['stub_posts'][302] = array( 'ID' => 302, 'post_type' => 'pdf_document', 'post_title' => 'ISO 27001', 'post_name' => 'iso-27001', 'post_status' => 'publish' );
+$GLOBALS['stub_permalink_prefix']['pdf_document'] = 'dokumenty';
+
+$index_settings['noindex_post_types'] = array( 'pdf_document' );
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+WPPDF_Noindex::flush_cache();
+
+ok( 'a document in an excluded library starts out excluded', WPPDF_Noindex::is_noindex( 302 ) );
+
+update_post_meta( 302, WPPDF_Noindex::META, '0' );
+WPPDF_Noindex::flush_cache();
+
+ok( 'and unticking it publishes that one anyway', ! WPPDF_Noindex::is_noindex( 302 ) );
+ok( 'while the rest of the library stays excluded', WPPDF_Noindex::is_noindex( 300 ) );
+
+// robots.txt: the Disallow names /dokumenty/, which covers the certificate
+// too, so an Allow has to precede it and be more specific.
+$txt = $noindex->filter_robots_txt( '', true );
+ok( 'the published document is allowed back in robots.txt', false !== strpos( $txt, 'Allow: /dokumenty/iso-27001/' ) );
+ok( 'and the Allow comes before the Disallow it overrides', strpos( $txt, 'Allow: /dokumenty/iso-27001/' ) < strpos( $txt, 'Disallow: /dokumenty/' ) );
+
+// The sitemap is how it gets found at all: dropping the whole post type would
+// leave the certificate with no way in.
+$types = $noindex->filter_sitemap_post_types( array( 'pdf_document' => (object) array() ) );
+ok( 'the post type stays in the sitemap because of the exception', isset( $types['pdf_document'] ) );
+
+$args = $noindex->filter_sitemap_query_args( array(), 'pdf_document' );
+ok( 'and that sitemap lists only the exceptions', '0' === $args['meta_query'][0][0]['value'] );
+
+delete_post_meta( 302, WPPDF_Noindex::META );
+WPPDF_Noindex::flush_cache();
+$types = $noindex->filter_sitemap_post_types( array( 'pdf_document' => (object) array() ) );
+ok( 'with no exception left the post type drops out again', ! isset( $types['pdf_document'] ) );
+
 // The generated files: nobody should have to open the settings screen and
 // press Save to get the protection the defaults already claim is on.
 $index_settings['noindex_pdf_files'] = 1;   // vypnuté výš kvůli cestám v robots.txt
@@ -1981,6 +2036,27 @@ ok( 'the uploads rule is written without visiting the settings', false !== strpo
 ok( 'and it only matches PDFs', false !== strpos( $rules, '\.pdf$' ) );
 ok( 'behind a mod_headers guard, so a server without it does not 500', false !== strpos( $rules, 'mod_headers' ) );
 
+// The same carve-out again: that rule matches every PDF under uploads, so a
+// document published on purpose needs its file named and the header set back.
+update_post_meta( 302, WPPDF_Noindex::META, '0' );
+update_post_meta( 302, '_wppdf_file_cs', 20 );
+$GLOBALS['stub_posts'][20] = array( 'ID' => 20, 'post_type' => 'attachment', 'post_status' => 'inherit', 'file' => '/tmp/iso-27001.pdf' );
+WPPDF_Noindex::flush_cache();
+
+$GLOBALS['stub_htaccess'] = array();
+delete_option( WPPDF_Noindex::STATE_OPTION );
+$noindex->maybe_write_files();
+$rules = implode( "\n", $GLOBALS['stub_htaccess']['WP PDF Reader'] ?? array() );
+ok( 'the published document is named as an exception to the PDF rule', false !== strpos( $rules, 'iso\-27001\.pdf' ) || false !== strpos( $rules, 'iso-27001\.pdf' ) );
+ok( 'and gets the header set back, after the blanket rule', strpos( $rules, 'X-Robots-Tag "all"' ) > strpos( $rules, 'X-Robots-Tag "noindex' ) );
+
+delete_post_meta( 302, WPPDF_Noindex::META );
+delete_post_meta( 302, '_wppdf_file_cs' );
+WPPDF_Noindex::flush_cache();
+
+// Written once, then left alone: this runs on every admin request, so a write
+// per page load on a read-only web root would be the bug.
+$noindex->maybe_write_files();
 $GLOBALS['stub_htaccess'] = array();
 $noindex->maybe_write_files();
 ok( 'and it is not rewritten on every admin request', array() === $GLOBALS['stub_htaccess'] );

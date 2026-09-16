@@ -451,12 +451,25 @@ administrace — není potřeba otevírat nastavení a mačkat Uložit.
 Co se dá nastavit:
 
 * **Celé typy obsahu** — zaškrtnutím se vyloučí každý příspěvek daného typu,
-  typicky dokumenty. Jde o hromadný přepínač; v editoru se pak u takového
-  příspěvku volba nedá přebít (a schválně se ani neuloží, aby zaškrtnutí,
-  které editor nikdy neviděl, nespadlo pod stůl).
+  typicky dokumenty. Jde o hromadný přepínač, který určuje výchozí stav.
 * **Jednotlivé příspěvky** — box **Vyhledávače a AI** v editoru u každého
-  veřejného typu obsahu. Tohle je cesta, až se z dokumentů stanou příspěvky:
-  vyloučit pár konkrétních, ne celý blog.
+  veřejného typu obsahu, a funguje **v obou směrech**:
+  * v neblokovaném typu obsahu jím vyloučíte jeden příspěvek (tohle je
+    cesta, až se z dokumentů stanou příspěvky: vyloučit pár konkrétních, ne
+    celý blog),
+  * ve **vyloučené** knihovně jím naopak jeden dokument **zveřejníte** —
+    certifikát, ceník, leták, který má být vidět a k nalezení.
+
+  V databázi se přitom drží jen ta výjimka, ne stav. Pozdější přepnutí
+  celého typu obsahu v nastavení tedy pořád přesune všechny dokumenty, které
+  si neřekly jinak.
+
+  Výjimka „zveřejnit" se musí vykousnout ze **všech** pravidel, která platí
+  na celou cestu, a plugin to dělá: `Allow:` před `Disallow:` v `robots.txt`
+  (Google i Bing rozhodují podle delší shody), záznam
+  `tdm-reservation: 0` v `tdmrep.json`, typ obsahu zůstane v sitemapě, ale
+  vypíše se v ní jen ta výjimka, a v `uploads/.htaccess` se PDF toho
+  dokumentu jmenovitě vrátí hlavička `X-Robots-Tag: all`.
 * **Hlavička u samotných PDF** — PDF servíruje web server, ne WordPress,
   takže jediný způsob, jak ho označit, je HTTP hlavička. Zapsaná je mezi
   markery v `uploads/.htaccess`, stejným způsobem, jakým si tam WordPress
