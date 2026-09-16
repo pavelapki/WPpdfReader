@@ -159,6 +159,15 @@ class WPPDF_Seo {
 
 		$post_id = get_queried_object_id();
 
+		// On a document meant to stay out of search, the cure would be worse
+		// than the symptom: get_description() falls back on the first words of
+		// the PDF, which would put the document's own text in the markup of a
+		// page whose whole point is to be quiet. A description built out of the
+		// toolbar is ugly, and on a noindex page nobody is reading it anyway.
+		if ( $post_id && class_exists( 'WPPDF_Noindex' ) && WPPDF_Noindex::is_noindex( $post_id ) ) {
+			return $description;
+		}
+
 		// An empty description beats a description made of button labels: the
 		// search engine then writes one from the page instead of quoting the
 		// toolbar back at the reader.

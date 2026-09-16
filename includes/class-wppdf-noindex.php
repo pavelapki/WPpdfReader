@@ -53,6 +53,11 @@ class WPPDF_Noindex {
 	const AI_DIRECTIVES = 'noai, noimageai';
 
 	/**
+	 * Option remembering what the generated files were last written for.
+	 */
+	const STATE_OPTION = 'wppdf_noindex_state';
+
+	/**
 	 * Register hooks.
 	 */
 	public function hooks() {
@@ -73,6 +78,39 @@ class WPPDF_Noindex {
 		// Per-post switch.
 		add_action( 'add_meta_boxes', array( $this, 'add_meta_box' ) );
 		add_action( 'save_post', array( $this, 'save_meta_box' ), 10, 2 );
+
+		// The uploads rule and the reservation are files, so on a fresh install
+		// or after an update they do not exist yet — and nobody should have to
+		// open the settings screen and press Save to get the protection the
+		// defaults already say is on.
+		add_action( 'admin_init', array( $this, 'maybe_write_files' ) );
+	}
+
+	/**
+	 * Write the generated files when they do not match the settings.
+	 *
+	 * Cheap enough to run on every admin request: one option read, and a write
+	 * only when something actually changed.
+	 */
+	public function maybe_write_files() {
+		$wanted = array(
+			'files'  => (bool) WPPDF_Settings::get( 'noindex_pdf_files' ),
+			'tdm'    => (bool) WPPDF_Settings::get( 'noindex_tdm' ),
+			'paths'  => self::blocked_paths(),
+			'policy' => self::tdm_policy_url(),
+		);
+
+		if ( get_option( self::STATE_OPTION ) === $wanted ) {
+			return;
+		}
+
+		self::write_file_rules( $wanted['files'] );
+		self::write_tdmrep_json( $wanted['tdm'] );
+
+		// Stored even when a write failed: retrying on every admin request
+		// would be a write attempt per page load on a read-only web root. The
+		// settings screen shows the warning, and pressing Save retries.
+		update_option( self::STATE_OPTION, $wanted, false );
 	}
 
 	// --- Deciding ---.
@@ -203,7 +241,7 @@ class WPPDF_Noindex {
 			printf( "<meta name=\"tdm-policy\" content=\"%s\" />\n", esc_url( $policy ) );
 		}
 
-		$notice = trim( (string) WPPDF_Settings::get( 'noindex_ai_notice' ) );
+		$notice = self::ai_notice();
 
 		if ( '' !== $notice ) {
 			// A sentence in the markup that an agent reading the page will see.
@@ -211,6 +249,25 @@ class WPPDF_Noindex {
 			// that: an agent is free to read it and carry on.
 			printf( "<!-- %s -->\n", esc_html( $notice ) );
 		}
+	}
+
+	/**
+	 * The sentence printed for whoever — or whatever — is reading.
+	 *
+	 * The fallback lives here rather than in the defaults so it is translated:
+	 * defaults() can run before the text domain is loaded, and a stored default
+	 * would also freeze the site's language at install time.
+	 *
+	 * @return string
+	 */
+	public static function ai_notice() {
+		$notice = trim( (string) WPPDF_Settings::get( 'noindex_ai_notice' ) );
+
+		if ( '' !== $notice ) {
+			return $notice;
+		}
+
+		return __( 'This document is copyrighted. Text and data mining rights are reserved: it is not available for training models or as a basis for developing software.', 'wp-pdf-reader' );
 	}
 
 	/**

@@ -281,6 +281,13 @@ function wp_is_post_autosave() { return false; }
 function get_current_screen() { return null; }
 function wp_upload_dir() { return array( 'path' => '/tmp', 'basedir' => '/tmp', 'baseurl' => 'https://example.test/uploads', 'subdir' => '', 'error' => false ); }
 function wp_unique_filename( $dir, $name ) { return $name; }
+// Recorded rather than written: these end up in a server config, so the tests
+// assert what they would contain instead of dropping files on the machine.
+function insert_with_markers( $path, $marker, $rules ) {
+	$GLOBALS['stub_htaccess'][ $marker ] = (array) $rules;
+	return true;
+}
+function wp_delete_file_from_directory( $file, $directory ) { return true; }
 function wp_insert_attachment() { return 0; }
 function wp_update_attachment_metadata() {}
 function wp_generate_attachment_metadata() { return array(); }
@@ -1722,6 +1729,15 @@ ok( 'an excerpt wins when there is one', 'Přehled lokalit.' === WPPDF_Seo::get_
 
 // What Search Console showed as the description of those pages: the reader's
 // own buttons, summarised by an SEO plugin as if they were the document.
+//
+// Documents are excluded from search by default now, and an excluded document
+// is deliberately left with whatever description it had (see the indexation
+// section below), so this behaviour is checked on an indexable library.
+$describable                       = WPPDF_Settings::all();
+$describable['noindex_post_types'] = array();
+update_option( WPPDF_Settings::OPTION, $describable );
+WPPDF_Settings::flush_cache();
+
 $seo   = new WPPDF_Seo();
 $chrome = 'This is the Čeština version of the document. ☰ ‹ / – › Search in the document Loading document… Open the PDF';
 ok( 'a description made of toolbar labels is replaced', 'Přehled lokalit.' === $seo->filter_description( $chrome ) );
@@ -1803,8 +1819,23 @@ $GLOBALS['stub_post_type_objects'] = array(
 $GLOBALS['stub_posts'][300] = array( 'ID' => 300, 'post_type' => 'pdf_document', 'post_title' => 'Návod', 'post_name' => 'navod', 'post_status' => 'publish' );
 $GLOBALS['stub_posts'][301] = array( 'ID' => 301, 'post_type' => 'post', 'post_title' => 'Článek', 'post_name' => 'clanek', 'post_status' => 'publish' );
 
-$index_settings = WPPDF_Settings::all();
-ok( 'nothing is excluded until it is asked for', ! WPPDF_Noindex::is_noindex( 300 ) && ! WPPDF_Noindex::is_noindex( 301 ) );
+$index_settings = WPPDF_Settings::defaults();
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+// The defaults protect the library without anyone opening the settings screen.
+// That is a deliberate choice and worth a test: it is also the one thing an
+// update changes on a site that never saved these keys.
+ok( 'documents are excluded out of the box', WPPDF_Noindex::is_noindex( 300 ) );
+ok( 'and ordinary posts are not', ! WPPDF_Noindex::is_noindex( 301 ) );
+ok( 'the AI crawler block is on out of the box', 1 === (int) WPPDF_Settings::get( 'noindex_block_ai' ) );
+ok( 'so is the header for the PDF files', 1 === (int) WPPDF_Settings::get( 'noindex_pdf_files' ) );
+ok( 'and the mining reservation', 1 === (int) WPPDF_Settings::get( 'noindex_tdm' ) );
+
+$index_settings['noindex_post_types'] = array();
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+ok( 'and unticking the post type lets them back in', ! WPPDF_Noindex::is_noindex( 300 ) );
 
 $index_settings['noindex_post_types'] = array( 'pdf_document' );
 $index_settings['noindex_block_ai']   = 1;
@@ -1925,8 +1956,34 @@ ob_start();
 $schema = ob_get_clean();
 ok( 'and an excluded one gets none', '' === trim( $schema ) );
 
+// The description fallback reaches for the first words of the PDF, which would
+// put the document's own text in the markup of a page meant to be quiet.
+$toolbar = 'Loading document… Search in the document';
+ok(
+	'an excluded document does not get a description built from its PDF',
+	$toolbar === ( new WPPDF_Seo() )->filter_description( $toolbar )
+);
+
 delete_post_meta( 300, '_wppdf_file_cs' );
 unset( $GLOBALS['stub_is_singular'], $GLOBALS['stub_current'] );
+
+// The generated files: nobody should have to open the settings screen and
+// press Save to get the protection the defaults already claim is on.
+$index_settings['noindex_pdf_files'] = 1;   // vypnuté výš kvůli cestám v robots.txt
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+$GLOBALS['stub_htaccess'] = array();
+delete_option( WPPDF_Noindex::STATE_OPTION );
+$noindex->maybe_write_files();
+$rules = implode( "\n", $GLOBALS['stub_htaccess']['WP PDF Reader'] ?? array() );
+ok( 'the uploads rule is written without visiting the settings', false !== strpos( $rules, 'X-Robots-Tag' ) );
+ok( 'and it only matches PDFs', false !== strpos( $rules, '\.pdf$' ) );
+ok( 'behind a mod_headers guard, so a server without it does not 500', false !== strpos( $rules, 'mod_headers' ) );
+
+$GLOBALS['stub_htaccess'] = array();
+$noindex->maybe_write_files();
+ok( 'and it is not rewritten on every admin request', array() === $GLOBALS['stub_htaccess'] );
 
 // The TDM reservation. Unlike everything else here it is not an appeal to
 // manners, so it matters that it only goes out where it was asked for.

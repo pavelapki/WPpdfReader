@@ -429,6 +429,25 @@ Je to jiná kategorie věci než ochrana přihlášením výš, a je dobré to n
 > hranicí je „jen pro přihlášené" výš — tam se soubor z veřejných uploads
 > odstěhuje a PHP kontroluje oprávnění, než pošle první byte.
 
+**Od v1.13.0 je to zapnuté ve výchozím stavu** a je to vědomá volba:
+knihovna dokumentů je vlastní obsah a argument pro to, aby ji četl AI
+asistent, je slabší než argument pro to, nedat konkurenci hotový návod.
+Kdo chce původní chování, odškrtne si to — tohle je ta strana, na kterou
+se má chybovat.
+
+Výchozí stav tedy je: dokumenty vyloučené, hlavička u PDF souborů zapnutá,
+AI crawlery odmítnuté v `robots.txt`, výhrada TDMRep aktivní.
+
+> **Pozor při aktualizaci:** tyhle volby v uloženém nastavení starších
+> instalací chybí, takže se doplní z výchozích hodnot — **aktualizace na
+> v1.13.0 tedy vyloučí dokumenty z indexace i na webu, který to nikdy
+> nenastavoval.** Pokud tam knihovna má v Googlu zůstat, je potřeba to po
+> aktualizaci v nastavení odškrtnout.
+
+Soubory, které se kvůli tomu musí zapsat (pravidlo v `uploads/.htaccess`
+a `/.well-known/tdmrep.json`), se zapíšou samy při první návštěvě
+administrace — není potřeba otevírat nastavení a mačkat Uložit.
+
 Co se dá nastavit:
 
 * **Celé typy obsahu** — zaškrtnutím se vyloučí každý příspěvek daného typu,

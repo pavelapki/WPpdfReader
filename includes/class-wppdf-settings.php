@@ -103,13 +103,21 @@ class WPPDF_Settings {
 			'seo_metadata'         => 1,
 			'canonical_fallback'   => 1,
 
-			// Indexation. Off by default: a plugin update must not quietly
-			// pull a working library out of Google.
-			'noindex_post_types'   => array(),
-			'noindex_block_ai'     => 0,
+			// Indexation. On by default, and deliberately so: a document
+			// library is the plugin's own content, and the case for having it
+			// read by an answer engine is weaker than the case for not handing
+			// a competitor the manual. Anyone who wants the old behaviour
+			// unticks it — which is the way round that fails safely.
+			//
+			// Note what this means on an existing site: these keys are absent
+			// from a stored option saved before they existed, so wp_parse_args
+			// fills them from here and an update turns the exclusion on. That
+			// is the intent, and the changelog says so.
+			'noindex_post_types'   => array( 'pdf_document' ),
+			'noindex_block_ai'     => 1,
 			'noindex_ai_agents'    => class_exists( 'WPPDF_Noindex' ) ? WPPDF_Noindex::default_ai_agents() : '',
-			'noindex_pdf_files'    => 0,
-			'noindex_tdm'          => 0,
+			'noindex_pdf_files'    => 1,
+			'noindex_tdm'          => 1,
 			'noindex_tdm_policy'   => '',
 			'noindex_ai_notice'    => '',
 			'language_switcher'    => 1,
@@ -394,6 +402,18 @@ class WPPDF_Settings {
 		}
 
 		$out['noindex_ai_agents'] = implode( "\n", array_unique( $lines ) );
+
+		// Renaming the post type key must not quietly un-exclude the library:
+		// the list holds keys, and the old one stops matching anything.
+		if ( $old['post_type_key'] !== $out['post_type_key'] ) {
+			$renamed = array();
+
+			foreach ( $out['noindex_post_types'] as $type ) {
+				$renamed[] = $old['post_type_key'] === $type ? $out['post_type_key'] : $type;
+			}
+
+			$out['noindex_post_types'] = array_values( array_unique( $renamed ) );
+		}
 
 		// --- Side effects ----------------------------------------------.
 		if ( $old['noindex_pdf_files'] !== $out['noindex_pdf_files'] || ( $out['noindex_pdf_files'] && ! WPPDF_Noindex::file_rules_present() ) ) {
