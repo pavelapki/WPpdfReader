@@ -418,6 +418,93 @@ location ^~ /wp-content/uploads/wppdf-protected/ { deny all; }
 Kdo smí číst, se dá předefinovat filtrem `wppdf_user_can_read` — třeba podle
 členství.
 
+## Mimo vyhledávače a AI crawlery
+
+V **Nastavení → Vyhledávače a AI** se dá vybrat, co se nemá indexovat.
+Je to jiná kategorie věci než ochrana přihlášením výš, a je dobré to nesplést:
+
+> **Tohle jen prosí, nezakazuje.** Meta tag, hlavička `X-Robots-Tag` a
+> `robots.txt` respektuje Google, Bing, GPTBot i ClaudeBot. Scraper napsaný
+> proto, aby obsah získal, je ignoruje a soubor si stáhne. Jedinou tvrdou
+> hranicí je „jen pro přihlášené" výš — tam se soubor z veřejných uploads
+> odstěhuje a PHP kontroluje oprávnění, než pošle první byte.
+
+Co se dá nastavit:
+
+* **Celé typy obsahu** — zaškrtnutím se vyloučí každý příspěvek daného typu,
+  typicky dokumenty. Jde o hromadný přepínač; v editoru se pak u takového
+  příspěvku volba nedá přebít (a schválně se ani neuloží, aby zaškrtnutí,
+  které editor nikdy neviděl, nespadlo pod stůl).
+* **Jednotlivé příspěvky** — box **Vyhledávače a AI** v editoru u každého
+  veřejného typu obsahu. Tohle je cesta, až se z dokumentů stanou příspěvky:
+  vyloučit pár konkrétních, ne celý blog.
+* **Hlavička u samotných PDF** — PDF servíruje web server, ne WordPress,
+  takže jediný způsob, jak ho označit, je HTTP hlavička. Zapsaná je mezi
+  markery v `uploads/.htaccess`, stejným způsobem, jakým si tam WordPress
+  píše vlastní blok. Funguje na Apachi a LiteSpeedu a **nutně platí na
+  všechna PDF v uploads** — Apache matchuje na název souboru a nemá jak
+  zjistit, ke kterému příspěvku příloha patří.
+* **Odmítnutí AI crawlerů v `robots.txt`** — seznam user agentů je
+  editovatelný, protože stárne. Když v kořeni webu leží statický
+  `robots.txt`, WordPress žádný negeneruje a pravidla se nikdy neodešlou;
+  nastavení na to upozorní.
+
+**Googlebot se schválně neblokuje.** Stránka, kterou Google nesmí načíst, je
+stránka, jejíž `noindex` si nikdy nepřečte — a může tak v indexu zůstat
+měsíce jen na základě odkazů, které na ni vedou. Vyhledávače proto dostanou
+`noindex` a nechají se dojít si ho přečíst; zavřou se jen crawlery, které
+neindexují, ale obsah sbírají.
+
+Co se u vyloučeného obsahu stane:
+
+* `noindex, nofollow, noimageindex, noarchive, nosnippet` v meta tagu
+  a v hlavičce `X-Robots-Tag` (hlavička i proto, že platí i na to, co není
+  HTML, a funguje, i když `<head>` vlastní SEO plugin),
+* vypadne z **sitemapy** — jak z té od WordPressu, tak z té od SEO pluginu:
+  vyloučenému příspěvku se na čtení meta klíčů (`rank_math_robots`,
+  `_yoast_wpseo_meta-robots-noindex`, `_seopress_robots_index`) odpoví
+  „noindex", takže plugin sám ví, že ho do sitemapy nemá dávat. Do databáze
+  se přitom nic nezapisuje — vypnutím volby se příspěvek vrátí k tomu, co
+  měl nastavené předtím,
+* **netiskne se `DigitalDocument`/Open Graph** — `contentUrl` v tom schématu
+  je adresa právě toho PDF, které má být potichu,
+* archiv vyloučeného typu obsahu jde do `noindex` taky, jinak by v Googlu
+  zůstaly názvy a popisky i po zmizení jednotlivých stránek.
+
+### Výhrada k text & data miningu (TDMRep)
+
+Jediná věc v téhle sekci, která není jen prosba. Evropské autorské právo
+(směrnice DSM, čl. 4) dovoluje kdekomu těžit legálně dostupný obsah pro text
+a data mining, **pokud si nositel práv toto právo nevyhradil strojově
+čitelným způsobem** — a *strojově čitelným způsobem* se v praxi rozumí
+[TDM Reservation Protocol](https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240202/).
+Zapnutím se u vyloučeného obsahu posílá:
+
+* `<meta name="tdm-reservation" content="1">` a hlavička `tdm-reservation: 1`,
+* volitelně `tdm-policy` s adresou stránky s podmínkami použití (kdyby si
+  někdo chtěl licenci koupit),
+* `/.well-known/tdmrep.json` s vyloučenými cestami — pro crawlery, které
+  stránku nikdy nevykreslí a berou jen soubor.
+
+Navíc se posílá `noai, noimageai` v `X-Robots-Tag`. To je konvence, ne
+standard; neznámé tokeny se ignorují, takže nic nekazí, ale nic nezaručuje.
+
+K tomu je pole na **jednu větu pro toho, kdo to čte** — vytiskne se do
+markupu vyloučené stránky. Agent, který stránku čte, ji uvidí a může
+pokračovat dál; je to upozornění, ne ochrana. Cenu má v tom, že jsou podmínky
+řečené výslovně, což se hodí, kdyby se o kopírování mělo někdy vést spor.
+
+Co ani jedno z toho neudělá: nezastaví stažení a nic neříká o jurisdikcích,
+které tu výjimku nikdy neměly.
+
+Rozhodnutí se dá převzít kódem: filtr `wppdf_is_noindex( $bool, $post_id )`
+(třeba podle kategorie nebo pole v ACF), `wppdf_noindex_post_types`,
+`wppdf_noindex_blocked_paths` a `wppdf_noindex_meta_box_post_types`.
+
+**Co už v indexu je, tím nezmizí.** Google musí stránku znovu navštívit,
+přečíst `noindex` a vyřadit ji; urychlit to jde přes Search Console
+(Odstranění URL). Proto ta stránka nesmí být zároveň zakázaná v `robots.txt`.
+
 ## Statistiky, SEO a aktualizace
 
 * **Počítadlo zobrazení a stažení po jazycích** — v přehledu dokumentů je
@@ -537,6 +624,10 @@ add_filter( 'wppdf_standalone_single', function ( $standalone ) {
 | `wppdf_file_url` | URL, ze které se soubor servíruje |
 | `wppdf_is_protected` | zda dokument vyžaduje přihlášení |
 | `wppdf_user_can_read` | kdo smí chráněný dokument otevřít |
+| `wppdf_is_noindex` | zda se příspěvek drží mimo vyhledávače a AI |
+| `wppdf_noindex_post_types` | typy obsahu vyloučené jako celek |
+| `wppdf_noindex_blocked_paths` | cesty zapsané do bloku v `robots.txt` |
+| `wppdf_noindex_meta_box_post_types` | kde se nabízí přepínač u příspěvku |
 | `wppdf_ocr_max_pages` | kolik stránek skenu projde OCR |
 | `wppdf_hit_throttle` | okno pro rate limit počítadla |
 

@@ -55,6 +55,7 @@ class WPPDF_Plugin {
 			'seo'        => new WPPDF_Seo(),
 			'canonical'  => new WPPDF_Canonical(),
 			'protection' => new WPPDF_Protection(),
+			'noindex'    => new WPPDF_Noindex(),
 			'permalinks' => new WPPDF_Permalinks(),
 			'meta'       => new WPPDF_Meta(),
 			'importer'   => new WPPDF_Importer(),

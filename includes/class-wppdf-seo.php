@@ -178,7 +178,15 @@ class WPPDF_Seo {
 		}
 
 		$post_id = get_queried_object_id();
-		$file    = $post_id ? WPPDF_Documents::get_file( $post_id ) : null;
+
+		// Structured data on a document that is meant to stay out of search
+		// would be self-defeating: `contentUrl` hands a crawler the address of
+		// the raw PDF, which is exactly the file being kept quiet.
+		if ( $post_id && class_exists( 'WPPDF_Noindex' ) && WPPDF_Noindex::is_noindex( $post_id ) ) {
+			return;
+		}
+
+		$file = $post_id ? WPPDF_Documents::get_file( $post_id ) : null;
 
 		if ( ! $file ) {
 			return;

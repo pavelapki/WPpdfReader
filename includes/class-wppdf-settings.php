@@ -102,6 +102,16 @@ class WPPDF_Settings {
 			'count_views'          => 1,
 			'seo_metadata'         => 1,
 			'canonical_fallback'   => 1,
+
+			// Indexation. Off by default: a plugin update must not quietly
+			// pull a working library out of Google.
+			'noindex_post_types'   => array(),
+			'noindex_block_ai'     => 0,
+			'noindex_ai_agents'    => class_exists( 'WPPDF_Noindex' ) ? WPPDF_Noindex::default_ai_agents() : '',
+			'noindex_pdf_files'    => 0,
+			'noindex_tdm'          => 0,
+			'noindex_tdm_policy'   => '',
+			'noindex_ai_notice'    => '',
 			'language_switcher'    => 1,
 			'github_updates'       => 1,
 			'github_repository'    => 'pavelapki/WPpdfReader',
@@ -348,7 +358,74 @@ class WPPDF_Settings {
 
 		$out['github_repository'] = $repository;
 
+		// --- Indexation ------------------------------------------------.
+		$types = array();
+
+		if ( isset( $input['noindex_post_types'] ) && is_array( $input['noindex_post_types'] ) ) {
+			foreach ( $input['noindex_post_types'] as $type ) {
+				$type = sanitize_key( $type );
+
+				if ( '' !== $type ) {
+					$types[] = $type;
+				}
+			}
+		}
+
+		$out['noindex_post_types'] = array_values( array_unique( $types ) );
+
+		foreach ( array( 'noindex_block_ai', 'noindex_pdf_files', 'noindex_tdm' ) as $flag ) {
+			$out[ $flag ] = empty( $input[ $flag ] ) ? 0 : 1;
+		}
+
+		$out['noindex_tdm_policy'] = isset( $input['noindex_tdm_policy'] ) ? esc_url_raw( trim( (string) $input['noindex_tdm_policy'] ) ) : '';
+		$out['noindex_ai_notice']  = isset( $input['noindex_ai_notice'] ) ? sanitize_textarea_field( (string) $input['noindex_ai_notice'] ) : '';
+
+		$agents = isset( $input['noindex_ai_agents'] ) ? sanitize_textarea_field( (string) $input['noindex_ai_agents'] ) : '';
+		$lines  = array();
+
+		foreach ( preg_split( '/[\r\n]+/', $agents ) as $line ) {
+			// A user agent token, not free text: it ends up in robots.txt, so
+			// a stray newline or colon would rewrite the directive around it.
+			$line = trim( preg_replace( '/[^A-Za-z0-9_.\-\*\/ ]/', '', $line ) );
+
+			if ( '' !== $line ) {
+				$lines[] = $line;
+			}
+		}
+
+		$out['noindex_ai_agents'] = implode( "\n", array_unique( $lines ) );
+
 		// --- Side effects ----------------------------------------------.
+		if ( $old['noindex_pdf_files'] !== $out['noindex_pdf_files'] || ( $out['noindex_pdf_files'] && ! WPPDF_Noindex::file_rules_present() ) ) {
+			if ( ! WPPDF_Noindex::write_file_rules( (bool) $out['noindex_pdf_files'] ) ) {
+				add_settings_error(
+					self::OPTION,
+					'wppdf_noindex_files',
+					__( 'The .htaccess in the uploads folder could not be written, so PDF files carry no noindex header. Add the rule to the server configuration by hand.', 'wp-pdf-reader' )
+				);
+			}
+		}
+
+		// The reservation names the excluded paths, so it is rewritten whenever
+		// those change too, not only when the switch is flipped. It is written
+		// from the values being saved, so the cache is primed with them rather
+		// than the option being written twice.
+		self::$cache = apply_filters( 'wppdf_settings', $out );
+
+		if ( $out['noindex_tdm'] && ! WPPDF_Noindex::blocked_paths() ) {
+			add_settings_error(
+				self::OPTION,
+				'wppdf_noindex_tdm_paths',
+				__( 'The text and data mining reservation has no paths to name yet: tick a post type above, or the PDF header option. The meta tags on the excluded pages go out either way.', 'wp-pdf-reader' )
+			);
+		} elseif ( ! WPPDF_Noindex::write_tdmrep_json( (bool) $out['noindex_tdm'] ) ) {
+			add_settings_error(
+				self::OPTION,
+				'wppdf_noindex_tdm',
+				__( 'The reservation could not be written to /.well-known/tdmrep.json. The meta tags and headers still go out on the excluded pages; the site-wide file needs a writable web root, or uploading by hand.', 'wp-pdf-reader' )
+			);
+		}
+
 		if ( $old['post_type_key'] !== $out['post_type_key'] ) {
 			$moved = WPPDF_Post_Type::migrate_post_type( $old['post_type_key'], $out['post_type_key'] );
 			if ( $moved > 0 ) {
