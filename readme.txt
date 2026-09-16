@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.13.0
+Stable tag: 1.13.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -66,6 +66,19 @@ Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
 
+= 1.13.1 =
+* A single document can now be published out of an excluded library. The box in
+  the editor was disabled whenever the whole post type was excluded, which left
+  no way to make a certificate or a price list findable short of unticking the
+  type and re-ticking it document by document — and that would have left every
+  new upload public until somebody remembered.
+* The exception is carved out of every rule that covers the whole path: Allow
+  before Disallow in robots.txt, a tdm-reservation of 0 in tdmrep.json, the post
+  type kept in the sitemap but listing only the exceptions, and the PDF named in
+  the uploads .htaccess so its X-Robots-Tag is set back.
+* Only the exception is stored, not the state, so changing the post type in the
+  settings still moves every document that never said otherwise.
+
 = 1.13.0 =
 * Keeping documents out of search engines and AI crawlers is now ON by default,
   and deliberately so: a document library is the plugin's own content, and the
@@ -109,6 +122,7 @@ Yes, add the post type through the `wppdf_supported_post_types` filter.
 * None of this is a lock — it is a request that well-behaved crawlers honour.
   The settings screen says so, and points at the per-document "only logged in
   visitors" switch, which is the one that actually stops a download.
+
 = 1.11.1 =
 * The document list in wp-admin gives the title its room back. The tags
   column is gone (documents do not use tags), and so are the columns Rank

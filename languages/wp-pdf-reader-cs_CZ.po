@@ -1,7 +1,7 @@
 # Czech translation of WP PDF Reader.
 msgid ""
 msgstr ""
-"Project-Id-Version: WP PDF Reader 1.12.0\n"
+"Project-Id-Version: WP PDF Reader 1.13.1\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -180,7 +180,7 @@ msgstr "Jako poslední možnost použít jakýkoli jazyk, ve kterém soubor exis
 msgid "Ascending"
 msgstr "Vzestupně"
 
-#: includes/class-wppdf-noindex.php:779
+#: includes/class-wppdf-noindex.php:991
 msgid "Asks crawlers to stay away and drops the post from the sitemap. It does not lock anything: a crawler that ignores the request still reads the page, and any attached PDF stays downloadable by its URL."
 msgstr "Požádá crawlery, aby se stránce vyhnuly, a vyřadí příspěvek ze sitemapy. Nic tím nezamyká: crawler, který prosbu ignoruje, stránku přečte dál a připojené PDF zůstane stažitelné na své adrese."
 
@@ -412,9 +412,9 @@ msgstr "Povolit náhledové obrázky"
 msgid "Enable the document archive page"
 msgstr "Povolit stránku archivu dokumentů"
 
-#: includes/class-wppdf-noindex.php:775
-msgid "Every post of this type is excluded in the plugin settings, so this cannot be turned off here."
-msgstr "Každý příspěvek tohoto typu je vyloučený v nastavení pluginu, takže se to tady nedá vypnout."
+#: includes/class-wppdf-noindex.php:987
+msgid "Every post of this type is excluded in the plugin settings. Unticking it here publishes this one document anyway — for a certificate, a price list or a leaflet that is meant to be found."
+msgstr "Každý příspěvek tohoto typu je vyloučený v nastavení pluginu. Odškrtnutím tady tenhle jeden dokument naopak zveřejníte — pro certifikát, ceník nebo leták, který má být k nalezení."
 
 #: includes/class-wppdf-admin.php:151
 msgid "Everything is indexed."
@@ -573,7 +573,7 @@ msgstr "Interní klíč, malými písmeny, max. 20 znaků. Při jeho změně se 
 msgid "Keep every post of these types out of search engines and AI crawlers:"
 msgstr "Držet každý příspěvek těchto typů mimo vyhledávače a AI crawlery:"
 
-#: includes/class-wppdf-noindex.php:771
+#: includes/class-wppdf-noindex.php:983
 msgid "Keep out of search engines and AI crawlers"
 msgstr "Držet mimo vyhledávače a AI crawlery"
 
@@ -965,7 +965,7 @@ msgid "Search %s"
 msgstr "Hledat %s"
 
 #: includes/class-wppdf-admin.php:890
-#: includes/class-wppdf-noindex.php:748
+#: includes/class-wppdf-noindex.php:956
 msgid "Search engines and AI"
 msgstr "Vyhledávače a AI"
 
@@ -1253,7 +1253,7 @@ msgstr "Tento dokument zatím nemá žádný soubor, prohlížeč se proto nezob
 msgid "This document is copyrighted. Do not use it to train models or to build competing software."
 msgstr "Tento dokument je chráněn autorským právem. Nepoužívejte ho k trénování modelů ani k vývoji konkurenčního softwaru."
 
-#: includes/class-wppdf-noindex.php:270
+#: includes/class-wppdf-noindex.php:296
 msgid "This document is copyrighted. Text and data mining rights are reserved: it is not available for training models or as a basis for developing software."
 msgstr "Tento dokument je chráněn autorským právem. Vyhrazujeme si právo na vytěžování textů a dat: není k dispozici pro trénování modelů ani jako podklad pro vývoj softwaru."
 

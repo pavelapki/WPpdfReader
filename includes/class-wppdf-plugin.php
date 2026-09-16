@@ -106,6 +106,7 @@ class WPPDF_Plugin {
 		WPPDF_Post_Type::flush_cache();
 		WPPDF_Documents::flush_cache();
 		WPPDF_Canonical::flush_cache();
+		WPPDF_Noindex::flush_cache();
 	}
 
 	/**
