@@ -112,6 +112,7 @@ class WPPDF_Noindex {
 			// The uploads rule names files, so swapping the PDF behind a
 			// published document has to rewrite it too.
 			'files_ok' => self::allowed_file_names(),
+			'paths_ok' => self::allowed_file_paths(),
 		);
 
 		if ( get_option( self::STATE_OPTION ) === $wanted ) {
@@ -813,6 +814,74 @@ class WPPDF_Noindex {
 	}
 
 	/**
+	 * The locations the reservation covers.
+	 *
+	 * Built here rather than from blocked_paths(), which speaks robots.txt:
+	 * `/*.pdf$` is a robots pattern, and pasting it into a TDMRep location
+	 * produced the nonsense `*.pdf$/*`. A location is a plain path prefix, so
+	 * the PDFs are named by the folder they live in instead.
+	 *
+	 * @return array
+	 */
+	public static function reserved_locations() {
+		$locations = array();
+
+		foreach ( self::blocked_paths() as $blocked ) {
+			// Anything carrying robots.txt pattern syntax has no meaning here.
+			if ( false !== strpos( $blocked, '*' ) || false !== strpos( $blocked, '$' ) ) {
+				continue;
+			}
+
+			$location = trim( $blocked, '/' );
+
+			if ( '' !== $location ) {
+				$locations[] = $location . '/*';
+			}
+		}
+
+		// The PDFs are served from the uploads folder, which is nowhere near
+		// the document paths above, so it needs naming in its own right.
+		if ( WPPDF_Settings::get( 'noindex_pdf_files' ) ) {
+			$uploads = wp_upload_dir();
+			$path    = empty( $uploads['error'] ) ? wp_parse_url( (string) $uploads['baseurl'], PHP_URL_PATH ) : '';
+
+			if ( is_string( $path ) && '' !== trim( $path, '/' ) ) {
+				$locations[] = trim( $path, '/' ) . '/*';
+			}
+		}
+
+		return array_values( array_unique( $locations ) );
+	}
+
+	/**
+	 * URL paths of the PDFs belonging to posts published on purpose.
+	 *
+	 * @return array
+	 */
+	public static function allowed_file_paths() {
+		$paths = array();
+
+		foreach ( self::allowed_posts() as $post_id ) {
+			foreach ( WPPDF_Languages::get_codes() as $code ) {
+				$attachment_id = absint( get_post_meta( $post_id, WPPDF_Languages::file_meta_key( $code ), true ) );
+
+				if ( ! $attachment_id ) {
+					continue;
+				}
+
+				$url  = wp_get_attachment_url( $attachment_id );
+				$path = $url ? wp_parse_url( (string) $url, PHP_URL_PATH ) : '';
+
+				if ( is_string( $path ) && '' !== trim( $path, '/' ) ) {
+					$paths[] = trim( $path, '/' );
+				}
+			}
+		}
+
+		return array_values( array_unique( $paths ) );
+	}
+
+	/**
 	 * Write or remove /.well-known/tdmrep.json.
 	 *
 	 * The meta tags only reach a crawler that renders the page. The well-known
@@ -841,12 +910,7 @@ class WPPDF_Noindex {
 		$policy  = self::tdm_policy_url();
 		$entries = array();
 
-		foreach ( self::blocked_paths() as $blocked ) {
-			// Locations are root-relative and have no leading slash, and the
-			// reservation covers everything below them.
-			$location = ltrim( $blocked, '/' );
-			$location = '' === $location ? '*' : rtrim( $location, '/' ) . '/*';
-
+		foreach ( self::reserved_locations() as $location ) {
 			$entry = array(
 				'location'        => $location,
 				'tdm-reservation' => 1,
@@ -867,6 +931,15 @@ class WPPDF_Noindex {
 		foreach ( self::allowed_paths() as $allowed ) {
 			$entries[] = array(
 				'location'        => ltrim( $allowed, '/' ),
+				'tdm-reservation' => 0,
+			);
+		}
+
+		// And the files themselves, which sit under the uploads folder the
+		// entry above reserves wholesale.
+		foreach ( self::allowed_file_paths() as $allowed ) {
+			$entries[] = array(
+				'location'        => $allowed,
 				'tdm-reservation' => 0,
 			);
 		}
