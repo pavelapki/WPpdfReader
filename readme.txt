@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.13.1
+Stable tag: 1.13.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,13 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.13.2 =
+* Fixed a malformed entry in /.well-known/tdmrep.json. A location there is a
+  path prefix, not a robots.txt pattern, and reusing the robots paths turned
+  "/*.pdf$" into the location "*.pdf$/*" — nonsense that can cost a parser the
+  whole file. The PDFs are now reserved by the folder they live in, and the
+  files of documents published on purpose are listed as exceptions to it.
 
 = 1.13.1 =
 * A single document can now be published out of an excluded library. The box in

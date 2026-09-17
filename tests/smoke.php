@@ -2088,6 +2088,18 @@ ok( 'the reservation is declared on an excluded document', false !== strpos( $he
 ok( 'and points at the usage terms', false !== strpos( $head, 'https://example.test/podminky/' ) );
 ok( 'the notice for whoever is reading goes out with it', false !== strpos( $head, 'Nepoužívat pro trénink' ) );
 
+// A TDMRep location is a path prefix, not a robots.txt pattern. Reusing the
+// robots paths here once produced the location "*.pdf$/*", which is nonsense
+// and can cost a parser the whole file.
+$index_settings['noindex_pdf_files'] = 1;
+update_option( WPPDF_Settings::OPTION, $index_settings );
+WPPDF_Settings::flush_cache();
+
+$locations = WPPDF_Noindex::reserved_locations();
+ok( 'no reserved location carries robots.txt syntax', '' === implode( '', array_filter( $locations, function ( $l ) { return false !== strpos( $l, '$' ); } ) ) );
+ok( 'the documents are reserved by their path', in_array( 'dokumenty/*', $locations, true ) );
+ok( 'and the PDFs by the folder they live in', in_array( 'uploads/*', $locations, true ) );
+
 $GLOBALS['stub_current'] = 301;
 ob_start();
 $noindex->render_tdm_meta();
