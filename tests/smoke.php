@@ -55,7 +55,7 @@ function apply_filters( $tag, $value ) {
 
 	return $value;
 }
-function do_action( $tag ) {}
+function do_action( $tag ) { $GLOBALS['stub_did'][] = func_get_args(); }
 function register_activation_hook( $file, $cb ) {}
 function register_deactivation_hook( $file, $cb ) {}
 function add_shortcode( $tag, $cb ) { $GLOBALS['stub_shortcodes'][ $tag ] = $cb; }
@@ -382,7 +382,20 @@ function wp_send_json_error( $d, $c = 0 ) { $GLOBALS['stub_json'] = $d; }
 function check_ajax_referer( $a, $b ) { return true; }
 function wp_safe_redirect( $u, $s = 302 ) { $GLOBALS['stub_redirect'] = $u; return true; }
 $GLOBALS['stub_primed'] = array();
-function get_terms( $args = array() ) { return $GLOBALS['stub_terms']; }
+function get_terms( $args = array() ) {
+	// A lookup by slug answers from the term fixtures, the way WP_Term_Query
+	// would; anything else gets the fixed list the filter bar renders.
+	if ( isset( $args['slug'] ) ) {
+		$out = array();
+		foreach ( $GLOBALS['stub_terms_db'] as $id => $term ) {
+			if ( in_array( $term['slug'], (array) $args['slug'], true ) && in_array( $term['taxonomy'], (array) $args['taxonomy'], true ) ) {
+				$out[] = (object) array_merge( array( 'term_id' => $id, 'term_taxonomy_id' => $id ), $term );
+			}
+		}
+		return $out;
+	}
+	return $GLOBALS['stub_terms'];
+}
 function get_post_type_archive_link( $t ) { return 'https://example.test/pdf/'; }
 $GLOBALS['stub_terms'] = array( (object) array( 'slug' => 'vyrocni-zpravy', 'name' => 'Výroční zprávy' ) );
 function wp_cache_get( $k, $g = '' ) { return false; }
@@ -754,17 +767,32 @@ $GLOBALS['stub_filter_callbacks']['wppdf_query_args'] = array(
 );
 
 // 400 has Czech and English PDFs and an English address and title, 401 only
-// an English PDF, 402 no PDF at all.
+// an English PDF, 402 no PDF at all, 404 both PDFs but only an English title.
 $GLOBALS['stub_posts'][400] = array( 'ID' => 400, 'post_type' => 'pdf_document', 'post_title' => 'Zásady zpracování osobních údajů', 'post_name' => 'zasady-zpracovani-osobnich-udaju', 'post_status' => 'publish' );
 $GLOBALS['stub_posts'][401] = array( 'ID' => 401, 'post_type' => 'pdf_document', 'post_title' => 'Ceník', 'post_name' => 'cenik', 'post_status' => 'publish' );
 $GLOBALS['stub_posts'][402] = array( 'ID' => 402, 'post_type' => 'pdf_document', 'post_title' => 'Bez PDF', 'post_name' => 'bez-pdf', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][404] = array( 'ID' => 404, 'post_type' => 'pdf_document', 'post_title' => 'Smlouva o zpracování osobních údajů', 'post_name' => 'smlouva', 'post_status' => 'publish' );
 update_post_meta( 400, '_wppdf_file_cs', 20 );
 update_post_meta( 400, '_wppdf_file_en', 21 );
 update_post_meta( 400, WPPDF_Languages::title_meta_key( 'cs' ), 'Zásady zpracování osobních údajů' );
 update_post_meta( 400, WPPDF_Languages::title_meta_key( 'en' ), 'Privacy policy' );
 update_post_meta( 400, WPPDF_Permalinks::slug_meta_key( 'en' ), 'privacy-policy' );
 update_post_meta( 401, '_wppdf_file_en', 21 );
+update_post_meta( 404, '_wppdf_file_cs', 20 );
+update_post_meta( 404, '_wppdf_file_en', 21 );
+update_post_meta( 404, WPPDF_Languages::title_meta_key( 'en' ), 'Personal data processing agreement' );
 WPPDF_Documents::flush_cache();
+
+$links_terms_before       = $GLOBALS['stub_terms_db'];
+$GLOBALS['stub_terms_db'] = array(
+	500 => array( 'name' => 'Ceníky', 'slug' => 'ceniky', 'taxonomy' => 'category', 'parent' => 0 ),
+	501 => array( 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'category', 'parent' => 0 ),
+	502 => array( 'name' => 'ceníky', 'slug' => 'ceniky', 'taxonomy' => 'post_tag', 'parent' => 0 ),
+	503 => array( 'name' => 'Ceníky', 'slug' => 'ceniky', 'taxonomy' => 'pdf_category', 'parent' => 0 ),
+	504 => array( 'name' => 'Smlouvy', 'slug' => 'smlouvy', 'taxonomy' => 'category', 'parent' => 0 ),
+	510 => array( 'name' => 'Docs', 'slug' => 'docs', 'taxonomy' => 'category', 'parent' => 0 ),
+	511 => array( 'name' => 'Docs', 'slug' => 'docs-2', 'taxonomy' => 'category', 'parent' => 0 ),
+);
 
 $GLOBALS['stub_query_ids'] = array( 400, 401, 402 );
 $links = $shortcodes->links( array( 'category' => 'vyrocni-zpravy, ceniky' ) );
@@ -778,27 +806,113 @@ ok( 'no file links, covers or absolute addresses', false === strpos( $links, 'up
 // Each condition is a group of its own, so the filter bar's category, appended
 // next to it, narrows the list instead of widening it.
 $links_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
+$links_ids = isset( $links_tax[0][0]['terms'] ) ? $links_tax[0][0]['terms'] : array();
+sort( $links_ids );
 ok( 'the categories are one nested group', isset( $links_tax[0]['relation'] ) && 'OR' === $links_tax[0]['relation'] && ! isset( $links_tax['relation'] ) );
-ok( 'comma separated slugs are all asked for', isset( $links_tax[0][0]['terms'] ) && array( 'vyrocni-zpravy', 'ceniky' ) === $links_tax[0][0]['terms'] );
-ok( 'categories match by slug in the category taxonomy', isset( $links_tax[0][0]['taxonomy'] ) && 'category' === $links_tax[0][0]['taxonomy'] && 'slug' === $links_tax[0][0]['field'] );
-ok( 'tags are not matched as categories', 2 === count( $links_tax[0] ) );
-ok( 'without a limit every document is listed', -1 === $links_args['posts_per_page'] );
+ok( 'comma separated slugs are all found', array( 500, 501 ) === $links_ids );
+ok( 'categories are matched as terms of the category taxonomy', isset( $links_tax[0][0]['taxonomy'] ) && 'category' === $links_tax[0][0]['taxonomy'] && 'term_taxonomy_id' === $links_tax[0][0]['field'] );
+ok( 'tags are not matched as categories', 2 === count( $links_tax[0] ) && false === strpos( json_encode( $links_tax ), '502' ) );
+ok( 'every document is fetched, the limit is counted later', -1 === $links_args['posts_per_page'] );
+
+$shortcodes->links( array( 'category' => 'neexistuje' ) );
+ok( 'an unknown category matches nothing rather than everything', isset( $links_args['tax_query'][0][0]['terms'] ) && array( 0 ) === $links_args['tax_query'][0][0]['terms'] );
 
 $links_en = $shortcodes->links( array( 'lang' => 'en' ) );
 ok( 'lang links the address and title of that language', false !== strpos( $links_en, '<a href="/pdf/privacy-policy/">Privacy policy</a>' ) );
 ok( 'without a category nothing is filtered', ! isset( $links_args['tax_query'] ) );
 
-$shortcodes->links( array( 'limit' => '5' ) );
-ok( 'limit caps the list', 5 === $links_args['posts_per_page'] );
+ok( 'limit caps the printed list', 1 === substr_count( $shortcodes->links( array( 'limit' => '1' ) ), '<li' ) );
+
+// Reported live: a Czech PDF whose Czech title was left empty, with only the
+// English one filled in, was listed on the Czech site under the English title.
+$GLOBALS['stub_query_ids'] = array( 404 );
+$links_cs = $shortcodes->links( array() );
+ok( 'a Czech PDF without a Czech title keeps the post title', false !== strpos( $links_cs, '>Smlouva o zpracování osobních údajů</a>' ) );
+ok( 'its title is not taken from another language', '' === WPPDF_Documents::get_language_title( 404 ) );
+ok( 'the English PDF still gets the English title', 'Personal data processing agreement' === WPPDF_Documents::get_language_title( 404, 'en' ) );
 
 $GLOBALS['stub_query_ids'] = array( 402 );
 ok( 'nothing to link prints nothing', '' === $shortcodes->links( array( 'category' => 'ceniky' ) ) );
+
+echo "\n== Link list across WPML languages ==\n";
+
+// Reported live: the documents carry their languages inside them, yet WPML
+// picked them and their category by the page's language, so the English footer
+// listed nothing. Term 511 ("docs-2") is the English translation of 510
+// ("docs"); post 403 is a WPML translation of 400.
+$GLOBALS['stub_posts'][403] = array( 'ID' => 403, 'post_type' => 'pdf_document', 'post_title' => 'Privacy policy', 'post_name' => 'privacy-policy-translation', 'post_status' => 'publish' );
+update_post_meta( 403, '_wppdf_file_en', 21 );
+
+$wpml_callbacks_before = $GLOBALS['stub_filter_callbacks'];
+$wpml_language         = 'en';
+foreach ( array( 'wpml_current_language', 'wpml_element_trid', 'wpml_object_id' ) as $wpml_hook ) {
+	$GLOBALS['stub_actions'][ $wpml_hook ][] = '__return_null';
+}
+$GLOBALS['stub_filter_callbacks']['wpml_current_language']         = array(
+	function () use ( &$wpml_language ) {
+		return $wpml_language;
+	},
+);
+$GLOBALS['stub_filter_callbacks']['wpml_element_trid']             = array(
+	function ( $trid, $id, $type ) {
+		if ( 'tax_category' === $type && in_array( (int) $id, array( 510, 511 ), true ) ) {
+			return 7;
+		}
+		return 'post_pdf_document' === $type && in_array( (int) $id, array( 400, 403 ), true ) ? 8 : null;
+	},
+);
+$GLOBALS['stub_filter_callbacks']['wpml_get_element_translations'] = array(
+	function ( $translations, $trid ) {
+		$ids = 7 === $trid ? array( 510, 511 ) : ( 8 === $trid ? array( 400, 403 ) : array() );
+		return array_map(
+			function ( $id ) {
+				return (object) array( 'element_id' => $id );
+			},
+			$ids
+		);
+	},
+);
+$GLOBALS['stub_filter_callbacks']['wpml_object_id']                = array(
+	function ( $id, $type, $original = false, $code = null ) {
+		if ( 400 === (int) $id && 'en' === $code ) {
+			return 403;
+		}
+		return 403 === (int) $id && 'cs' === $code ? 400 : $id;
+	},
+);
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+
+$GLOBALS['stub_did']       = array();
+$GLOBALS['stub_query_ids'] = array( 400, 403, 401 );
+$links_wpml                = $shortcodes->links( array( 'category' => 'docs-2' ) );
+echo '  ' . $links_wpml . "\n";
+$wpml_ids = isset( $links_args['tax_query'][0][0]['terms'] ) ? $links_args['tax_query'][0][0]['terms'] : array();
+sort( $wpml_ids );
+ok( 'the English slug finds the Czech category too', array( 510, 511 ) === $wpml_ids );
+ok( 'documents are picked in every language and the page language put back', array( array( 'wpml_switch_language', 'all' ), array( 'wpml_switch_language', 'en' ) ) === $GLOBALS['stub_did'] );
+ok( 'a document and its translation are listed once, in the page language', 2 === substr_count( $links_wpml, '<li' ) && false !== strpos( $links_wpml, '/pdf/privacy-policy-translation/' ) && false === strpos( $links_wpml, 'zasady-zpracovani' ) );
+ok( 'an untranslated document is listed on the English page', false !== strpos( $links_wpml, '<a href="/pdf/cenik/">Ceník</a>' ) );
+
+$wpml_language = 'cs';
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
+$links_wpml = $shortcodes->links( array( 'category' => 'docs' ) );
+ok( 'the Czech page keeps the Czech one', false !== strpos( $links_wpml, '/pdf/zasady-zpracovani-osobnich-udaju/' ) && false === strpos( $links_wpml, 'privacy-policy-translation' ) );
+
+$GLOBALS['stub_filter_callbacks'] = $wpml_callbacks_before;
+foreach ( array( 'wpml_current_language', 'wpml_element_trid', 'wpml_object_id' ) as $wpml_hook ) {
+	unset( $GLOBALS['stub_actions'][ $wpml_hook ] );
+}
+unset( $GLOBALS['stub_posts'][403], $GLOBALS['stub_posts'][404] );
+WPPDF_Languages::flush_cache();
+WPPDF_Documents::flush_cache();
 
 echo "\n== Grid categories ==\n";
 $GLOBALS['stub_query_ids'] = array( 400 );
 $shortcodes->grid( array( 'category' => 'ceniky,smlouvy' ) );
 $grid_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
-ok( 'grid categories are a tax query, not category_name', ! isset( $links_args['category_name'] ) && isset( $grid_tax[0][0]['terms'] ) && array( 'ceniky', 'smlouvy' ) === $grid_tax[0][0]['terms'] );
+ok( 'grid categories are a tax query, not category_name', ! isset( $links_args['category_name'] ) && isset( $grid_tax[0][0]['terms'] ) && array( 500, 504 ) === $grid_tax[0][0]['terms'] );
 
 // A site that keeps documents in their own taxonomy, apart from the blog.
 $grid_settings_before = get_option( WPPDF_Settings::OPTION, array() );
@@ -808,7 +922,7 @@ WPPDF_Post_Type::flush_cache();
 
 $shortcodes->grid( array( 'category' => 'ceniky' ) );
 $grid_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
-ok( 'grid categories are looked up in pdf_category', isset( $grid_tax[0][0]['taxonomy'] ) && 'pdf_category' === $grid_tax[0][0]['taxonomy'] && 2 === count( $grid_tax[0] ) );
+ok( 'grid categories are looked up in pdf_category', isset( $grid_tax[0][0]['taxonomy'] ) && 'pdf_category' === $grid_tax[0][0]['taxonomy'] && array( 503 ) === $grid_tax[0][0]['terms'] && 2 === count( $grid_tax[0] ) );
 
 $shortcodes->links( array( 'category' => 'ceniky' ) );
 ok( 'so are the link list categories', isset( $links_args['tax_query'][0][0]['taxonomy'] ) && 'pdf_category' === $links_args['tax_query'][0][0]['taxonomy'] );
@@ -820,7 +934,7 @@ WPPDF_Post_Type::flush_cache();
 // With no category taxonomy the documents are in none, so a category must
 // list nothing rather than everything.
 $shortcodes->grid( array( 'category' => 'ceniky' ) );
-ok( 'with no category taxonomy a category still filters', isset( $links_args['tax_query'][0][0]['taxonomy'] ) && 'category' === $links_args['tax_query'][0][0]['taxonomy'] );
+ok( 'with no category taxonomy a category still filters', isset( $links_args['tax_query'][0][0]['terms'] ) && array( 0 ) === $links_args['tax_query'][0][0]['terms'] );
 
 update_option( WPPDF_Settings::OPTION, $grid_settings_before );
 WPPDF_Settings::flush_cache();
@@ -846,7 +960,7 @@ WPPDF_Settings::flush_cache();
 delete_post_meta( 200, 'pdf_kategorie' );
 unset( $_GET[ WPPDF_Filters::VAR_CATEGORY ] );
 WPPDF_Filters::flush_cache();
-$GLOBALS['stub_terms_db'] = $grid_terms_before;
+$GLOBALS['stub_terms_db'] = $links_terms_before;
 $GLOBALS['stub_current'] = 0;
 
 // The settings page lists the shortcodes by hand, and [pdf_links] shipped

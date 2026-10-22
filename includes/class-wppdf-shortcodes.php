@@ -290,6 +290,10 @@ class WPPDF_Shortcodes {
 	 * is shown in, or its fallback. No covers or cards: for a page that only
 	 * needs to point at them.
 	 *
+	 * The list is the same on every language version of the site. A document
+	 * carries its languages inside it — a PDF and a title for each — so only
+	 * the titles and addresses follow the page, not which documents appear.
+	 *
 	 * @param array  $atts Shortcode attributes.
 	 * @param string $content Enclosed content.
 	 * @param string $tag  Shortcode tag.
@@ -309,15 +313,25 @@ class WPPDF_Shortcodes {
 			$tag
 		);
 
-		$limit = absint( $atts['limit'] );
-
 		$query_args = array(
-			// A list has no pages to spread the documents over, so 0 means all.
-			'posts_per_page' => $limit ? $limit : -1,
+			// Every match is fetched and the limit counted on what is printed,
+			// after translations are folded together and documents without a
+			// PDF dropped, or those would take places in it.
+			'posts_per_page' => -1,
 			'orderby'        => sanitize_key( $atts['orderby'] ),
 			'order'          => 'ASC' === strtoupper( $atts['order'] ) ? 'ASC' : 'DESC',
 			'no_found_rows'  => true,
 		);
+
+		// WPML and Polylang would pick the documents and the categories by the
+		// page's language, and an English page found no Czech category and
+		// listed nothing. They are told to look at every language while the
+		// documents are picked, and put back before anything is printed.
+		$language = self::lift_language_filter();
+
+		if ( function_exists( 'pll_current_language' ) ) {
+			$query_args['lang'] = '';
+		}
 
 		$categories = self::to_array( $atts['category'] );
 
@@ -325,14 +339,28 @@ class WPPDF_Shortcodes {
 			$query_args = self::add_tax_condition( $query_args, self::category_condition( $categories ) );
 		}
 
-		$lang  = WPPDF_Settings::sanitize_language_code( $atts['lang'] );
 		$query = WPPDF_Documents::query( $query_args );
-		$items = array();
+
+		self::restore_language_filter( $language );
+
+		$post_ids = array();
 
 		while ( $query->have_posts() ) {
 			$query->the_post();
+			$post_ids[] = get_the_ID();
+		}
 
-			$post_id = get_the_ID();
+		wp_reset_postdata();
+
+		$lang     = WPPDF_Settings::sanitize_language_code( $atts['lang'] );
+		$post_ids = WPPDF_Documents::one_per_translation( $post_ids, $lang );
+		$limit    = absint( $atts['limit'] );
+		$items    = array();
+
+		foreach ( $post_ids as $post_id ) {
+			if ( $limit && count( $items ) >= $limit ) {
+				break;
+			}
 
 			// A document with no PDF in any language would open on an empty
 			// reader, so it is not offered.
@@ -360,8 +388,6 @@ class WPPDF_Shortcodes {
 			);
 		}
 
-		wp_reset_postdata();
-
 		if ( empty( $items ) ) {
 			return '';
 		}
@@ -382,35 +408,134 @@ class WPPDF_Shortcodes {
 	 * hit in one is enough. Tags are left out: a tag that shares a slug with a
 	 * category is not what category="" asked for.
 	 *
+	 * Under WPML or Polylang a category is one term per language, the Czech
+	 * "docs" being "docs-2" in English, and a document sits in only one of
+	 * them. The terms are therefore matched together with their translations,
+	 * so either slug finds the documents.
+	 *
 	 * @param string[] $slugs Category slugs.
 	 * @return array
 	 */
 	public static function category_condition( array $slugs ) {
-		$slugs     = array_values( array_map( 'sanitize_title', $slugs ) );
-		$condition = array( 'relation' => 'OR' );
+		$slugs      = array_values( array_map( 'sanitize_title', $slugs ) );
+		$taxonomies = array_values( array_filter( WPPDF_Post_Type::get_document_taxonomies(), 'is_taxonomy_hierarchical' ) );
+		$terms      = array();
 
-		foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
-			if ( is_taxonomy_hierarchical( $taxonomy ) ) {
-				$condition[] = array(
-					'taxonomy' => $taxonomy,
-					'field'    => 'slug',
-					'terms'    => $slugs,
-				);
+		if ( ! empty( $taxonomies ) ) {
+			$args = array(
+				'taxonomy'   => $taxonomies,
+				'slug'       => $slugs,
+				'hide_empty' => false,
+			);
+
+			if ( function_exists( 'pll_current_language' ) ) {
+				$args['lang'] = '';
+			}
+
+			$terms = get_terms( $args );
+		}
+
+		$found = array();
+
+		foreach ( is_array( $terms ) ? $terms : array() as $term ) {
+			foreach ( self::get_term_translation_ids( $term ) as $term_taxonomy_id ) {
+				$found[ $term->taxonomy ][] = $term_taxonomy_id;
 			}
 		}
 
-		// With no category taxonomy at all the post categories are asked anyway.
-		// The documents are not in them, so the result comes out empty rather
-		// than as the whole library.
+		$condition = array( 'relation' => 'OR' );
+
+		foreach ( $found as $taxonomy => $term_taxonomy_ids ) {
+			$condition[] = array(
+				'taxonomy' => $taxonomy,
+				'field'    => 'term_taxonomy_id',
+				'terms'    => array_values( array_unique( $term_taxonomy_ids ) ),
+			);
+		}
+
+		// No such category: a condition nothing can meet, so the result comes
+		// out empty rather than as the whole library.
 		if ( 1 === count( $condition ) ) {
 			$condition[] = array(
 				'taxonomy' => 'category',
-				'field'    => 'slug',
-				'terms'    => $slugs,
+				'field'    => 'term_taxonomy_id',
+				'terms'    => array( 0 ),
 			);
 		}
 
 		return $condition;
+	}
+
+	/**
+	 * A category term and its WPML or Polylang translations.
+	 *
+	 * @param WP_Term $term Category term.
+	 * @return int[] Term taxonomy IDs, the term's own first.
+	 */
+	protected static function get_term_translation_ids( $term ) {
+		$ids = array( (int) $term->term_taxonomy_id );
+
+		// WPML keys a term's translations by its term_taxonomy_id.
+		if ( has_filter( 'wpml_element_trid' ) ) {
+			$type = 'tax_' . $term->taxonomy;
+
+			// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filters, consumed rather than introduced.
+			$trid = apply_filters( 'wpml_element_trid', null, $term->term_taxonomy_id, $type );
+
+			if ( $trid ) {
+				foreach ( (array) apply_filters( 'wpml_get_element_translations', null, $trid, $type ) as $translation ) {
+					if ( is_object( $translation ) && ! empty( $translation->element_id ) ) {
+						$ids[] = (int) $translation->element_id;
+					}
+				}
+			}
+			// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+		}
+
+		if ( function_exists( 'pll_get_term_translations' ) ) {
+			foreach ( (array) pll_get_term_translations( $term->term_id ) as $term_id ) {
+				$translated = get_term( (int) $term_id, $term->taxonomy );
+
+				if ( $translated && ! is_wp_error( $translated ) ) {
+					$ids[] = (int) $translated->term_taxonomy_id;
+				}
+			}
+		}
+
+		return array_values( array_unique( $ids ) );
+	}
+
+	/**
+	 * Let WPML query every language until restore_language_filter().
+	 *
+	 * @return string|false The language to go back to, false when nothing changed.
+	 */
+	protected static function lift_language_filter() {
+		if ( ! has_filter( 'wpml_current_language' ) ) {
+			return false;
+		}
+
+		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own hooks, consumed rather than introduced.
+		$current = apply_filters( 'wpml_current_language', null );
+
+		do_action( 'wpml_switch_language', 'all' );
+		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+
+		return (string) $current;
+	}
+
+	/**
+	 * Put back the language lift_language_filter() switched away from.
+	 *
+	 * @param string|false $language Its return value.
+	 */
+	protected static function restore_language_filter( $language ) {
+		if ( false === $language ) {
+			return;
+		}
+
+		// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own action, consumed rather than introduced.
+		do_action( 'wpml_switch_language', '' !== $language ? $language : null );
 	}
 
 	/**
