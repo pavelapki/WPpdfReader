@@ -743,6 +743,55 @@ $GLOBALS['stub_query_ids'] = array();
 $empty = $shortcodes->grid( array() );
 ok( 'empty grid shows a message', false !== strpos( $empty, 'wppdf-empty' ) );
 
+echo "\n== Link list ==\n";
+$links_args = null;
+$GLOBALS['stub_filter_callbacks']['wppdf_query_args'] = array(
+	function ( $args ) use ( &$links_args ) {
+		$links_args = $args;
+		return $args;
+	},
+);
+
+// 999 has no file in any language.
+$GLOBALS['stub_query_ids'] = array( 10, 11, 999 );
+$links = $shortcodes->links( array( 'category' => 'vyrocni-zpravy, ceniky' ) );
+echo '  ' . $links . "\n";
+ok( 'link list is a plain list', 0 === strpos( $links, '<ul class="wppdf-links">' ) );
+ok( 'a document without a file is left out', 2 === substr_count( $links, '<li' ) );
+ok( 'links go straight to the file in the site language', false !== strpos( $links, 'href="https://example.test/uploads/cs.pdf" hreflang="cs"' ) );
+ok( 'no covers or document pages', false === strpos( $links, '<img' ) && false === strpos( $links, '/pdf/' ) );
+
+$links_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
+ok( 'comma separated slugs are all asked for', isset( $links_tax[0]['terms'] ) && array( 'vyrocni-zpravy', 'ceniky' ) === $links_tax[0]['terms'] );
+ok( 'categories match by slug in the category taxonomy', isset( $links_tax[0]['taxonomy'] ) && 'category' === $links_tax[0]['taxonomy'] && 'slug' === $links_tax[0]['field'] );
+ok( 'tags are not matched as categories', 2 === count( $links_tax ) );
+ok( 'without a limit every document is listed', -1 === $links_args['posts_per_page'] );
+
+$external_cs = get_post_meta( 11, '_wppdf_url_cs', true );
+delete_post_meta( 11, '_wppdf_url_cs' );
+WPPDF_Documents::flush_cache();
+$links_fallback = $shortcodes->links( array() );
+ok( 'a document missing that language links its fallback', false !== strpos( $links_fallback, 'href="https://example.test/uploads/en.pdf" hreflang="en">Jen anglicky' ) );
+update_post_meta( 11, '_wppdf_url_cs', $external_cs );
+WPPDF_Documents::flush_cache();
+
+$links_en = $shortcodes->links( array( 'lang' => 'en' ) );
+ok( 'lang picks the file of that language', false !== strpos( $links_en, 'href="https://example.test/uploads/en.pdf" hreflang="en">Výroční zpráva 2025' ) );
+ok( 'without a category nothing is filtered', ! isset( $links_args['tax_query'] ) );
+
+update_post_meta( 10, WPPDF_Languages::title_meta_key( 'en' ), 'Annual report 2025' );
+$links_en = $shortcodes->links( array( 'lang' => 'en' ) );
+ok( 'the title follows the language of the list', false !== strpos( $links_en, '>Annual report 2025</a>' ) );
+delete_post_meta( 10, WPPDF_Languages::title_meta_key( 'en' ) );
+
+$shortcodes->links( array( 'limit' => '5' ) );
+ok( 'limit caps the list', 5 === $links_args['posts_per_page'] );
+
+$GLOBALS['stub_query_ids'] = array( 999 );
+ok( 'nothing to link prints nothing', '' === $shortcodes->links( array( 'category' => 'ceniky' ) ) );
+
+$GLOBALS['stub_filter_callbacks'] = array();
+
 echo "\n== Settings sanitizing ==\n";
 $sanitizer = new WPPDF_Settings();
 $clean = $sanitizer->sanitize(

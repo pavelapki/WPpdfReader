@@ -571,6 +571,7 @@ přečíst `noindex` a vyřadit ji; urychlit to jde přes Search Console
 [pdf_grid columns="3" per_page="12" category="vyrocni-zpravy"]
 [pdf_list per_page="20" pagination="1"]
 [pdf_download id="12" text="Stáhnout PDF"]
+[pdf_links category="vyrocni-zpravy,ceniky"]
 ```
 
 `[pdf_reader]` bez `id` použije aktuální příspěvek. `lang` bez hodnoty znamená
@@ -579,6 +580,33 @@ přečíst `noindex` a vyřadit ji; urychlit to jde přes Search Console
 Parametry `[pdf_grid]` / `[pdf_list]`: `columns`, `per_page`, `layout`,
 `category`, `tag`, `taxonomy` + `terms`, `ids`, `exclude`, `author`, `orderby`,
 `order`, `search`, `lang`, `excerpt`, `meta`, `pagination`.
+
+#### Prostý seznam odkazů na PDF
+
+`[pdf_links]` vypíše jen seznam (`<ul>`) s názvy dokumentů, které odkazují
+**rovnou na soubor PDF** — žádné náhledy, karty ani stránka dokumentu.
+Soubor i nadpis se berou v jazyce webu a když v něm PDF není, podle fallbacku,
+stejně jako v prohlížeči.
+
+```
+[pdf_links category="vyrocni-zpravy"]
+[pdf_links category="vyrocni-zpravy,ceniky" orderby="title" order="ASC"]
+```
+
+* `category` — slug kategorie, víc jich odděl čárkou. Vypíšou se dokumenty,
+  které jsou **aspoň v jedné** z nich (i v podkategoriích). Hledá se v té
+  taxonomii, kterou dokumenty používají (`category`, nebo `pdf_category`),
+  štítky se nepočítají. Bez `category` se vypíšou všechny dokumenty.
+* `lang` — pevný jazyk místo jazyka webu, např. `lang="en"`.
+* `orderby`, `order` — řazení, výchozí od nejnovějších (`date`, `DESC`);
+  ruční pořadí je `orderby="menu_order" order="ASC"`.
+* `limit` — kolik dokumentů nejvýš, výchozí `0` = všechny.
+* `class` — CSS třída navíc na `<ul>`.
+
+Dokument, který nemá PDF v žádném jazyce, se vynechá. Když není co vypsat,
+shortcode nevypíše nic. Odkaz nese `hreflang` s jazykem souboru, seznam třídy
+`wppdf-links` a `wppdf-links__item`; vlastní styl plugin nepřidává, takže
+vypadá jako běžný seznam v tématu.
 
 ### Bloky
 
