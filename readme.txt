@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.13.2
+Stable tag: 1.14.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,12 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.14.0 =
+* New `[pdf_links category="slug,slug"]` shortcode: a plain list of links that
+  go straight to each PDF, in the site's language or its fallback, with no
+  covers or cards. Several category slugs are separated by commas and a
+  document in any of them is listed.
 
 = 1.13.2 =
 * Fixed a malformed entry in /.well-known/tdmrep.json. A location there is a

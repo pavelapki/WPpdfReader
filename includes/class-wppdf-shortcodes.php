@@ -20,6 +20,7 @@ class WPPDF_Shortcodes {
 		add_shortcode( 'pdf_grid', array( $this, 'grid' ) );
 		add_shortcode( 'pdf_list', array( $this, 'grid' ) );
 		add_shortcode( 'pdf_download', array( $this, 'download' ) );
+		add_shortcode( 'pdf_links', array( $this, 'links' ) );
 	}
 
 	/**
@@ -279,6 +280,113 @@ class WPPDF_Shortcodes {
 			esc_html( $text ),
 			$meta
 		);
+	}
+
+	/**
+	 * [pdf_links category="vyrocni-zpravy,ceniky"]
+	 *
+	 * A bare list of links straight to the files, each in the language the
+	 * site is shown in, or its fallback. No covers, cards or document pages:
+	 * for a page that only needs to point at the PDFs.
+	 *
+	 * @param array  $atts Shortcode attributes.
+	 * @param string $content Enclosed content.
+	 * @param string $tag  Shortcode tag.
+	 * @return string
+	 */
+	public function links( $atts, $content = '', $tag = 'pdf_links' ) {
+		$atts = shortcode_atts(
+			array(
+				'category' => '',
+				'lang'     => '',
+				'orderby'  => 'date',
+				'order'    => 'DESC',
+				'limit'    => 0,
+				'class'    => '',
+			),
+			$atts,
+			$tag
+		);
+
+		$limit = absint( $atts['limit'] );
+
+		$query_args = array(
+			// A list has no pages to spread the documents over, so 0 means all.
+			'posts_per_page' => $limit ? $limit : -1,
+			'orderby'        => sanitize_key( $atts['orderby'] ),
+			'order'          => 'ASC' === strtoupper( $atts['order'] ) ? 'ASC' : 'DESC',
+			'no_found_rows'  => true,
+		);
+
+		$slugs = array_map( 'sanitize_title', self::to_array( $atts['category'] ) );
+
+		if ( ! empty( $slugs ) ) {
+			// Categories live wherever the documents keep them — the shared
+			// post categories, the plugin's own taxonomy, or both — so each is
+			// asked and a hit in one is enough. Tags are left out: a tag that
+			// shares a slug with a category is not what category="" asked for.
+			$tax_query = array( 'relation' => 'OR' );
+
+			foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
+				if ( is_taxonomy_hierarchical( $taxonomy ) ) {
+					$tax_query[] = array(
+						'taxonomy' => $taxonomy,
+						'field'    => 'slug',
+						'terms'    => $slugs,
+					);
+				}
+			}
+
+			// Without any category taxonomy the filter would vanish and the
+			// whole library would be listed, which is worse than nothing.
+			if ( count( $tax_query ) < 2 ) {
+				return '';
+			}
+
+			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- listing the documents of a category is what the shortcode is for.
+			$query_args['tax_query'] = $tax_query;
+		}
+
+		$lang  = WPPDF_Settings::sanitize_language_code( $atts['lang'] );
+		$query = WPPDF_Documents::query( $query_args );
+		$items = array();
+
+		while ( $query->have_posts() ) {
+			$query->the_post();
+
+			$post_id = get_the_ID();
+			$file    = WPPDF_Documents::get_file( $post_id, $lang );
+
+			// No file in any language means nothing to link to.
+			if ( ! $file ) {
+				continue;
+			}
+
+			$title = WPPDF_Documents::get_language_title( $post_id, $lang );
+			if ( '' === $title ) {
+				$title = get_the_title( $post_id );
+			}
+
+			$items[] = sprintf(
+				'<li class="wppdf-links__item"><a href="%1$s" hreflang="%2$s">%3$s</a></li>',
+				esc_url( $file['url'] ),
+				esc_attr( $file['lang'] ),
+				esc_html( $title )
+			);
+		}
+
+		wp_reset_postdata();
+
+		if ( empty( $items ) ) {
+			return '';
+		}
+
+		$class = 'wppdf-links';
+		if ( $atts['class'] ) {
+			$class .= ' ' . sanitize_html_class( $atts['class'] );
+		}
+
+		return '<ul class="' . esc_attr( $class ) . '">' . implode( '', $items ) . '</ul>';
 	}
 
 	/**
