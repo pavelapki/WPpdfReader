@@ -28,12 +28,12 @@ class WPPDF_Documents {
 	}
 
 	/**
-	 * The title stored for a language, walking the same fallback chain.
+	 * The title stored for the language of the PDF the document is served in.
 	 *
-	 * Using the file's chain rather than a chain of its own keeps the heading
-	 * and the document underneath it in the same language: a listing that
-	 * serves the English PDF because there is no Italian one would otherwise
-	 * head it with the Czech title, which is what it did.
+	 * Following the file keeps the heading and the document underneath it in
+	 * the same language: a listing that serves the English PDF because there
+	 * is no Italian one would otherwise head it with the Czech title, which is
+	 * what it did.
 	 *
 	 * @param int    $post_id   Document ID.
 	 * @param string $requested Language code, defaults to the current one.
@@ -46,15 +46,48 @@ class WPPDF_Documents {
 			return '';
 		}
 
-		foreach ( WPPDF_Languages::get_fallback_order( $requested ) as $code ) {
-			$title = get_post_meta( $post_id, WPPDF_Languages::title_meta_key( $code ), true );
+		$file = self::get_file( $post_id, $requested );
 
-			if ( is_string( $title ) && '' !== trim( $title ) ) {
-				return trim( $title );
+		if ( $file ) {
+			// The title of the PDF actually served, not of the first language
+			// in the chain that has one. Walking the chain on its own put a
+			// Czech PDF whose Czech title was left empty under its English
+			// title. Without a title of its own the post title stands, which is
+			// what the empty field in the metabox promises.
+			foreach ( array_unique( array( $post_id, (int) $file['post_id'] ) ) as $source ) {
+				$title = self::get_stored_title( $source, $file['lang'] );
+
+				if ( '' !== $title ) {
+					return $title;
+				}
+			}
+
+			return '';
+		}
+
+		// No PDF in any language, so there is no file to agree with.
+		foreach ( WPPDF_Languages::get_fallback_order( $requested ) as $code ) {
+			$title = self::get_stored_title( $post_id, $code );
+
+			if ( '' !== $title ) {
+				return $title;
 			}
 		}
 
 		return '';
+	}
+
+	/**
+	 * The title stored for exactly one language.
+	 *
+	 * @param int    $post_id Document ID.
+	 * @param string $code    Language code.
+	 * @return string
+	 */
+	protected static function get_stored_title( $post_id, $code ) {
+		$title = get_post_meta( $post_id, WPPDF_Languages::title_meta_key( $code ), true );
+
+		return is_string( $title ) ? trim( $title ) : '';
 	}
 
 	/**
@@ -438,6 +471,42 @@ class WPPDF_Documents {
 		}
 
 		return array_values( array_unique( $siblings ) );
+	}
+
+	/**
+	 * Keep one document per WPML or Polylang translation group.
+	 *
+	 * A list taken across every language would otherwise show a document and
+	 * its translation side by side. The translation in the wanted language is
+	 * kept where the list holds one, the first member met otherwise; either
+	 * way get_file() still reaches the PDFs on its siblings.
+	 *
+	 * @param int[]  $post_ids Document IDs, in the order to keep.
+	 * @param string $code     Language code, defaults to the current one.
+	 * @return int[]
+	 */
+	public static function one_per_translation( array $post_ids, $code = '' ) {
+		$post_ids = array_values( array_unique( array_map( 'absint', $post_ids ) ) );
+		$code     = '' !== $code ? $code : WPPDF_Languages::get_current_language();
+		$picked   = array();
+		$taken    = array();
+
+		foreach ( $post_ids as $post_id ) {
+			if ( isset( $taken[ $post_id ] ) ) {
+				continue;
+			}
+
+			$taken[ $post_id ] = true;
+
+			foreach ( self::get_all_translation_ids( $post_id ) as $member ) {
+				$taken[ $member ] = true;
+			}
+
+			$preferred = self::get_translated_post_id( $post_id, $code );
+			$picked[]  = $preferred && in_array( $preferred, $post_ids, true ) ? $preferred : $post_id;
+		}
+
+		return $picked;
 	}
 
 	/**

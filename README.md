@@ -120,10 +120,12 @@ V metaboxu je u každého jazyka vedle PDF i pole **nadpis v tomto jazyce**.
 Dokument je pořád jeden příspěvek s jedním `post_title`, ale ve výpisech,
 v hlavičce čtečky i v titulku prohlížeče se použije nadpis podle jazyka.
 
-Nadpis chodí **stejným fallback řetězcem jako soubor**, ne vlastním. Když se
-v italštině servíruje anglické PDF (protože italské není), použije se i
-anglický nadpis — jinak by nad anglickým dokumentem stál český nadpis, což je
-přesně to, co se dělo.
+Nadpis patří **k jazyku PDF, které se opravdu zobrazí**. Když se v italštině
+servíruje anglické PDF (protože italské není), použije se i anglický nadpis —
+jinak by nad anglickým dokumentem stál český nadpis, což je přesně to, co se
+dělo. A naopak: když se servíruje české PDF a české pole nadpisu je prázdné,
+zůstane `post_title`, i když je vyplněný anglický nadpis. Prázdné pole tedy
+znamená „použij nadpis příspěvku“, jak napovídá i jeho placeholder.
 
 V administraci se nadpis nepřepisuje: editor musí vidět to, co edituje, jinak
 by se překlad při uložení zapsal do `post_title`.
@@ -594,6 +596,14 @@ karty. Každý odkaz vede na **stránku dokumentu** jako relativní adresa, nap�
 `/docs/zasady-zpracovani-osobnich-udaju/` (první část je URL slug typu obsahu
 z nastavení). Adresa i nadpis jsou v jazyce webu, včetně vlastní adresy pro
 jazyk, pokud ji dokument má.
+
+**Na všech jazykových verzích webu vypíše stejné dokumenty.** Dokument nese
+všechny jazyky v sobě (PDF a nadpis pro každý), takže podle jazyka stránky se
+mění jen nadpisy a adresy, ne výběr. WPML ani Polylang do výběru nemluví:
+dokumenty i kategorie se hledají ve všech jazycích a kategorie včetně překladů,
+takže na anglické stránce funguje český slug (`docs`) i anglický (`docs-2`).
+Kdyby měl dokument přes WPML/Polylang i samostatný překlad, vypíše se jen
+jednou — v jazyce stránky.
 
 ```
 [pdf_links category="vyrocni-zpravy"]
