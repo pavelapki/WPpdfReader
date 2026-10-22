@@ -1031,7 +1031,8 @@ class WPPDF_Admin {
 					<code>[pdf_reader id="12" lang="en" height="800"]</code><br />
 					<code>[pdf_grid columns="3" per_page="12" category="reports"]</code><br />
 					<code>[pdf_list per_page="20" pagination="1"]</code><br />
-					<code>[pdf_download id="12" text="<?php esc_attr_e( 'Download PDF', 'wp-pdf-reader' ); ?>"]</code>
+					<code>[pdf_download id="12" text="<?php esc_attr_e( 'Download PDF', 'wp-pdf-reader' ); ?>"]</code><br />
+					<code>[pdf_links category="reports,price-lists"]</code>
 				</p>
 
 				<?php submit_button(); ?>
