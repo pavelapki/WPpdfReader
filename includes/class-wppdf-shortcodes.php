@@ -118,8 +118,10 @@ class WPPDF_Shortcodes {
 			'order'          => 'ASC' === strtoupper( $atts['order'] ) ? 'ASC' : 'DESC',
 		);
 
-		if ( '' !== $atts['category'] ) {
-			$query_args['category_name'] = sanitize_text_field( $atts['category'] );
+		$categories = self::to_array( $atts['category'] );
+
+		if ( ! empty( $categories ) ) {
+			$query_args = self::add_tax_condition( $query_args, self::category_condition( $categories ) );
 		}
 
 		if ( '' !== $atts['tag'] ) {
@@ -143,10 +145,10 @@ class WPPDF_Shortcodes {
 			} else {
 				// The terms may sit in any taxonomy the documents use, so all
 				// of them are asked and a hit in one is enough.
-				$tax_query = array( 'relation' => 'OR' );
+				$condition = array( 'relation' => 'OR' );
 
 				foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
-					$tax_query[] = array(
+					$condition[] = array(
 						'taxonomy'         => $taxonomy,
 						'field'            => 'term_id',
 						'terms'            => $term_ids,
@@ -154,21 +156,20 @@ class WPPDF_Shortcodes {
 					);
 				}
 
-				if ( count( $tax_query ) > 1 ) {
-					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- listing the documents of a category is what the shortcode is for.
-					$query_args['tax_query'] = $tax_query;
+				if ( count( $condition ) > 1 ) {
+					$query_args = self::add_tax_condition( $query_args, $condition );
 				}
 			}
 		}
 
 		if ( '' !== $atts['taxonomy'] && '' !== $atts['terms'] ) {
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- an explicit taxonomy filter asked for by the shortcode's own attributes.
-			$query_args['tax_query'] = array(
+			$query_args = self::add_tax_condition(
+				$query_args,
 				array(
 					'taxonomy' => sanitize_key( $atts['taxonomy'] ),
 					'field'    => 'slug',
 					'terms'    => array_map( 'sanitize_title', self::to_array( $atts['terms'] ) ),
-				),
+				)
 			);
 		}
 
@@ -285,9 +286,9 @@ class WPPDF_Shortcodes {
 	/**
 	 * [pdf_links category="vyrocni-zpravy,ceniky"]
 	 *
-	 * A bare list of links straight to the files, each in the language the
-	 * site is shown in, or its fallback. No covers, cards or document pages:
-	 * for a page that only needs to point at the PDFs.
+	 * A bare list of links to the documents, titled in the language the site
+	 * is shown in, or its fallback. No covers or cards: for a page that only
+	 * needs to point at them.
 	 *
 	 * @param array  $atts Shortcode attributes.
 	 * @param string $content Enclosed content.
@@ -318,33 +319,10 @@ class WPPDF_Shortcodes {
 			'no_found_rows'  => true,
 		);
 
-		$slugs = array_map( 'sanitize_title', self::to_array( $atts['category'] ) );
+		$categories = self::to_array( $atts['category'] );
 
-		if ( ! empty( $slugs ) ) {
-			// Categories live wherever the documents keep them — the shared
-			// post categories, the plugin's own taxonomy, or both — so each is
-			// asked and a hit in one is enough. Tags are left out: a tag that
-			// shares a slug with a category is not what category="" asked for.
-			$tax_query = array( 'relation' => 'OR' );
-
-			foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
-				if ( is_taxonomy_hierarchical( $taxonomy ) ) {
-					$tax_query[] = array(
-						'taxonomy' => $taxonomy,
-						'field'    => 'slug',
-						'terms'    => $slugs,
-					);
-				}
-			}
-
-			// Without any category taxonomy the filter would vanish and the
-			// whole library would be listed, which is worse than nothing.
-			if ( count( $tax_query ) < 2 ) {
-				return '';
-			}
-
-			// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- listing the documents of a category is what the shortcode is for.
-			$query_args['tax_query'] = $tax_query;
+		if ( ! empty( $categories ) ) {
+			$query_args = self::add_tax_condition( $query_args, self::category_condition( $categories ) );
 		}
 
 		$lang  = WPPDF_Settings::sanitize_language_code( $atts['lang'] );
@@ -355,10 +333,10 @@ class WPPDF_Shortcodes {
 			$query->the_post();
 
 			$post_id = get_the_ID();
-			$file    = WPPDF_Documents::get_file( $post_id, $lang );
 
-			// No file in any language means nothing to link to.
-			if ( ! $file ) {
+			// A document with no PDF in any language would open on an empty
+			// reader, so it is not offered.
+			if ( ! WPPDF_Documents::get_file( $post_id, $lang ) ) {
 				continue;
 			}
 
@@ -367,10 +345,17 @@ class WPPDF_Shortcodes {
 				$title = get_the_title( $post_id );
 			}
 
+			// The permalink already carries the current language's slug; a
+			// pinned language needs that language's address instead.
+			$url = '' !== $lang ? WPPDF_Permalinks::get_language_permalink( $post_id, $lang ) : get_permalink( $post_id );
+
+			if ( ! $url ) {
+				continue;
+			}
+
 			$items[] = sprintf(
-				'<li class="wppdf-links__item"><a href="%1$s" hreflang="%2$s">%3$s</a></li>',
-				esc_url( $file['url'] ),
-				esc_attr( $file['lang'] ),
+				'<li class="wppdf-links__item"><a href="%1$s">%2$s</a></li>',
+				esc_url( wp_make_link_relative( $url ) ),
 				esc_html( $title )
 			);
 		}
@@ -387,6 +372,67 @@ class WPPDF_Shortcodes {
 		}
 
 		return '<ul class="' . esc_attr( $class ) . '">' . implode( '', $items ) . '</ul>';
+	}
+
+	/**
+	 * A tax_query condition matching documents in any of some categories.
+	 *
+	 * Categories live wherever the documents keep them — the shared post
+	 * categories, the plugin's own taxonomy, or both — so each is asked and a
+	 * hit in one is enough. Tags are left out: a tag that shares a slug with a
+	 * category is not what category="" asked for.
+	 *
+	 * @param string[] $slugs Category slugs.
+	 * @return array
+	 */
+	public static function category_condition( array $slugs ) {
+		$slugs     = array_values( array_map( 'sanitize_title', $slugs ) );
+		$condition = array( 'relation' => 'OR' );
+
+		foreach ( WPPDF_Post_Type::get_document_taxonomies() as $taxonomy ) {
+			if ( is_taxonomy_hierarchical( $taxonomy ) ) {
+				$condition[] = array(
+					'taxonomy' => $taxonomy,
+					'field'    => 'slug',
+					'terms'    => $slugs,
+				);
+			}
+		}
+
+		// With no category taxonomy at all the post categories are asked anyway.
+		// The documents are not in them, so the result comes out empty rather
+		// than as the whole library.
+		if ( 1 === count( $condition ) ) {
+			$condition[] = array(
+				'taxonomy' => 'category',
+				'field'    => 'slug',
+				'terms'    => $slugs,
+			);
+		}
+
+		return $condition;
+	}
+
+	/**
+	 * Add a condition to a query's tax_query, narrowing what is already there.
+	 *
+	 * Each condition goes in as a group of its own under the default AND, so
+	 * the OR inside one — "any of these categories" — never widens another,
+	 * such as the category picked in the filter bar, which is appended the
+	 * same way.
+	 *
+	 * @param array $query_args Query arguments.
+	 * @param array $condition  A tax_query clause or nested group.
+	 * @return array
+	 */
+	protected static function add_tax_condition( array $query_args, array $condition ) {
+		$tax_query   = isset( $query_args['tax_query'] ) && is_array( $query_args['tax_query'] ) ? $query_args['tax_query'] : array();
+		$tax_query[] = $condition;
+
+		// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_tax_query, WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- listing the documents of a category is what the shortcodes are for.
+		$query_args['tax_query'] = $tax_query;
+
+		return $query_args;
 	}
 
 	/**

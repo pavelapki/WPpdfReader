@@ -581,12 +581,19 @@ Parametry `[pdf_grid]` / `[pdf_list]`: `columns`, `per_page`, `layout`,
 `category`, `tag`, `taxonomy` + `terms`, `ids`, `exclude`, `author`, `orderby`,
 `order`, `search`, `lang`, `excerpt`, `meta`, `pagination`.
 
-#### Prostý seznam odkazů na PDF
+`category` bere slug kategorie, víc jich odděl čárkou — vypíše se dokument,
+který je aspoň v jedné z nich (i v podkategoriích). Hledá se v taxonomii, kterou
+dokumenty používají: ve sdílených `category`, ve vlastní `pdf_category`, nebo
+v obou. Když se `category`, `from_field`, `taxonomy` + `terms` a lišta filtrů
+sejdou v jednom shortcodu, výsledek musí splnit všechny naráz.
 
-`[pdf_links]` vypíše jen seznam (`<ul>`) s názvy dokumentů, které odkazují
-**rovnou na soubor PDF** — žádné náhledy, karty ani stránka dokumentu.
-Soubor i nadpis se berou v jazyce webu a když v něm PDF není, podle fallbacku,
-stejně jako v prohlížeči.
+#### Prostý seznam odkazů na dokumenty
+
+`[pdf_links]` vypíše jen seznam (`<ul>`) s názvy dokumentů — žádné náhledy ani
+karty. Každý odkaz vede na **stránku dokumentu** jako relativní adresa, např.
+`/docs/zasady-zpracovani-osobnich-udaju/` (první část je URL slug typu obsahu
+z nastavení). Adresa i nadpis jsou v jazyce webu, včetně vlastní adresy pro
+jazyk, pokud ji dokument má.
 
 ```
 [pdf_links category="vyrocni-zpravy"]
@@ -597,14 +604,15 @@ stejně jako v prohlížeči.
   které jsou **aspoň v jedné** z nich (i v podkategoriích). Hledá se v té
   taxonomii, kterou dokumenty používají (`category`, nebo `pdf_category`),
   štítky se nepočítají. Bez `category` se vypíšou všechny dokumenty.
-* `lang` — pevný jazyk místo jazyka webu, např. `lang="en"`.
+* `lang` — pevný jazyk místo jazyka webu, např. `lang="en"`: odkaz pak vede na
+  adresu a nese nadpis toho jazyka.
 * `orderby`, `order` — řazení, výchozí od nejnovějších (`date`, `DESC`);
   ruční pořadí je `orderby="menu_order" order="ASC"`.
 * `limit` — kolik dokumentů nejvýš, výchozí `0` = všechny.
 * `class` — CSS třída navíc na `<ul>`.
 
-Dokument, který nemá PDF v žádném jazyce, se vynechá. Když není co vypsat,
-shortcode nevypíše nic. Odkaz nese `hreflang` s jazykem souboru, seznam třídy
+Dokument, který nemá PDF v žádném jazyce, se vynechá — otevřel by se na prázdné
+čtečce. Když není co vypsat, shortcode nevypíše nic. Seznam nese třídy
 `wppdf-links` a `wppdf-links__item`; vlastní styl plugin nepřidává, takže
 vypadá jako běžný seznam v tématu.
 

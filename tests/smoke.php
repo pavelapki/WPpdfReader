@@ -339,6 +339,7 @@ function wp_get_attachment_metadata( $id ) { return isset( $GLOBALS['stub_attach
 function wp_login_url( $r = '' ) { return 'https://example.test/wp-login.php'; }
 function user_trailingslashit( $v ) { return rtrim( (string) $v, '/' ) . '/'; }
 function untrailingslashit( $v ) { return rtrim( (string) $v, '/' ); }
+function wp_make_link_relative( $link ) { return preg_replace( '|^(https?:)?//[^/]+(/?.*)|i', '$2', $link ); }
 function wp_doing_ajax() { return false; }
 function get_term( $id, $tax = '' ) {
 	foreach ( $GLOBALS['stub_terms_db'] as $tid => $term ) {
@@ -361,7 +362,7 @@ function wp_set_object_terms( $id, $terms, $tax, $append = false ) {
 }
 function is_object_in_taxonomy( $post_type, $tax ) { return in_array( $tax, array( 'category', 'post_tag' ), true ); }
 function wp_list_pluck( $list, $field ) { $out = array(); foreach ( (array) $list as $item ) { $out[] = is_object( $item ) ? $item->$field : $item[ $field ]; } return $out; }
-function is_taxonomy_hierarchical( $tax ) { return 'category' === $tax; }
+function is_taxonomy_hierarchical( $tax ) { return in_array( $tax, array( 'category', 'pdf_category' ), true ); }
 function get_term_by( $field, $value, $tax ) {
 	foreach ( $GLOBALS['stub_terms_db'] as $id => $term ) {
 		if ( $term['taxonomy'] === $tax && $term[ $field ] === $value ) { return (object) array_merge( array( 'term_id' => $id ), $term ); }
@@ -752,43 +753,101 @@ $GLOBALS['stub_filter_callbacks']['wppdf_query_args'] = array(
 	},
 );
 
-// 999 has no file in any language.
-$GLOBALS['stub_query_ids'] = array( 10, 11, 999 );
+// 400 has Czech and English PDFs and an English address and title, 401 only
+// an English PDF, 402 no PDF at all.
+$GLOBALS['stub_posts'][400] = array( 'ID' => 400, 'post_type' => 'pdf_document', 'post_title' => 'Zásady zpracování osobních údajů', 'post_name' => 'zasady-zpracovani-osobnich-udaju', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][401] = array( 'ID' => 401, 'post_type' => 'pdf_document', 'post_title' => 'Ceník', 'post_name' => 'cenik', 'post_status' => 'publish' );
+$GLOBALS['stub_posts'][402] = array( 'ID' => 402, 'post_type' => 'pdf_document', 'post_title' => 'Bez PDF', 'post_name' => 'bez-pdf', 'post_status' => 'publish' );
+update_post_meta( 400, '_wppdf_file_cs', 20 );
+update_post_meta( 400, '_wppdf_file_en', 21 );
+update_post_meta( 400, WPPDF_Languages::title_meta_key( 'cs' ), 'Zásady zpracování osobních údajů' );
+update_post_meta( 400, WPPDF_Languages::title_meta_key( 'en' ), 'Privacy policy' );
+update_post_meta( 400, WPPDF_Permalinks::slug_meta_key( 'en' ), 'privacy-policy' );
+update_post_meta( 401, '_wppdf_file_en', 21 );
+WPPDF_Documents::flush_cache();
+
+$GLOBALS['stub_query_ids'] = array( 400, 401, 402 );
 $links = $shortcodes->links( array( 'category' => 'vyrocni-zpravy, ceniky' ) );
 echo '  ' . $links . "\n";
 ok( 'link list is a plain list', 0 === strpos( $links, '<ul class="wppdf-links">' ) );
-ok( 'a document without a file is left out', 2 === substr_count( $links, '<li' ) );
-ok( 'links go straight to the file in the site language', false !== strpos( $links, 'href="https://example.test/uploads/cs.pdf" hreflang="cs"' ) );
-ok( 'no covers or document pages', false === strpos( $links, '<img' ) && false === strpos( $links, '/pdf/' ) );
+ok( 'links go to the document page as a relative address', false !== strpos( $links, '<a href="/pdf/zasady-zpracovani-osobnich-udaju/">Zásady zpracování osobních údajů</a>' ) );
+ok( 'a document with its PDF only in a fallback language is listed', false !== strpos( $links, '<a href="/pdf/cenik/">Ceník</a>' ) );
+ok( 'a document without a PDF is left out', 2 === substr_count( $links, '<li' ) && false === strpos( $links, 'bez-pdf' ) );
+ok( 'no file links, covers or absolute addresses', false === strpos( $links, 'uploads/' ) && false === strpos( $links, '<img' ) && false === strpos( $links, 'https://' ) );
 
+// Each condition is a group of its own, so the filter bar's category, appended
+// next to it, narrows the list instead of widening it.
 $links_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
-ok( 'comma separated slugs are all asked for', isset( $links_tax[0]['terms'] ) && array( 'vyrocni-zpravy', 'ceniky' ) === $links_tax[0]['terms'] );
-ok( 'categories match by slug in the category taxonomy', isset( $links_tax[0]['taxonomy'] ) && 'category' === $links_tax[0]['taxonomy'] && 'slug' === $links_tax[0]['field'] );
-ok( 'tags are not matched as categories', 2 === count( $links_tax ) );
+ok( 'the categories are one nested group', isset( $links_tax[0]['relation'] ) && 'OR' === $links_tax[0]['relation'] && ! isset( $links_tax['relation'] ) );
+ok( 'comma separated slugs are all asked for', isset( $links_tax[0][0]['terms'] ) && array( 'vyrocni-zpravy', 'ceniky' ) === $links_tax[0][0]['terms'] );
+ok( 'categories match by slug in the category taxonomy', isset( $links_tax[0][0]['taxonomy'] ) && 'category' === $links_tax[0][0]['taxonomy'] && 'slug' === $links_tax[0][0]['field'] );
+ok( 'tags are not matched as categories', 2 === count( $links_tax[0] ) );
 ok( 'without a limit every document is listed', -1 === $links_args['posts_per_page'] );
 
-$external_cs = get_post_meta( 11, '_wppdf_url_cs', true );
-delete_post_meta( 11, '_wppdf_url_cs' );
-WPPDF_Documents::flush_cache();
-$links_fallback = $shortcodes->links( array() );
-ok( 'a document missing that language links its fallback', false !== strpos( $links_fallback, 'href="https://example.test/uploads/en.pdf" hreflang="en">Jen anglicky' ) );
-update_post_meta( 11, '_wppdf_url_cs', $external_cs );
-WPPDF_Documents::flush_cache();
-
 $links_en = $shortcodes->links( array( 'lang' => 'en' ) );
-ok( 'lang picks the file of that language', false !== strpos( $links_en, 'href="https://example.test/uploads/en.pdf" hreflang="en">Výroční zpráva 2025' ) );
+ok( 'lang links the address and title of that language', false !== strpos( $links_en, '<a href="/pdf/privacy-policy/">Privacy policy</a>' ) );
 ok( 'without a category nothing is filtered', ! isset( $links_args['tax_query'] ) );
-
-update_post_meta( 10, WPPDF_Languages::title_meta_key( 'en' ), 'Annual report 2025' );
-$links_en = $shortcodes->links( array( 'lang' => 'en' ) );
-ok( 'the title follows the language of the list', false !== strpos( $links_en, '>Annual report 2025</a>' ) );
-delete_post_meta( 10, WPPDF_Languages::title_meta_key( 'en' ) );
 
 $shortcodes->links( array( 'limit' => '5' ) );
 ok( 'limit caps the list', 5 === $links_args['posts_per_page'] );
 
-$GLOBALS['stub_query_ids'] = array( 999 );
+$GLOBALS['stub_query_ids'] = array( 402 );
 ok( 'nothing to link prints nothing', '' === $shortcodes->links( array( 'category' => 'ceniky' ) ) );
+
+echo "\n== Grid categories ==\n";
+$GLOBALS['stub_query_ids'] = array( 400 );
+$shortcodes->grid( array( 'category' => 'ceniky,smlouvy' ) );
+$grid_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
+ok( 'grid categories are a tax query, not category_name', ! isset( $links_args['category_name'] ) && isset( $grid_tax[0][0]['terms'] ) && array( 'ceniky', 'smlouvy' ) === $grid_tax[0][0]['terms'] );
+
+// A site that keeps documents in their own taxonomy, apart from the blog.
+$grid_settings_before = get_option( WPPDF_Settings::OPTION, array() );
+update_option( WPPDF_Settings::OPTION, array_merge( (array) $grid_settings_before, array( 'shared_taxonomies' => 0, 'own_taxonomy' => 1 ) ) );
+WPPDF_Settings::flush_cache();
+WPPDF_Post_Type::flush_cache();
+
+$shortcodes->grid( array( 'category' => 'ceniky' ) );
+$grid_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
+ok( 'grid categories are looked up in pdf_category', isset( $grid_tax[0][0]['taxonomy'] ) && 'pdf_category' === $grid_tax[0][0]['taxonomy'] && 2 === count( $grid_tax[0] ) );
+
+$shortcodes->links( array( 'category' => 'ceniky' ) );
+ok( 'so are the link list categories', isset( $links_args['tax_query'][0][0]['taxonomy'] ) && 'pdf_category' === $links_args['tax_query'][0][0]['taxonomy'] );
+
+update_option( WPPDF_Settings::OPTION, array_merge( (array) $grid_settings_before, array( 'shared_taxonomies' => 0, 'own_taxonomy' => 0 ) ) );
+WPPDF_Settings::flush_cache();
+WPPDF_Post_Type::flush_cache();
+
+// With no category taxonomy the documents are in none, so a category must
+// list nothing rather than everything.
+$shortcodes->grid( array( 'category' => 'ceniky' ) );
+ok( 'with no category taxonomy a category still filters', isset( $links_args['tax_query'][0][0]['taxonomy'] ) && 'category' === $links_args['tax_query'][0][0]['taxonomy'] );
+
+update_option( WPPDF_Settings::OPTION, $grid_settings_before );
+WPPDF_Settings::flush_cache();
+WPPDF_Post_Type::flush_cache();
+
+// The filter bar's category used to be ORed into the page's own categories,
+// which widened the grid instead of narrowing it.
+$GLOBALS['stub_current']                = 200;
+$_GET[ WPPDF_Filters::VAR_CATEGORY ]    = 'ceniky';
+WPPDF_Filters::flush_cache();
+$grid_terms_before                      = $GLOBALS['stub_terms_db'];
+$GLOBALS['stub_terms_db'][11]           = array( 'name' => 'Výroční zprávy', 'slug' => 'vyrocni-zpravy', 'taxonomy' => 'category', 'parent' => 0 );
+update_post_meta( 200, 'pdf_kategorie', array( 11 ) );
+$grid_acf_before = get_option( WPPDF_Settings::OPTION, array() );
+update_option( WPPDF_Settings::OPTION, array_merge( (array) $grid_acf_before, array( 'acf_category_field' => 'pdf_kategorie' ) ) );
+WPPDF_Settings::flush_cache();
+$shortcodes->grid( array( 'from_field' => '1', 'filters' => '1', 'category' => 'smlouvy' ) );
+$grid_tax = isset( $links_args['tax_query'] ) ? $links_args['tax_query'] : array();
+echo '  ' . json_encode( $grid_tax ) . "\n";
+ok( 'category, page field and filter bar all narrow together', ! isset( $grid_tax['relation'] ) && 3 === count( $grid_tax ) && 'OR' === $grid_tax[0]['relation'] && 'OR' === $grid_tax[1]['relation'] && isset( $grid_tax[2]['terms'] ) && array( 'ceniky' ) === $grid_tax[2]['terms'] );
+update_option( WPPDF_Settings::OPTION, $grid_acf_before );
+WPPDF_Settings::flush_cache();
+delete_post_meta( 200, 'pdf_kategorie' );
+unset( $_GET[ WPPDF_Filters::VAR_CATEGORY ] );
+WPPDF_Filters::flush_cache();
+$GLOBALS['stub_terms_db'] = $grid_terms_before;
+$GLOBALS['stub_current'] = 0;
 
 // The settings page lists the shortcodes by hand, and [pdf_links] shipped
 // without its line there.
