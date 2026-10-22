@@ -474,6 +474,94 @@ class WPPDF_Documents {
 	}
 
 	/**
+	 * Every post filed under any of some categories, whatever its language.
+	 *
+	 * Read past WPML's and Polylang's language filters on purpose. Under them a
+	 * category is one term per language, the Czech "docs" being "docs-2" in
+	 * English, and a document sits in only one of them, so a lookup filtered
+	 * by the page's language found nothing on the other language's pages. The
+	 * documents carry their languages inside them and do not need that filter.
+	 * Each matching term brings its translations and its subcategories along,
+	 * so either slug finds the documents.
+	 *
+	 * @param string[] $slugs Category slugs.
+	 * @return int[] Post IDs of any type; the caller's query narrows them.
+	 */
+	public static function get_ids_in_categories( array $slugs ) {
+		global $wpdb;
+
+		$slugs      = array_values( array_unique( array_filter( array_map( 'sanitize_title', $slugs ) ) ) );
+		$taxonomies = array_values( array_filter( WPPDF_Post_Type::get_document_taxonomies(), 'is_taxonomy_hierarchical' ) );
+
+		if ( empty( $slugs ) || empty( $taxonomies ) ) {
+			return array();
+		}
+
+		$slug_marks     = implode( ',', array_fill( 0, count( $slugs ), '%s' ) );
+		$taxonomy_marks = implode( ',', array_fill( 0, count( $taxonomies ), '%s' ) );
+
+		// phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- the placeholders are lists of %s built from counts and filled by prepare(); get_terms() would go through the language filters this lookup exists to avoid.
+		$found = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT tt.term_id, tt.taxonomy FROM {$wpdb->terms} AS t
+				INNER JOIN {$wpdb->term_taxonomy} AS tt ON tt.term_id = t.term_id
+				WHERE t.slug IN ( {$slug_marks} ) AND tt.taxonomy IN ( {$taxonomy_marks} )",
+				array_merge( $slugs, $taxonomies )
+			)
+		);
+		// phpcs:enable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching
+
+		$terms = array();
+
+		foreach ( (array) $found as $row ) {
+			foreach ( self::get_term_translation_ids( (int) $row->term_id, $row->taxonomy ) as $term_id ) {
+				$terms[ $term_id ] = $row->taxonomy;
+
+				$children = get_term_children( $term_id, $row->taxonomy );
+
+				foreach ( is_array( $children ) ? $children : array() as $child ) {
+					$terms[ (int) $child ] = $row->taxonomy;
+				}
+			}
+		}
+
+		if ( empty( $terms ) ) {
+			return array();
+		}
+
+		$ids = get_objects_in_term( array_keys( $terms ), array_values( array_unique( $terms ) ) );
+
+		return is_array( $ids ) ? array_values( array_unique( array_map( 'absint', $ids ) ) ) : array();
+	}
+
+	/**
+	 * A category term and its WPML or Polylang translations.
+	 *
+	 * @param int    $term_id  Term ID.
+	 * @param string $taxonomy Taxonomy name.
+	 * @return int[] Term IDs, the term's own first.
+	 */
+	protected static function get_term_translation_ids( $term_id, $taxonomy ) {
+		$ids = array( $term_id );
+
+		if ( has_filter( 'wpml_object_id' ) && has_filter( 'wpml_active_languages' ) ) {
+			// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WPML's own filters, consumed rather than introduced.
+			$languages = apply_filters( 'wpml_active_languages', null, array( 'skip_missing' => 0 ) );
+
+			foreach ( array_keys( is_array( $languages ) ? $languages : array() ) as $code ) {
+				$ids[] = (int) apply_filters( 'wpml_object_id', $term_id, $taxonomy, false, $code );
+			}
+			// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+		}
+
+		if ( function_exists( 'pll_get_term_translations' ) ) {
+			$ids = array_merge( $ids, array_map( 'absint', (array) pll_get_term_translations( $term_id ) ) );
+		}
+
+		return array_values( array_unique( array_filter( $ids ) ) );
+	}
+
+	/**
 	 * Keep one document per WPML or Polylang translation group.
 	 *
 	 * A list taken across every language would otherwise show a document and

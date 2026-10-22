@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.15.1
+Stable tag: 1.15.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,17 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.15.2 =
+* `[pdf_links]` no longer asks WPML anything to pick its documents. 1.15.1
+  switched WPML to every language for the lookup, and the English footer of a
+  live site still came out empty. The category is now read straight from the
+  term tables in every language, together with its translations and
+  subcategories, and the documents are queried with the language filters off.
+* `[pdf_grid category=""]` finds the category the same way, so a Czech slug
+  works on an English page too; which documents a language shows is still
+  WPML's call there, as on the archive. `category` and `ids` now narrow each
+  other instead of `ids` replacing the category.
 
 = 1.15.1 =
 * `[pdf_links]` lists the same documents on every language version of the
