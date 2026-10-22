@@ -586,8 +586,11 @@ Parametry `[pdf_grid]` / `[pdf_list]`: `columns`, `per_page`, `layout`,
 `category` bere slug kategorie, víc jich odděl čárkou — vypíše se dokument,
 který je aspoň v jedné z nich (i v podkategoriích). Hledá se v taxonomii, kterou
 dokumenty používají: ve sdílených `category`, ve vlastní `pdf_category`, nebo
-v obou. Když se `category`, `from_field`, `taxonomy` + `terms` a lišta filtrů
-sejdou v jednom shortcodu, výsledek musí splnit všechny naráz.
+v obou. Kategorie se najde ve všech jazycích webu, včetně překladů z WPML nebo
+Polylangu, takže na anglické stránce funguje i český slug. Které dokumenty se
+v gridu ukážou, ale dál rozhoduje WPML, stejně jako v archivu. Když se
+`category`, `from_field`, `taxonomy` + `terms`, `ids` a lišta filtrů sejdou
+v jednom shortcodu, výsledek musí splnit všechny naráz.
 
 #### Prostý seznam odkazů na dokumenty
 
@@ -600,8 +603,9 @@ jazyk, pokud ji dokument má.
 **Na všech jazykových verzích webu vypíše stejné dokumenty.** Dokument nese
 všechny jazyky v sobě (PDF a nadpis pro každý), takže podle jazyka stránky se
 mění jen nadpisy a adresy, ne výběr. WPML ani Polylang do výběru nemluví:
-dokumenty i kategorie se hledají ve všech jazycích a kategorie včetně překladů,
-takže na anglické stránce funguje český slug (`docs`) i anglický (`docs-2`).
+kategorie se čte přímo z tabulek WordPressu ve všech jazycích i s překlady
+a dokumenty se vybírají bez jejich jazykových filtrů, takže na anglické stránce
+funguje český slug (`docs`) i anglický (`docs-2`).
 Kdyby měl dokument přes WPML/Polylang i samostatný překlad, vypíše se jen
 jednou — v jazyce stránky.
 
