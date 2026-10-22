@@ -4,7 +4,7 @@ Tags: pdf, pdf viewer, pdf.js, documents, multilingual
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.14.1
+Stable tag: 1.15.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -65,6 +65,18 @@ language, and optionally any language that has a file.
 Yes, add the post type through the `wppdf_supported_post_types` filter.
 
 == Changelog ==
+
+= 1.15.0 =
+* `[pdf_links]` now links each document's page, as a relative address in the
+  site's language (`/docs/document-slug/`), instead of the PDF file itself.
+* The `category` attribute of `[pdf_grid]` and `[pdf_list]` now finds documents
+  kept in the plugin's own `pdf_category` taxonomy. It used to search only the
+  post categories, so a site with categories apart from the blog got an empty
+  grid. Several slugs are separated by commas, as before.
+* `category`, `from_field`, `taxonomy` + `terms` and the filter bar now all
+  narrow a grid together. The filter bar's category used to be ORed into the
+  page's own categories, which widened the grid instead, and `taxonomy` +
+  `terms` replaced `from_field` outright.
 
 = 1.14.1 =
 * The `[pdf_links]` shortcode is now listed with the others in the Shortcodes
