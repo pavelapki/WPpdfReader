@@ -790,6 +790,19 @@ ok( 'limit caps the list', 5 === $links_args['posts_per_page'] );
 $GLOBALS['stub_query_ids'] = array( 999 );
 ok( 'nothing to link prints nothing', '' === $shortcodes->links( array( 'category' => 'ceniky' ) ) );
 
+// The settings page lists the shortcodes by hand, and [pdf_links] shipped
+// without its line there.
+$GLOBALS['stub_shortcodes'] = array();
+( new WPPDF_Shortcodes() )->hooks();
+$admin_source = file_get_contents( dirname( __DIR__ ) . '/includes/class-wppdf-admin.php' );
+$unlisted     = array();
+foreach ( array_keys( $GLOBALS['stub_shortcodes'] ) as $shortcode_tag ) {
+	if ( false === strpos( $admin_source, '[' . $shortcode_tag . ' ' ) ) {
+		$unlisted[] = $shortcode_tag;
+	}
+}
+ok( 'every shortcode is listed on the settings page', count( $GLOBALS['stub_shortcodes'] ) >= 5 && array() === $unlisted );
+
 $GLOBALS['stub_filter_callbacks'] = array();
 
 echo "\n== Settings sanitizing ==\n";
